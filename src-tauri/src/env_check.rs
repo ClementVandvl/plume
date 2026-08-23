@@ -10,9 +10,31 @@
 use serde::Serialize;
 use std::path::PathBuf;
 use std::process::Command;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 static SEARCH_PATH: OnceLock<Vec<PathBuf>> = OnceLock::new();
+
+/// Directories added after start-up — where an installer just wrote a binary.
+///
+/// The search path is resolved once and cached, so something installed while
+/// Plume is running would stay invisible until a restart. Rather than rebuild
+/// the cache, the well-known install locations are simply searched as well.
+static EXTRA_PATHS: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+/// Called after an install, so the next lookup sees what was just written.
+pub fn forget_path() {
+    let Ok(mut extra) = EXTRA_PATHS.lock() else { return };
+    extra.clear();
+
+    if let Some(home) = home_dir() {
+        for candidate in [".local/bin", "AppData/Local/Programs", "bin"] {
+            let dir = home.join(candidate);
+            if dir.is_dir() {
+                extra.push(dir);
+            }
+        }
+    }
+}
 
 #[cfg(windows)]
 const EXECUTABLE_SUFFIXES: &[&str] = &[".exe", ".cmd", ".bat", ""];
@@ -80,7 +102,9 @@ pub fn resolve_tool(binary: &str) -> Option<PathBuf> {
 }
 
 fn resolve(binary: &str) -> Option<PathBuf> {
-    search_path().iter().find_map(|dir| {
+    let extra = EXTRA_PATHS.lock().map(|e| e.clone()).unwrap_or_default();
+
+    search_path().iter().chain(extra.iter()).find_map(|dir| {
         EXECUTABLE_SUFFIXES
             .iter()
             .map(|suffix| dir.join(format!("{binary}{suffix}")))
@@ -148,7 +172,7 @@ fn check(spec: &Spec) -> ToolStatus {
         path: found.as_ref().map(|p| p.to_string_lossy().to_string()),
         hint: if found.is_some() { None } else { Some(spec.hint) },
         install_url: spec.install_url,
-        installable: spec.key == "latex",
+        installable: matches!(spec.key, "latex" | "claude"),
         required: spec.required,
     }
 }
@@ -183,7 +207,7 @@ pub fn inspect() -> Environment {
             role: "Lit vos photos et rédige le LaTeX",
             binaries: &["claude"],
             version_arg: "--version",
-            hint: "Installez Claude Code, puis lancez-le une fois pour vous connecter avec votre abonnement.",
+            hint: "Plume peut l'installer pour vous. Il faudra ensuite vous connecter une fois, avec votre abonnement.",
             install_url: "https://code.claude.com/docs/en/setup",
             required: true,
         },

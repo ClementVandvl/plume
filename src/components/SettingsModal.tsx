@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { installEngine, openUrl, revealWorkspace, saveSettings } from "../api";
+import {
+  installClaude,
+  installEngine,
+  openClaudeLogin,
+  openUrl,
+  revealWorkspace,
+  saveSettings,
+} from "../api";
 import { logError } from "../log";
 import type { Environment, Settings, Template } from "../types";
 import { Modal } from "./Modal";
@@ -41,21 +48,23 @@ export function SettingsModal({
   // The engine download reports coarse steps: it runs once, and what matters is
   // that it is progressing.
   useEffect(() => {
-    const stop = listen<string>("engine", (event) => setInstalling(event.payload));
+    const stop = listen<string>("provision", (event) => setInstalling(event.payload));
     return () => {
       stop.then((off) => off()).catch(() => {});
     };
   }, []);
 
-  async function install() {
+  // One handler for both prerequisites: they differ only in what they run.
+  async function provision(tool: string) {
     setInstalling("Préparation…");
     setError(null);
     try {
-      await installEngine();
+      if (tool === "claude") await installClaude();
+      else await installEngine();
       onEnvironmentChanged();
     } catch (cause) {
       setError(String(cause));
-      logError("latex", "Installation du moteur impossible", cause);
+      logError(tool === "claude" ? "claude" : "latex", "Installation impossible", cause);
     } finally {
       setInstalling(null);
     }
@@ -93,9 +102,24 @@ export function SettingsModal({
                 </div>
                 <p className="tool__role">{tool.role}</p>
                 {tool.found ? (
-                  <p className="tool__path" title={tool.path ?? ""}>
-                    {tool.path}
-                  </p>
+                  <>
+                    <p className="tool__path" title={tool.path ?? ""}>
+                      {tool.path}
+                    </p>
+                    {tool.key === "claude" && (
+                      <button
+                        type="button"
+                        className="btn btn--link"
+                        onClick={() =>
+                          openClaudeLogin().catch((cause) =>
+                            logError("claude", "Ouverture du terminal impossible", cause),
+                          )
+                        }
+                      >
+                        Se connecter dans un terminal ↗
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <>
                     <p className="tool__hint">{tool.hint}</p>
@@ -103,10 +127,10 @@ export function SettingsModal({
                       <button
                         type="button"
                         className="btn btn--primary tool__install"
-                        onClick={install}
+                        onClick={() => provision(tool.key)}
                         disabled={installing !== null}
                       >
-                        {installing ?? "Installer le moteur LaTeX"}
+                        {installing ?? `Installer ${tool.label}`}
                       </button>
                     ) : (
                       <button

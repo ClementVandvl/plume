@@ -1,3 +1,4 @@
+mod claude;
 pub mod engine;
 mod env_check;
 mod figures;
@@ -152,6 +153,28 @@ async fn create_document(
     .map_err(|e| format!("Import interrompu : {e}"))?
 }
 
+/// Downloads and runs the official Claude Code installer.
+///
+/// Asking a teacher to open PowerShell and paste a command is the obstacle this
+/// application exists to remove.
+#[tauri::command]
+async fn install_claude(app: AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        claude::install(&|step| {
+            let _ = app.emit("provision", step.to_string());
+        })
+        .map(|path| path.to_string_lossy().to_string())
+    })
+    .await
+    .map_err(|e| format!("Installation interrompue : {e}"))?
+}
+
+/// Opens a terminal running `claude`, for the sign-in step.
+#[tauri::command]
+fn open_claude_login() -> Result<(), String> {
+    claude::open_login()
+}
+
 /// Downloads and installs the LaTeX engine.
 ///
 /// Async and reporting: it is a network download, and a silent button would
@@ -160,7 +183,7 @@ async fn create_document(
 async fn install_engine(app: AppHandle) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         engine::install(&|step| {
-            let _ = app.emit("engine", step.to_string());
+            let _ = app.emit("provision", step.to_string());
         })
         .map(|path| path.to_string_lossy().to_string())
     })
@@ -806,6 +829,8 @@ pub fn run() {
             preview_preamble,
             render_figure,
             install_engine,
+            install_claude,
+            open_claude_login,
             remove_engine,
             load_transcript,
             cancel_transcription,
