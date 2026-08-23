@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Plume — banc d'essai de mise en page</title>
+    <script type="module">
+      import "/src/App.css";
+      import "katex/dist/katex.min.css";
+    </script>
+  </head>
+  <body>
+    <!-- Mirrors the deep-view DOM exactly, so widths can be measured without
+         needing Tauri data. Dev-only: delete once the layout is settled. -->
+    <div class="shell">
+      <nav class="sidebar"><div class="sidebar__brand"><span class="sidebar__wordmark">Plume</span></div></nav>
+      <main class="content">
+        <div class="review__paper" style="padding:24px 16px">
+          <div class="paper">
+            <div class="pblock">
+              <div class="pblock__body">
+                <p class="tex-heading" style="color:#A93226;border-color:#A93226">I – Vecteurs du plan</p>
+              </div>
+            </div>
+            <div class="pblock pblock--teacher">
+              <span class="pblock__aside">prof</span>
+              <div class="pblock__body">
+                <div class="tex-env tex-env--bracket" style="border-color:#A93226">
+                  <span class="tex-label" style="color:#A93226;border-color:#A93226">Définition</span>
+                  <div class="tex-body"><p>Réservé à ma version : la réponse complète de l'exemple.</p></div>
+                </div>
+              </div>
+            </div>
+            <div class="pblock pblock--student">
+              <span class="pblock__aside pblock__aside--student">élève</span>
+              <div class="pblock__body">
+                <div class="tex-env" style="border-color:#117A65">
+                  <span class="tex-label" style="color:#117A65;border-color:#117A65">Exemple</span>
+                  <div class="tex-body"><p>Énoncé donné aux élèves, sans la correction.</p></div>
+                </div>
+              </div>
+            </div>
+            <div class="pblock pblock--flagged">
+              <div class="pblock__body">
+                <div class="tex-env tex-env--bracket" style="border-color:#A93226">
+                  <span class="tex-label" style="color:#A93226;border-color:#A93226">Propriété</span>
+                  <div class="tex-body"><p>Un bloc dont la lecture est incertaine.</p></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script type="module">
+      window.measure = () => {
+        const pick = (sel) => {
+          const el = document.querySelector(sel);
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return {
+            sel,
+            width: Math.round(r.width),
+            right: Math.round(r.right),
+            scrollWidth: el.scrollWidth,
+            overflows: el.scrollWidth > Math.ceil(r.width) + 1,
+          };
+        };
+        return {
+          viewport: window.innerWidth,
+          docScrollWidth: document.documentElement.scrollWidth,
+          nodes: [
+            ".deep",
+            ".workspace",
+            ".workspace__bar",
+            ".workspace__body",
+            ".review",
+            ".review__bar",
+            ".review__split",
+            ".review__paper",
+            ".paper",
+          ].map(pick),
+        };
+      };
+    </script>
+  </body>
+</html>

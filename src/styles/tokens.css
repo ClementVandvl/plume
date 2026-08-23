@@ -1,0 +1,249 @@
+/* ===========================================================================
+   PLUME — DESIGN TOKENS
+   ---------------------------------------------------------------------------
+   Two layers, one rule: components read ONLY layer 2. No component may contain
+   a hex code, a font size in px, or a radius.
+
+     Layer 1 · PRIMITIVES  (--p-*)   raw values, no intent
+     Layer 2 · SEMANTIC              usage intent, mapped onto layer 1
+
+   Visual overhaul: rewrite layer 1 (new palette, new typeface) without touching
+   a single component. Change of meaning ("panels sit on the background rather
+   than on the surface"): adjust layer 2.
+
+   Theming: light by default, dark follows the system preference, and
+   `data-theme="light|dark"` on <html> forces either one — ready for a manual
+   switch in the settings.
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   LAYER 1 · PRIMITIVES
+   --------------------------------------------------------------------------- */
+:root {
+  /* --- Palette, taken from the user's handwritten-maths house style: the red
+         of definitions, the green of properties, the blue of paragraphs. --- */
+  --p-red-400: #e0705f;
+  --p-red-500: #a93226;
+  --p-red-600: #8e2a20;
+
+  --p-green-400: #4fb99f;
+  --p-green-500: #117a65;
+
+  --p-blue-400: #6ba3d6;
+  --p-blue-500: #1f618d;
+
+  --p-amber-400: #d9a441;
+  --p-amber-500: #9c6f16;
+
+  /* --- Neutrals, slightly warm: this app is about paper. --- */
+  --p-neutral-0: #ffffff;
+  --p-neutral-50: #f7f6f4;
+  --p-neutral-100: #eceae6;
+  --p-neutral-200: #e3e0da;
+  --p-neutral-300: #cbc7bf;
+  --p-neutral-400: #9b968d;
+  --p-neutral-500: #6d6a64;
+  --p-neutral-700: #37352f;
+  --p-neutral-800: #232220;
+  --p-neutral-900: #1b1a18;
+  --p-neutral-950: #131211;
+
+  /* --- Type families --- */
+  --p-font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    Roboto, system-ui, sans-serif;
+  --p-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    monospace;
+
+  /* --- Type scale --- */
+  --p-text-2xs: 11px;
+  --p-text-xs: 12px;
+  --p-text-sm: 13px;
+  --p-text-md: 14px;
+  --p-text-lg: 16px;
+  --p-text-xl: 20px;
+  --p-text-2xl: 26px;
+
+  --p-weight-regular: 400;
+  --p-weight-medium: 500;
+  --p-weight-semibold: 600;
+
+  --p-leading-tight: 1.25;
+  --p-leading-normal: 1.5;
+
+  --p-tracking-tight: -0.01em;
+  --p-tracking-wide: 0.06em;
+
+  /* --- Spacing, 4px scale --- */
+  --p-space-1: 4px;
+  --p-space-2: 8px;
+  --p-space-3: 12px;
+  --p-space-4: 16px;
+  --p-space-5: 20px;
+  --p-space-6: 24px;
+  --p-space-7: 28px;
+  --p-space-8: 32px;
+  --p-space-10: 40px;
+
+  /* --- Radii --- */
+  --p-radius-sm: 6px;
+  --p-radius-md: 8px;
+  --p-radius-lg: 10px;
+  --p-radius-full: 999px;
+
+  /* --- Elevation --- */
+  --p-shadow-card: 0 1px 2px rgb(26 26 26 / 6%), 0 8px 24px rgb(26 26 26 / 4%);
+  --p-shadow-none: none;
+
+  /* --- Borders --- */
+  --p-border-width: 1px;
+
+  /* --- Motion --- */
+  --p-duration-fast: 120ms;
+  --p-duration-slow: 240ms;
+  --p-ease: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+/* ---------------------------------------------------------------------------
+   LAYER 2a · THEME-INVARIANT SEMANTICS
+   Shape, typography, rhythm, motion: identical across every theme.
+   --------------------------------------------------------------------------- */
+:root {
+  /* Applied typography */
+  --font-ui: var(--p-font-system);
+  --font-code: var(--p-font-mono);
+
+  --font-size-caption: var(--p-text-2xs);
+  --font-size-label: var(--p-text-xs);
+  --font-size-sm: var(--p-text-sm);
+  --font-size-body: var(--p-text-md);
+  --font-size-title: var(--p-text-lg);
+  --font-size-display: var(--p-text-xl);
+  --font-size-page-title: var(--p-text-2xl);
+
+  --font-weight-regular: var(--p-weight-regular);
+  --font-weight-medium: var(--p-weight-medium);
+  --font-weight-semibold: var(--p-weight-semibold);
+
+  --line-height-body: var(--p-leading-normal);
+  --line-height-tight: var(--p-leading-tight);
+
+  --tracking-title: var(--p-tracking-tight);
+  --tracking-overline: var(--p-tracking-wide);
+
+  /* Rhythm — generic scale... */
+  --space-2xs: var(--p-space-1);
+  --space-xs: var(--p-space-2);
+  --space-sm: var(--p-space-3);
+  --space-md: var(--p-space-4);
+  --space-lg: var(--p-space-5);
+  --space-xl: var(--p-space-6);
+  --space-2xl: var(--p-space-8);
+  --space-3xl: var(--p-space-10);
+
+  /* ...plus role aliases, so intent stays readable inside components. */
+  --space-inline: var(--space-sm);
+  --space-stack: var(--space-md);
+  --space-panel: var(--space-lg);
+  --space-page: var(--p-space-7);
+
+  /* Shape */
+  --radius-subtle: var(--p-radius-sm);
+  --radius-control: var(--p-radius-md);
+  --radius-panel: var(--p-radius-lg);
+  --radius-pill: var(--p-radius-full);
+  --border-width: var(--p-border-width);
+
+  /* Layout */
+  --sidebar-width: 216px;
+  /* Every interactive control lines up on this height. */
+  --control-height: 38px;
+
+  /* Motion */
+  --duration-fast: var(--p-duration-fast);
+  --duration-slow: var(--p-duration-slow);
+  --easing: var(--p-ease);
+}
+
+/* ---------------------------------------------------------------------------
+   LAYER 2b · THEMED SEMANTICS — light (default)
+   Only colour and elevation change between themes.
+   --------------------------------------------------------------------------- */
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Surfaces */
+  --color-bg: var(--p-neutral-50);
+  --color-surface: var(--p-neutral-0);
+  --color-surface-hover: var(--p-neutral-50);
+  --color-border: var(--p-neutral-200);
+  --color-border-strong: var(--p-neutral-300);
+
+  /* Text */
+  --color-text: var(--p-neutral-950);
+  --color-text-muted: var(--p-neutral-500);
+  --color-text-inverted: var(--p-neutral-0);
+
+  /* Intents */
+  --color-accent: var(--p-red-500);
+  --color-accent-hover: var(--p-red-600);
+  --color-accent-on: var(--p-neutral-0);
+  --color-success: var(--p-green-500);
+  --color-info: var(--p-blue-500);
+  --color-warning: var(--p-amber-500);
+
+  /* Elevation */
+  --shadow-panel: var(--p-shadow-card);
+}
+
+/* ---------------------------------------------------------------------------
+   LAYER 2 · SEMANTICS — dark theme
+   Primitives do not change: only the mapping does.
+   --------------------------------------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --color-bg: var(--p-neutral-900);
+    --color-surface: var(--p-neutral-800);
+    --color-surface-hover: var(--p-neutral-700);
+    --color-border: var(--p-neutral-700);
+    --color-border-strong: var(--p-neutral-500);
+
+    --color-text: var(--p-neutral-100);
+    --color-text-muted: var(--p-neutral-400);
+    --color-text-inverted: var(--p-neutral-950);
+
+    --color-accent: var(--p-red-400);
+    --color-accent-hover: var(--p-red-500);
+    --color-accent-on: var(--p-neutral-950);
+    --color-success: var(--p-green-400);
+    --color-info: var(--p-blue-400);
+    --color-warning: var(--p-amber-400);
+
+    --shadow-panel: var(--p-shadow-none);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-bg: var(--p-neutral-900);
+  --color-surface: var(--p-neutral-800);
+  --color-surface-hover: var(--p-neutral-700);
+  --color-border: var(--p-neutral-700);
+  --color-border-strong: var(--p-neutral-500);
+
+  --color-text: var(--p-neutral-100);
+  --color-text-muted: var(--p-neutral-400);
+  --color-text-inverted: var(--p-neutral-950);
+
+  --color-accent: var(--p-red-400);
+  --color-accent-hover: var(--p-red-500);
+  --color-accent-on: var(--p-neutral-950);
+  --color-success: var(--p-green-400);
+  --color-info: var(--p-blue-400);
+  --color-warning: var(--p-amber-400);
+
+  --shadow-panel: var(--p-shadow-none);
+}

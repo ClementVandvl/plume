@@ -1,0 +1,34 @@
+[package]
+name = "plume"
+version = "0.1.0"
+description = "Vos cours manuscrits, en LaTeX"
+authors = ["Plume"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "plume_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "tiff"] }
+kamadak-exif = "0.6"
+
+
+# Image decoding and resampling are unusable at `opt-level = 0`: measured on a
+# 48 MP photo, one import took 35 s in a dev build against 0.7 s in release.
+# Our own crate stays unoptimised so it remains debuggable.
+[profile.dev.package."*"]
+opt-level = 3

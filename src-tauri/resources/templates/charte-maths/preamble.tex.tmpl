@@ -1,0 +1,172 @@
+\documentclass[{{page.fontSize}},{{page.paper}}]{article}
+
+%============================================================================
+%  TEMPLATE "COURS DE MATHS MANUSCRIT" -- PREAMBULE
+%  A copier tel quel entre \documentclass{...} et \begin{document}
+%  (ou a placer dans un fichier separe appele avec \input{preambule-cours-maths})
+%============================================================================
+
+% ---------- Encodage, langue, mise en page --------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[french]{babel}
+\usepackage[{{page.paper}},margin={{page.margin}}]{geometry}
+
+% ---------- Maths ----------------------------------------------------------
+\usepackage{amsmath,amssymb,amsfonts}
+
+% ---------- Graphisme ------------------------------------------------------
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage[most]{tcolorbox}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{etoolbox}
+
+%============================================================================
+%  1. REGISTRE DES COULEURS  --  MODIFIEZ UNIQUEMENT LES CODES HEXA ICI
+%============================================================================
+% --- Structure du document ---
+\definecolor{mcChapitre}{HTML}{{{color.chapter}}}  % Titre de chapitre (cadre)
+\definecolor{mcPartie}{HTML}{{{color.part}}}  % I - Grande partie
+\definecolor{mcSousPartie}{HTML}{{{color.subpart}}}  % 1 - Sous-partie
+\definecolor{mcParagraphe}{HTML}{{{color.paragraph}}}  % a) Paragraphe
+
+% --- Environnements de cours ---
+\definecolor{mcDef}{HTML}{{{color.definition}}}  % Definition
+\definecolor{mcProp}{HTML}{{{color.property}}}  % Propriete
+\definecolor{mcTheo}{HTML}{{{color.theorem}}}  % Theoreme
+\definecolor{mcMethode}{HTML}{{{color.method}}}  % Methode
+\definecolor{mcExemple}{HTML}{{{color.example}}}  % Exemple
+\definecolor{mcApp}{HTML}{{{color.application}}}  % Application
+\definecolor{mcRemarque}{HTML}{{{color.remark}}}  % Remarque
+\definecolor{mcDemo}{HTML}{{{color.proof}}}  % Demonstration
+
+% --- Divers ---
+\definecolor{mcTexte}{HTML}{{{color.body}}}  % Corps de texte
+
+%============================================================================
+%  2. REGLAGES GLOBAUX
+%============================================================================
+\color{mcTexte}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.45\baselineskip}
+\setlist[itemize]{leftmargin=1.4em, itemsep=2pt, topsep=2pt, parsep=0pt}
+\setlist[enumerate]{leftmargin=1.6em, itemsep=2pt, topsep=2pt, parsep=0pt}
+
+% Raccourcis mathematiques usuels
+\newcommand{\R}{\mathbb{R}}  \newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}  \newcommand{\Q}{\mathbb{Q}}
+\newcommand{\C}{\mathbb{C}}  \newcommand{\droite}[1]{(#1)}
+
+%============================================================================
+%  3. SOULIGNEMENT COLORE  \mcul{couleur}{texte}
+%============================================================================
+\newcommand{\mcul}[2]{%
+  \leavevmode\begingroup
+  \sbox0{\color{#1}#2}%
+  \usebox0%
+  \kern-\wd0%
+  \textcolor{#1}{\rule[-0.45ex]{\wd0}{0.6pt}}%
+  \endgroup}
+
+%============================================================================
+%  4. TITRE DE CHAPITRE   \chapitre{Titre}
+%============================================================================
+\newcounter{mcchapitre}
+\newcommand{\chapitre}[1]{%
+  \par\refstepcounter{mcchapitre}%
+  \vspace{0.4\baselineskip}\noindent
+  \begin{tcolorbox}[hbox, enhanced, colback=white, colframe=mcChapitre,
+      boxrule=0.9pt, sharp corners, left=10pt, right=10pt, top=6pt, bottom=6pt]
+    \large\bfseries\color{mcChapitre}\mcul{mcChapitre}{Chapitre~\themcchapitre~:}\ #1
+  \end{tcolorbox}
+  \par\vspace{0.9\baselineskip}}
+
+%============================================================================
+%  5. PARTIES / SOUS-PARTIES  ->  \section  \subsection  \subsubsection
+%============================================================================
+\renewcommand{\thesection}{\Roman{section}}
+\renewcommand{\thesubsection}{\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\alph{subsubsection}}
+
+\newcommand{\mcFmtSection}[1]{\mcul{mcPartie}{\thesection\ -- #1}}
+\newcommand{\mcFmtSubsection}[1]{\mcul{mcSousPartie}{\thesubsection\ -- #1}}
+\newcommand{\mcFmtSubsubsection}[1]{\mcul{mcParagraphe}{\thesubsubsection) #1}}
+
+\titleformat{\section}      {\normalfont\large\bfseries}{}{0pt}{\mcFmtSection}
+\titleformat{\subsection}   {\normalfont\normalsize\bfseries}{}{0pt}{\mcFmtSubsection}
+\titleformat{\subsubsection}{\normalfont\normalsize\itshape}{}{0pt}{\mcFmtSubsubsection}
+
+\titlespacing*{\section}      {0pt}   {1.3\baselineskip}{0.7\baselineskip}
+\titlespacing*{\subsection}   {1cm}   {1.0\baselineskip}{0.5\baselineskip}
+\titlespacing*{\subsubsection}{1.8cm} {0.8\baselineskip}{0.4\baselineskip}
+
+%============================================================================
+%  6. LE "CROCHET OUVERT" (trait vertical + retour horizontal en bas)
+%============================================================================
+\newcommand{\mcCrochetComplet}[1]{%
+  \draw[line width=0.9pt, color=#1, line cap=round]
+    ([xshift=2pt]frame.north west) -- ([xshift=2pt]frame.south west)
+    -- ([xshift=16mm]frame.south west);}
+\newcommand{\mcCrochetVertical}[1]{%
+  \draw[line width=0.9pt, color=#1, line cap=round]
+    ([xshift=2pt]frame.north west) -- ([xshift=2pt]frame.south west);}
+
+\newtcolorbox{mccrochet}[1]{%
+  enhanced, breakable,
+  colback=white, colframe=white, boxrule=0pt, sharp corners,
+  frame hidden, interior hidden,
+  left=8pt, right=2pt, top=2pt, bottom=10pt,
+  grow to left by=8pt,
+  before skip=0.6\baselineskip, after skip=0.7\baselineskip,
+  overlay unbroken={\mcCrochetComplet{#1}},
+  overlay first    ={\mcCrochetVertical{#1}},
+  overlay middle   ={\mcCrochetVertical{#1}},
+  overlay last     ={\mcCrochetComplet{#1}}}
+
+%============================================================================
+%  7. ETIQUETTE D'ENVIRONNEMENT   \mclabel{couleur}{Mot}{titre optionnel}
+%============================================================================
+\newcommand{\mclabel}[3]{%
+  \mcul{#1}{\bfseries #2\ifblank{#3}{}{ (#3)}}%
+  \textcolor{#1}{\bfseries\,:}\hspace{0.7em}\ignorespaces}
+
+%============================================================================
+%  8. ENVIRONNEMENTS AVEC CROCHET
+%     \begin{definition}[titre facultatif] ... \end{definition}
+%============================================================================
+\newenvironment{definition}[1][]%
+  {\begin{mccrochet}{mcDef}\mclabel{mcDef}{{{label.definition}}}{#1}}%
+  {\end{mccrochet}}
+
+\newenvironment{propriete}[1][]%
+  {\begin{mccrochet}{mcProp}\mclabel{mcProp}{{{label.property}}}{#1}}%
+  {\end{mccrochet}}
+
+\newenvironment{theoreme}[1][]%
+  {\begin{mccrochet}{mcTheo}\mclabel{mcTheo}{{{label.theorem}}}{#1}}%
+  {\end{mccrochet}}
+
+\newenvironment{methode}[1][]%
+  {\begin{mccrochet}{mcMethode}\mclabel{mcMethode}{{{label.method}}}{#1}}%
+  {\end{mccrochet}}
+
+%============================================================================
+%  9. ENVIRONNEMENTS SANS CROCHET (texte courant precede d'une etiquette)
+%============================================================================
+\newenvironment{mcplain}[3]%
+  {\par\vspace{0.35\baselineskip}\noindent\mclabel{#1}{#2}{#3}}%
+  {\par\vspace{0.35\baselineskip}}
+
+\newenvironment{exemple}[1][]    {\begin{mcplain}{mcExemple}{{{label.example}}}{#1}}    {\end{mcplain}}
+\newenvironment{application}[1][]{\begin{mcplain}{mcApp}{{{label.application}}}{#1}}    {\end{mcplain}}
+\newenvironment{remarque}[1][]   {\begin{mcplain}{mcRemarque}{{{label.remark}}}{#1}}  {\end{mcplain}}
+\newenvironment{demonstration}[1][]%
+  {\begin{mcplain}{mcDemo}{{{label.proof}}}{#1}}%
+  {\hfill\textcolor{mcDemo}{$\blacksquare$}\end{mcplain}}
+
+%============================================================================
+%  FIN DU PREAMBULE DE LA CHARTE
+%============================================================================

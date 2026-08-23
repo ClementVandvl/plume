@@ -1,0 +1,243 @@
+{
+  "id": "charte-maths",
+  "version": 3,
+  "name": "Charte cours de maths",
+  "description": "Environnements à crochet coloré, titres soulignés, numérotation I / 1 / a.",
+  "engine": "pdflatex",
+  "keys": [
+    {
+      "key": "color.chapter",
+      "label": "Titre de chapitre",
+      "group": "Structure",
+      "type": "color",
+      "value": "#A93226"
+    },
+    {
+      "key": "color.part",
+      "label": "Grande partie (I)",
+      "group": "Structure",
+      "type": "color",
+      "value": "#A93226"
+    },
+    {
+      "key": "color.subpart",
+      "label": "Sous-partie (1)",
+      "group": "Structure",
+      "type": "color",
+      "value": "#117A65"
+    },
+    {
+      "key": "color.paragraph",
+      "label": "Paragraphe (a)",
+      "group": "Structure",
+      "type": "color",
+      "value": "#1F618D"
+    },
+    {
+      "key": "color.definition",
+      "label": "Définition",
+      "group": "Environnements",
+      "type": "color",
+      "value": "#A93226"
+    },
+    {
+      "key": "color.property",
+      "label": "Propriété",
+      "group": "Environnements",
+      "type": "color",
+      "value": "#117A65"
+    },
+    {
+      "key": "color.theorem",
+      "label": "Théorème",
+      "group": "Environnements",
+      "type": "color",
+      "value": "#117A65"
+    },
+    {
+      "key": "color.method",
+      "label": "Méthode",
+      "group": "Environnements",
+      "type": "color",
+      "value": "#1F618D"
+    },
+    {
+      "key": "color.example",
+      "label": "Exemple",
+      "group": "Environnements",
+      "type": "color",
+      "value": "#1A1A1A"
+    },
+    {
+      "key": "color.application",
+      "label": "Application",
+      "group": "Environnements",
+      "type": "color",
+      "value": "#1F618D"
+    },
+    {
+      "key": "color.remark",
+      "label": "Remarque",
+      "group": "Environnements",
+      "type": "color",
+      "value": "#1F618D"
+    },
+    {
+      "key": "color.proof",
+      "label": "Démonstration",
+      "group": "Environnements",
+      "type": "color",
+      "value": "#1A1A1A"
+    },
+    {
+      "key": "color.body",
+      "label": "Corps de texte",
+      "group": "Structure",
+      "type": "color",
+      "value": "#1A1A1A"
+    },
+    {
+      "key": "page.fontSize",
+      "label": "Taille du texte",
+      "group": "Mise en page",
+      "type": "choice:10pt|11pt|12pt",
+      "value": "11pt"
+    },
+    {
+      "key": "page.paper",
+      "label": "Format papier",
+      "group": "Mise en page",
+      "type": "choice:a4paper|letterpaper",
+      "value": "a4paper"
+    },
+    {
+      "key": "page.margin",
+      "label": "Marges",
+      "group": "Mise en page",
+      "type": "length",
+      "value": "2.2cm"
+    },
+    {
+      "key": "label.definition",
+      "label": "Intitulé « Définition »",
+      "group": "Intitulés",
+      "type": "text",
+      "value": "Définition"
+    },
+    {
+      "key": "label.property",
+      "label": "Intitulé « Propriété »",
+      "group": "Intitulés",
+      "type": "text",
+      "value": "Propriété"
+    },
+    {
+      "key": "label.theorem",
+      "label": "Intitulé « Théorème »",
+      "group": "Intitulés",
+      "type": "text",
+      "value": "Théorème"
+    },
+    {
+      "key": "label.method",
+      "label": "Intitulé « Méthode »",
+      "group": "Intitulés",
+      "type": "text",
+      "value": "Méthode"
+    },
+    {
+      "key": "label.example",
+      "label": "Intitulé « Exemple »",
+      "group": "Intitulés",
+      "type": "text",
+      "value": "Exemple"
+    },
+    {
+      "key": "label.application",
+      "label": "Intitulé « Application »",
+      "group": "Intitulés",
+      "type": "text",
+      "value": "Application"
+    },
+    {
+      "key": "label.remark",
+      "label": "Intitulé « Remarque »",
+      "group": "Intitulés",
+      "type": "text",
+      "value": "Remarque"
+    },
+    {
+      "key": "label.proof",
+      "label": "Intitulé « Démonstration »",
+      "group": "Intitulés",
+      "type": "text",
+      "value": "Démonstration"
+    }
+  ],
+  "blocks": {
+    "chapter": {
+      "mode": "command",
+      "name": "chapitre"
+    },
+    "part": {
+      "mode": "command",
+      "name": "section"
+    },
+    "subpart": {
+      "mode": "command",
+      "name": "subsection"
+    },
+    "paragraph": {
+      "mode": "command",
+      "name": "subsubsection"
+    },
+    "definition": {
+      "mode": "environment",
+      "name": "definition"
+    },
+    "property": {
+      "mode": "environment",
+      "name": "propriete"
+    },
+    "theorem": {
+      "mode": "environment",
+      "name": "theoreme"
+    },
+    "method": {
+      "mode": "environment",
+      "name": "methode"
+    },
+    "example": {
+      "mode": "environment",
+      "name": "exemple"
+    },
+    "application": {
+      "mode": "environment",
+      "name": "application"
+    },
+    "remark": {
+      "mode": "environment",
+      "name": "remarque"
+    },
+    "proof": {
+      "mode": "environment",
+      "name": "demonstration"
+    },
+    "text": {
+      "mode": "raw",
+      "name": ""
+    },
+    "list": {
+      "mode": "raw",
+      "name": ""
+    },
+    "equation": {
+      "mode": "raw",
+      "name": ""
+    },
+    "figure": {
+      "mode": "centered",
+      "name": ""
+    }
+  }
+}

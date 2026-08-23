@@ -1,0 +1,122 @@
+[
+  {
+    "id": "p01-b01",
+    "kind": "chapter",
+    "latex": ""
+  },
+  {
+    "id": "p01-b02",
+    "kind": "part",
+    "latex": ""
+  },
+  {
+    "id": "p01-b03",
+    "kind": "subpart",
+    "latex": ""
+  },
+  {
+    "id": "p01-b04",
+    "kind": "definition",
+    "latex": "On considère deux points $A$ et $B$ du plan. La translation qui transforme $A$ en $B$ est appelée translation de vecteur noté $\\overrightarrow{AB}$."
+  },
+  {
+    "id": "p01-b05",
+    "kind": "definition",
+    "latex": "Un vecteur $\\overrightarrow{AB}$ est caractérisé par :\n\\begin{itemize}\n  \\item une direction, celle de la droite $(AB)$ ;\n  \\item un sens, de $A$ vers $B$ ;\n  \\item une norme, notée $\\|\\overrightarrow{AB}\\|$, qui est la longueur $AB$.\n\\end{itemize}"
+  },
+  {
+    "id": "p01-b06",
+    "kind": "example",
+    "latex": "\\begin{center}\n\\begin{tikzpicture}\n  \\coordinate (A) at (0,0);\n  \\coordinate (B) at (2.5,1.8);\n  \\draw[->, thick, mcTexte] (A) -- (B) node[midway, above left] {$\\overrightarrow{AB}$};\n  \\node[below, mcTexte] at (A) {$A$};\n  \\node[right, mcTexte] at (B) {$B$};\n\\end{tikzpicture}\n\\end{center}"
+  },
+  {
+    "id": "p01-b07",
+    "kind": "remark",
+    "latex": "Le vecteur associé à la translation qui transforme un point en lui-même est le vecteur nul, noté $\\vec{0}$."
+  },
+  {
+    "id": "p02-b01",
+    "kind": "subpart",
+    "latex": ""
+  },
+  {
+    "id": "p02-b02",
+    "kind": "definition",
+    "latex": "Des vecteurs sont égaux lorsqu'ils ont même direction, même sens et même norme."
+  },
+  {
+    "id": "p02-b03",
+    "kind": "example",
+    "latex": "\\begin{center}\n\\begin{tikzpicture}\n  \\coordinate (A) at (0,0);\n  \\coordinate (B) at (1.5,2);\n  \\coordinate (C) at (2.2,0.8);\n  \\coordinate (D) at (3.7,2.8);\n  \\draw[->, thick, color=mcTexte] (A) -- (B);\n  \\draw[->, thick, color=mcTexte] (C) -- (D);\n  \\node[below left]  at (A) {$A$};\n  \\node[above]       at (B) {$B$};\n  \\node[below]       at (C) {$C$};\n  \\node[right]       at (D) {$D$};\n\\end{tikzpicture}\n\\end{center}\n\\[\\overrightarrow{AB} = \\overrightarrow{CD}\\]"
+  },
+  {
+    "id": "p02-b04",
+    "kind": "remark",
+    "latex": "On peut nommer un vecteur par une lettre, en général minuscule $\\vec{u}$, $\\vec{v}$, $\\vec{w}$\\ldots\\\\\nAvec la figure ci-dessus, on peut écrire $\\vec{u} = \\overrightarrow{AB} = \\overrightarrow{CD}$."
+  },
+  {
+    "id": "p02-b05",
+    "kind": "definition",
+    "latex": "On appelle \\textbf{vecteur opposé} au vecteur $\\overrightarrow{AB}$ le vecteur associé à la translation qui transforme $B$ en $A$. On le note $-\\overrightarrow{AB}$."
+  },
+  {
+    "id": "p02-b06",
+    "kind": "example",
+    "latex": "\\begin{center}\n\\begin{tikzpicture}\n  \\coordinate (B) at (0,1.6);\n  \\coordinate (A) at (3,0);\n  % vecteur AB : de A vers B\n  \\draw[->, thick, color=mcTexte, transform canvas={yshift=4pt}]\n    (A) -- (B)\n    node[midway, above, sloped] {$\\overrightarrow{AB}$};\n  % vecteur opposé -AB : de B vers A\n  \\draw[->, thick, color=mcTexte, transform canvas={yshift=-4pt}]\n    (B) -- (A)\n    node[midway, below, sloped] {$-\\overrightarrow{AB}$};\n  \\node[above left]  at (B) {$B$};\n  \\node[below right] at (A) {$A$};\n\\end{tikzpicture}\n\\end{center}"
+  },
+  {
+    "id": "p02-b07",
+    "kind": "remark",
+    "latex": "On a donc $\\overrightarrow{BA} = -\\overrightarrow{AB}$."
+  },
+  {
+    "id": "p03-b01",
+    "kind": "subpart",
+    "latex": ""
+  },
+  {
+    "id": "p03-b02",
+    "kind": "property",
+    "latex": "$\\overrightarrow{AB} = \\overrightarrow{CD}$ si, et seulement si, ABDC est un parallélogramme (éventuellement aplati)."
+  },
+  {
+    "id": "p03-b03",
+    "kind": "example",
+    "latex": "\\begin{center}\n\\begin{tikzpicture}\n  \\coordinate (A) at (0, 0.5);\n  \\coordinate (B) at (1.5, 1.5);\n  \\coordinate (D) at (3, 0.5);\n  \\coordinate (C) at (1.5, -0.5);\n  % côtés non mis en valeur (pointillés)\n  \\draw[mcTexte, dashed] (B) -- (D);\n  \\draw[mcTexte, dashed] (C) -- (A);\n  % vecteurs égaux\n  \\draw[->, mcDef, thick] (A) -- (B);\n  \\draw[->, mcDef, thick] (C) -- (D);\n  % étiquettes\n  \\node[left]  at (A) {$A$};\n  \\node[above] at (B) {$B$};\n  \\node[right] at (D) {$D$};\n  \\node[below] at (C) {$C$};\n\\end{tikzpicture}\n\\end{center}\n\n$\\overrightarrow{AB} = \\overrightarrow{CD}$ donc ABDC est un parallélogramme."
+  },
+  {
+    "id": "p03-b04",
+    "kind": "property",
+    "latex": "$\\overrightarrow{AM} = \\overrightarrow{MB}$ si, et seulement si M est le milieu de $[AB]$."
+  },
+  {
+    "id": "p03-b05",
+    "kind": "example",
+    "latex": "\\begin{center}\n\\begin{tikzpicture}\n  \\coordinate (A) at (0, 0);\n  \\coordinate (M) at (2.5, 0);\n  \\coordinate (B) at (5, 0);\n  \\draw[->, mcDef, thick] (A) -- (M) node[midway, above] {$\\overrightarrow{AM}$};\n  \\draw[->, mcProp, thick] (M) -- (B) node[midway, above] {$\\overrightarrow{MB}$};\n  \\node[below] at (A) {$A$};\n  \\node[below] at (M) {$M$};\n  \\node[below] at (B) {$B$};\n\\end{tikzpicture}\n\\end{center}\n\n$\\overrightarrow{AM} = \\overrightarrow{MB}$ donc M est le milieu de $[AB]$."
+  },
+  {
+    "id": "p03-b06",
+    "kind": "part",
+    "latex": ""
+  },
+  {
+    "id": "p03-b07",
+    "kind": "definition",
+    "latex": "La translation du vecteur $\\vec{u}$ suivie de la translation du vecteur $\\vec{v}$ est une translation de vecteur $\\vec{w}$ défini par $\\vec{u} + \\vec{v} = \\vec{w}$."
+  },
+  {
+    "id": "p04-b01",
+    "kind": "example",
+    "latex": "Soient $\\vec{u}$ et $\\vec{v}$ deux vecteurs :\n\n\\begin{center}\n\\begin{tikzpicture}\n  \\coordinate (A) at (0,0);\n  \\coordinate (B) at (2.2,0);\n  \\draw[->, color=mcTexte, thick] (A) -- (B) node[midway, above] {$\\vec{u}$};\n  \\coordinate (C) at (3.8,0);\n  \\coordinate (D) at (4.8,-1.2);\n  \\draw[->, color=mcDef, thick] (C) -- (D) node[midway, right] {$\\vec{v}$};\n\\end{tikzpicture}\n\\end{center}\n\n\\textbf{Alors :}\n\n\\begin{center}\n\\begin{tikzpicture}\n  \\coordinate (O) at (0,0);\n  \\coordinate (P) at (2.5,0);\n  \\coordinate (Q) at (3.5,-1.5);\n  \\draw[->, color=mcTexte, thick] (O) -- (P) node[midway, above] {$\\vec{u}$};\n  \\draw[->, color=mcDef, thick] (P) -- (Q) node[midway, right] {$\\vec{v}$};\n  \\draw[->, color=mcProp, thick] (O) -- (Q) node[midway, below left] {$\\vec{u}+\\vec{v}=\\vec{w}$};\n\\end{tikzpicture}\n\\end{center}"
+  },
+  {
+    "id": "p04-b02",
+    "kind": "property",
+    "latex": "Pour tous points du plan $A$, $B$, $C$ et $D$, on a :\n\n\\noindent\\mcul{mcProp}{\\textbf{Relation de Chasles :}} $\\overrightarrow{AB} + \\overrightarrow{BC} = \\overrightarrow{AC}$\n\n\\medskip\n\n\\noindent\\mcul{mcProp}{\\textbf{Règle du parallélogramme :}} $\\overrightarrow{AB} + \\overrightarrow{AC} = \\overrightarrow{AD}$ si et seulement si $ABDC$ est un parallélogramme."
+  },
+  {
+    "id": "p04-b03",
+    "kind": "example",
+    "latex": "\\begin{minipage}[t]{0.48\\textwidth}\n\\textbf{Relation de Chasles :}\n\n\\medskip\n\\begin{center}\n\\begin{tikzpicture}\n  \\coordinate (A) at (0,0);\n  \\coordinate (B) at (2.2,0);\n  \\coordinate (C) at (2.8,1.8);\n  \\draw[->, color=mcTexte, thick] (A) -- (B) node[midway, below] {$\\vec{u}$};\n  \\draw[->, color=mcDef, thick] (B) -- (C) node[midway, right] {$\\vec{v}$};\n  \\draw[->, color=mcProp, thick] (A) -- (C) node[midway, left] {$\\vec{u}+\\vec{v}$};\n  \\node[below left] at (A) {$A$};\n  \\node[below right] at (B) {$B$};\n  \\node[above] at (C) {$C$};\n\\end{tikzpicture}\n\\end{center}\n\n$\\overrightarrow{AB} + \\overrightarrow{BC} = \\overrightarrow{AC}$\n\nOn dispose $\\vec{u}$ et $\\vec{v}$ bout à bout et à partir de $A$.\n\nOn a donc $\\vec{u} + \\vec{v} = \\overrightarrow{AB} + \\overrightarrow{BC} = \\overrightarrow{AC}$\n\\end{minipage}%\n\\hfill\\rule{0.4pt}{6cm}\\hfill%\n\\begin{minipage}[t]{0.48\\textwidth}\n\\textbf{Règle du parallélogramme :}\n\n\\medskip\n\\begin{center}\n\\begin{tikzpicture}\n  \\coordinate (A) at (0,0);\n  \\coordinate (B) at (2,0);\n  \\coordinate (C) at (0.6,1.6);\n  \\coordinate (D) at (2.6,1.6);\n  \\draw[->, color=mcTexte, thick] (A) -- (B) node[midway, below] {$\\vec{u}$};\n  \\draw[->, color=mcDef, thick] (A) -- (C) node[midway, left] {$\\vec{v}$};\n  \\draw[->, color=mcProp, thick] (A) -- (D) node[midway, above right] {$\\overrightarrow{AD}$};\n  \\draw[dashed, color=mcTexte] (B) -- (D);\n  \\draw[dashed, color=mcTexte] (C) -- (D);\n  \\node[below left] at (A) {$A$};\n  \\node[below right] at (B) {$B$};\n  \\node[above left] at (C) {$C$};\n  \\node[above right] at (D) {$D$};\n\\end{tikzpicture}\n\\end{center}\n\nLes représentants de $\\vec{u}$ et $\\vec{v}$ ont le même origine. La somme $\\vec{u} + \\vec{v}$ est le vecteur $\\overrightarrow{AD}$ tel que $ABDC$ soit un parallélogramme.\n\\end{minipage}"
+  }
+]
