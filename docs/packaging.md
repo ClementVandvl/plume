@@ -35,8 +35,17 @@ only**.
 3. The workflow builds all four targets and opens a **draft** release with the
    packages attached. Review it, then publish.
 
-`workflow_dispatch` runs the same thing from the Actions tab without a tag,
-which is the usual way to try a Windows build before committing to a version.
+### Trying one platform
+
+**Actions → release → Run workflow** offers a checkbox per platform, so a
+Windows build can be tried without waiting on the other three.
+
+Leave **Créer une release brouillon** unticked for a trial: the packages are
+attached to the run as artifacts (kept 14 days) and no release is opened. A
+Windows check has no business creating a release.
+
+Tick it, with a version such as `v0.1.0`, to produce a draft release instead.
+Pushing a tag always builds every platform and always releases.
 
 The workflow runs `npm run build` (style tokens, front-end tests, typecheck) and
 `cargo test` before packaging, so a release cannot be cut from a red tree.

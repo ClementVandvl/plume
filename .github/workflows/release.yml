@@ -7,33 +7,96 @@ name: release
 on:
   workflow_dispatch:
     inputs:
+      macos_arm:
+        description: "macOS — Apple Silicon"
+        type: boolean
+        default: true
+      macos_intel:
+        description: "macOS — Intel"
+        type: boolean
+        default: false
+      windows:
+        description: "Windows"
+        type: boolean
+        default: true
+      linux:
+        description: "Linux"
+        type: boolean
+        default: false
+      publish:
+        description: "Créer une release brouillon (sinon : artefacts de run)"
+        type: boolean
+        default: false
       version:
-        description: "Version tag, e.g. v0.1.0"
-        required: true
+        description: "Version, ex. v0.1.0 — requise si publication"
+        type: string
+        required: false
   push:
     tags:
       - "v*"
 
 jobs:
+  # A matrix cannot be filtered by inputs in place, so it is computed first.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+      any: ${{ steps.targets.outputs.any }}
+      tag: ${{ steps.targets.outputs.tag }}
+    steps:
+      - id: targets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # A tag push always builds and releases everything; a manual run
+          # builds only what was ticked.
+          if [ "${{ github.event_name }}" = "push" ]; then
+            mac_arm=true; mac_intel=true; win=true; lin=true
+            tag="${{ github.ref_name }}"
+          else
+            mac_arm="${{ inputs.macos_arm }}"
+            mac_intel="${{ inputs.macos_intel }}"
+            win="${{ inputs.windows }}"
+            lin="${{ inputs.linux }}"
+            # An empty tag tells tauri-action to build without releasing.
+            tag=""
+            if [ "${{ inputs.publish }}" = "true" ]; then
+              tag="${{ inputs.version }}"
+              if [ -z "$tag" ]; then
+                echo "::error::Cochez une version (ex. v0.1.0) pour publier."
+                exit 1
+              fi
+            fi
+          fi
+
+          entries=""
+          add() { entries="${entries:+$entries,}$1"; }
+
+          [ "$mac_arm" = "true" ] && add '{"platform":"macos-latest","target":"aarch64-apple-darwin","label":"macOS (Apple Silicon)"}'
+          [ "$mac_intel" = "true" ] && add '{"platform":"macos-latest","target":"x86_64-apple-darwin","label":"macOS (Intel)"}'
+          [ "$win" = "true" ] && add '{"platform":"windows-latest","target":"x86_64-pc-windows-msvc","label":"Windows"}'
+          [ "$lin" = "true" ] && add '{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","label":"Linux"}'
+
+          if [ -z "$entries" ]; then
+            echo "::error::Aucune plateforme cochée."
+            exit 1
+          fi
+
+          echo "matrix=[$entries]" >> "$GITHUB_OUTPUT"
+          echo "any=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Plateformes : $entries"
+
   build:
+    needs: plan
+    if: needs.plan.outputs.any == 'true'
     permissions:
       contents: write
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: macos-latest
-            target: aarch64-apple-darwin
-            label: macOS (Apple Silicon)
-          - platform: macos-latest
-            target: x86_64-apple-darwin
-            label: macOS (Intel)
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
-            label: Windows
-          - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            label: Linux
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
 
     runs-on: ${{ matrix.platform }}
     name: ${{ matrix.label }}
@@ -71,6 +134,7 @@ jobs:
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
       - uses: tauri-apps/tauri-action@v0
+        id: tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Signing stays off until the certificate secrets exist. Filling these
@@ -83,8 +147,10 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           args: --target ${{ matrix.target }}
-          tagName: ${{ github.event.inputs.version || github.ref_name }}
-          releaseName: Plume ${{ github.event.inputs.version || github.ref_name }}
+          # Empty tag: build only, no release. That is what a platform trial run
+          # should do — a Windows check has no business opening a release.
+          tagName: ${{ needs.plan.outputs.tag }}
+          releaseName: Plume ${{ needs.plan.outputs.tag }}
           releaseBody: |
             Téléchargez le fichier correspondant à votre machine.
 
@@ -93,3 +159,24 @@ jobs:
             - **Linux** : `.AppImage` ou `.deb`
           releaseDraft: true
           prerelease: false
+
+      # Without a release, the packages would otherwise be thrown away with the
+      # runner. Attached to the run instead, so a trial build is still testable.
+      #
+      # Globbing the bundle directory rather than reading the action's output:
+      # a path list needs newline separators, which a GitHub expression cannot
+      # produce cleanly.
+      - name: Attacher les paquets au run
+        if: needs.plan.outputs.tag == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: plume-${{ matrix.target }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            !src-tauri/target/**/bundle/**/rw.*.dmg
+          if-no-files-found: error
+          retention-days: 14
