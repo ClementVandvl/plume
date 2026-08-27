@@ -99,6 +99,55 @@ Windows code signing follows the same shape (`WINDOWS_CERTIFICATE`,
 `WINDOWS_CERTIFICATE_PASSWORD`) and needs a certificate from a commercial
 authority; without it, SmartScreen warns on first run.
 
+## Updates
+
+Plume checks for a new version and installs it on demand, from the settings
+panel. **Only the check is automatic**, and only when the teacher leaves
+"Rechercher une mise à jour au démarrage" on. Installing always waits for a
+click: replacing the application someone is working in is not a decision to take
+on their behalf.
+
+The release workflow publishes `latest.json` beside the packages; the app polls
+`https://github.com/ClementVandvl/plume/releases/latest/download/latest.json`.
+Change the URL in `tauri.conf.json` if the repository is named differently.
+
+### Turning updates on
+
+The updater has **its own signing key**, unrelated to code signing: it is what
+the installed app checks before replacing itself. Nothing updates until it
+exists.
+
+Generate it yourself — it is a private key and should not pass through anyone
+else's hands:
+
+```bash
+npm run tauri signer generate -- -w ~/.tauri/plume.key
+```
+
+Then:
+
+1. Copy the **public** key it prints into `plugins.updater.pubkey` in
+   `src-tauri/tauri.conf.json`.
+2. Add two repository secrets:
+
+| Secret | Value |
+|---|---|
+| `TAURI_SIGNING_PRIVATE_KEY` | the contents of `~/.tauri/plume.key` |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | the password chosen when generating it |
+
+Keep the private key. Losing it means no already-installed copy can ever accept
+another update — they would all have to be reinstalled by hand.
+
+Until the public key is set, the settings panel says updates are not configured
+rather than reporting "up to date". Claiming nothing is available when nothing
+was checked would be a lie.
+
+### macOS and unsigned builds
+
+On macOS the updater replaces the application bundle, which Gatekeeper only
+accepts smoothly for a signed and notarised app. Until code signing is on,
+expect updates to work on Windows and to be unreliable on macOS.
+
 ## The LaTeX engine
 
 Plume installs Tectonic itself, from the settings panel, into its own

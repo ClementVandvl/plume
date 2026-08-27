@@ -673,6 +673,20 @@ textarea.input {
   cursor: pointer;
 }
 
+.release-notes {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  max-height: 12em;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-label);
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
 .preamble {
   margin: 0;
   padding: var(--space-md);

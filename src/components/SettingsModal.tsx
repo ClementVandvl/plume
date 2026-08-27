@@ -10,6 +10,7 @@ import {
 } from "../api";
 import { logError } from "../log";
 import type { Environment, Settings, Template } from "../types";
+import { UpdatePanel } from "./UpdatePanel";
 import { Modal } from "./Modal";
 
 type Props = {
@@ -43,7 +44,9 @@ export function SettingsModal({
   const [error, setError] = useState<string | null>(null);
 
   // Reading rules live on their own page now; this modal only owns the model.
-  const dirty = draft.defaultModel !== settings.defaultModel;
+  const dirty =
+    draft.defaultModel !== settings.defaultModel ||
+    draft.checkUpdates !== settings.checkUpdates;
 
   // The engine download reports coarse steps: it runs once, and what matters is
   // that it is progressing.
@@ -190,6 +193,17 @@ export function SettingsModal({
           </button>
         </div>
       </section>
+
+      <UpdatePanel auto={settings.checkUpdates} />
+
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={draft.checkUpdates}
+          onChange={(e) => setDraft({ ...draft, checkUpdates: e.target.checked })}
+        />
+        Rechercher une mise à jour au démarrage
+      </label>
 
       <section className="stack stack--tight">
         <h3 className="section-title">Classeur</h3>

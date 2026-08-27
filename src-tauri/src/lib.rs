@@ -19,7 +19,7 @@ use std::sync::Mutex;
 use std::fs;
 use std::path::PathBuf;
 use tauri::menu::{Menu, MenuItem, Submenu};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
 
 // ---------------------------------------------------------------------------
@@ -277,6 +277,23 @@ fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     app.opener()
         .open_url(url, None::<&str>)
         .map_err(|e| e.to_string())
+}
+
+/// Whether updates can be checked at all.
+///
+/// The updater needs a public key baked in at build time. Without one, reporting
+/// "no update available" would be a lie — nothing was ever checked — so the
+/// interface says the feature is not configured instead.
+#[tauri::command]
+fn updates_configured(app: AppHandle) -> bool {
+    app.config()
+        .plugins
+        .0
+        .get("updater")
+        .and_then(|updater| updater.get("pubkey"))
+        .and_then(|key| key.as_str())
+        .map(|key| !key.trim().is_empty())
+        .unwrap_or(false)
 }
 
 #[tauri::command]
@@ -770,6 +787,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             logbus::init(app.handle().clone());
 
@@ -844,6 +863,7 @@ pub fn run() {
             reveal_workspace,
             reveal_path,
             open_url,
+            updates_configured,
             logs,
             clear_logs,
             log_client

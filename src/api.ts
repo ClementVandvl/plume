@@ -88,3 +88,5 @@ export const installEngine = () => invoke<string>("install_engine");
 export const installClaude = () => invoke<string>("install_claude");
 export const openClaudeLogin = () => invoke<void>("open_claude_login");
 export const removeEngine = () => invoke<void>("remove_engine");
+
+export const updatesConfigured = () => invoke<boolean>("updates_configured");

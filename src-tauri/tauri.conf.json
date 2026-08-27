@@ -52,6 +52,18 @@
     "longDescription": "Plume lit les photos de vos cours de maths écrits à la main et les réécrit dans votre propre charte LaTeX, prêts à relire et à exporter en PDF.",
     "macOS": {
       "minimumSystemVersion": "13.0"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/ClementVandvl/plume/releases/latest/download/latest.json"
+      ],
+      "pubkey": "",
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

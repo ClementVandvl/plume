@@ -191,6 +191,8 @@ export type Settings = {
   /** Standing instructions, applied to every course. */
   conventions: Convention[];
   defaultModel: string;
+  /** Look for a new version at start-up. Installing always needs a click. */
+  checkUpdates: boolean;
 };
 
 export const TRIGGER_LABEL: Record<Trigger["kind"], string> = {

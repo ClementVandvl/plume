@@ -32,6 +32,7 @@ export default function App() {
     rules: [],
     conventions: [],
     defaultModel: "sonnet",
+    checkUpdates: true,
   });
 
   const refresh = useCallback(async () => {

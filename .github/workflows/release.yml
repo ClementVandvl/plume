@@ -145,6 +145,10 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Signs the update bundles. Distinct from code signing: this key is
+          # what the installed app checks before replacing itself.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           args: --target ${{ matrix.target }}
           # Empty tag: build only, no release. That is what a platform trial run
@@ -159,6 +163,9 @@ jobs:
             - **Linux** : `.AppImage` ou `.deb`
           releaseDraft: true
           prerelease: false
+          # Publishes latest.json beside the packages: the manifest the app
+          # polls. Without it, nothing can find an update.
+          includeUpdaterJson: true
 
       # Without a release, the packages would otherwise be thrown away with the
       # runner. Attached to the run instead, so a trial build is still testable.

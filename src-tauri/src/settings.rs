@@ -90,6 +90,10 @@ pub struct Settings {
     /// Model used unless a course overrides it at read time.
     #[serde(default = "default_model")]
     pub default_model: String,
+    /// Look for a new version at start-up. Only the *check* is automatic —
+    /// installing always waits for a click.
+    #[serde(default = "yes")]
+    pub check_updates: bool,
 }
 
 fn default_model() -> String {
@@ -103,6 +107,7 @@ impl Default for Settings {
             conventions: Vec::new(),
             reading_rules: String::new(),
             default_model: default_model(),
+            check_updates: true,
         }
     }
 }
