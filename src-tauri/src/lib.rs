@@ -19,7 +19,7 @@ use std::sync::Mutex;
 use std::fs;
 use std::path::PathBuf;
 use tauri::menu::{Menu, MenuItem, Submenu};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use tauri_plugin_opener::OpenerExt;
 
 // ---------------------------------------------------------------------------

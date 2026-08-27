@@ -124,11 +124,8 @@ else's hands:
 npm run tauri signer generate -- -w ~/.tauri/plume.key
 ```
 
-Then:
-
-1. Copy the **public** key it prints into `plugins.updater.pubkey` in
-   `src-tauri/tauri.conf.json`.
-2. Add two repository secrets:
+The public key is already in `plugins.updater.pubkey`. What remains is to add
+two repository secrets:
 
 | Secret | Value |
 |---|---|
@@ -138,9 +135,13 @@ Then:
 Keep the private key. Losing it means no already-installed copy can ever accept
 another update — they would all have to be reinstalled by hand.
 
-Until the public key is set, the settings panel says updates are not configured
-rather than reporting "up to date". Claiming nothing is available when nothing
-was checked would be a lie.
+If the public key is ever cleared, the settings panel says updates are not
+configured rather than reporting "up to date". Claiming nothing is available
+when nothing was checked would be a lie.
+
+Only the public half belongs in the repository. Decoding
+`plugins.updater.pubkey` should read `minisign public key`; anything mentioning
+a secret key means the wrong half was pasted, and the key must be regenerated.
 
 ### macOS and unsigned builds
 
