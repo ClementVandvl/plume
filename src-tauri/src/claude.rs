@@ -12,7 +12,6 @@
 use crate::logbus;
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
 
 /// Official installers, from the documented URLs. Never configurable: this is
 /// the one place Plume runs a script it did not ship.
@@ -39,7 +38,7 @@ pub fn install(on_step: &dyn Fn(&str)) -> Result<PathBuf, String> {
     on_step("Téléchargement de l'installateur…");
     logbus::detail("claude", "Téléchargement de l'installateur", INSTALLER_URL);
 
-    let downloaded = Command::new(&curl)
+    let downloaded = crate::proc::quiet(&curl)
         .args(["-fsSL", "--retry", "2", "-o"])
         .arg(&script)
         .arg(INSTALLER_URL)
@@ -57,13 +56,13 @@ pub fn install(on_step: &dyn Fn(&str)) -> Result<PathBuf, String> {
     // download then cannot be executed as a truncated program, and the file is
     // there to inspect if the install goes wrong.
     #[cfg(windows)]
-    let outcome = Command::new("powershell")
+    let outcome = crate::proc::quiet("powershell")
         .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
         .arg(&script)
         .output();
 
     #[cfg(not(windows))]
-    let outcome = Command::new("bash").arg(&script).output();
+    let outcome = crate::proc::quiet("bash").arg(&script).output();
 
     let outcome = outcome.map_err(|e| {
         let _ = fs::remove_dir_all(&dir);
@@ -92,7 +91,7 @@ pub fn install(on_step: &dyn Fn(&str)) -> Result<PathBuf, String> {
         "Claude Code semble installé mais reste introuvable. Redémarrez Plume.",
     )?;
 
-    let version = Command::new(&installed)
+    let version = crate::proc::quiet(&installed)
         .arg("--version")
         .output()
         .map_err(|e| format!("Le binaire installé ne démarre pas : {e}"))?;
@@ -118,7 +117,7 @@ pub fn open_login() -> Result<(), String> {
     let path = claude.to_string_lossy().to_string();
 
     #[cfg(target_os = "macos")]
-    let launched = Command::new("osascript")
+    let launched = crate::proc::quiet("osascript")
         .arg("-e")
         .arg(format!(
             r#"tell application "Terminal" to do script "{} " & return"#,
@@ -126,13 +125,13 @@ pub fn open_login() -> Result<(), String> {
         ))
         .spawn()
         .and_then(|_| {
-            Command::new("osascript")
+            crate::proc::quiet("osascript")
                 .args(["-e", r#"tell application "Terminal" to activate"#])
                 .spawn()
         });
 
     #[cfg(target_os = "windows")]
-    let launched = Command::new("cmd")
+    let launched = crate::proc::quiet("cmd")
         .args(["/c", "start", "", "powershell", "-NoExit", "-Command"])
         .arg(&path)
         .spawn();
@@ -142,7 +141,7 @@ pub fn open_login() -> Result<(), String> {
         .iter()
         .find_map(|terminal| {
             crate::env_check::resolve_tool(terminal)
-                .and_then(|bin| Command::new(bin).arg("-e").arg(&path).spawn().ok())
+                .and_then(|bin| std::process::Command::new(bin).arg("-e").arg(&path).spawn().ok())
         })
         .ok_or_else(|| std::io::Error::other("no terminal"))
         .map(|_| ());

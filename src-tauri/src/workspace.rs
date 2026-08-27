@@ -158,7 +158,7 @@ fn convert_to_jpeg(source: &Path, destination: &Path) -> Result<(), String> {
             })
             .collect();
 
-        let ok = std::process::Command::new(&binary)
+        let ok = crate::proc::quiet(&binary)
             .args(&args)
             .output()
             .map(|out| out.status.success() && destination.is_file())

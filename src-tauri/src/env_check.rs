@@ -9,7 +9,6 @@
 
 use serde::Serialize;
 use std::path::PathBuf;
-use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 
 static SEARCH_PATH: OnceLock<Vec<PathBuf>> = OnceLock::new();
@@ -51,7 +50,7 @@ fn search_path() -> &'static [PathBuf] {
         #[cfg(not(windows))]
         {
             let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-            if let Some(from_login) = Command::new(&shell)
+            if let Some(from_login) = crate::proc::quiet(&shell)
                 .args(["-l", "-c", "printf %s \"$PATH\""])
                 .output()
                 .ok()
@@ -114,7 +113,7 @@ fn resolve(binary: &str) -> Option<PathBuf> {
 
 /// Runs `<bin> <arg>` and returns the first line of output.
 fn first_line(bin: &PathBuf, arg: &str) -> Option<String> {
-    let out = Command::new(bin).arg(arg).output().ok()?;
+    let out = crate::proc::quiet(bin).arg(arg).output().ok()?;
     let text = if out.stdout.is_empty() { out.stderr } else { out.stdout };
     String::from_utf8_lossy(&text)
         .lines()

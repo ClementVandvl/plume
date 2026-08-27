@@ -14,7 +14,7 @@ use crate::logbus;
 use serde::Serialize;
 use std::io::Write;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 /// Replaces Claude Code's default system prompt. Measured at ~8.3k input tokens
 /// per call otherwise, for a task that needs none of it.
@@ -91,7 +91,7 @@ pub fn transcribe_page(
     );
 
     let started = std::time::Instant::now();
-    let mut child = Command::new(claude)
+    let mut child = crate::proc::quiet(claude)
         .current_dir(document_dir)
         .arg("-p")
         .arg("--model")
@@ -133,10 +133,16 @@ pub fn transcribe_page(
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        logbus::error("claude", format!("Page {page_number} — code de sortie non nul"));
+        let first = stderr.lines().next().unwrap_or("").trim().to_string();
+        logbus::error("claude", format!("Page {page_number} — {}", output.status));
         return Err(format!(
-            "Claude Code s'est arrêté en erreur. {}",
-            stderr.lines().next().unwrap_or("").trim()
+            "Claude Code s'est arrêté ({}). {}",
+            output.status,
+            if first.is_empty() {
+                "Aucun message d'erreur — détail dans la console."
+            } else {
+                &first
+            }
         ));
     }
 
@@ -267,7 +273,7 @@ pub fn correct_block(
     );
 
     let started = std::time::Instant::now();
-    let mut command = Command::new(claude);
+    let mut command = crate::proc::quiet(claude);
     command.current_dir(document_dir).arg("-p");
     if let Some(id) = session_id {
         command.arg("--resume").arg(id);
@@ -311,8 +317,11 @@ pub fn correct_block(
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let first = stderr.lines().next().unwrap_or("").trim().to_string();
-        logbus::error("claude", format!("Correction du bloc {} échouée : {first}", block.id));
-        return Err(format!("La correction a échoué. {first}"));
+        logbus::error(
+            "claude",
+            format!("Correction du bloc {} échouée ({}) : {first}", block.id, output.status),
+        );
+        return Err(format!("La correction a échoué ({}). {first}", output.status));
     }
 
     let envelope: serde_json::Value = serde_json::from_slice(&output.stdout)

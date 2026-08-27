@@ -72,7 +72,7 @@ pub fn unwatch(id: &str, pid: u32) {
 /// Kills a process without pulling in a libc dependency for one call.
 fn kill(pid: u32) {
     #[cfg(windows)]
-    let killer = std::process::Command::new("taskkill")
+    let killer = crate::proc::quiet("taskkill")
         .args(["/PID", &pid.to_string(), "/T", "/F"])
         .output();
 

@@ -6,6 +6,7 @@ pub mod ir;
 mod latex;
 mod logbus;
 pub mod photos;
+mod proc;
 mod recognizer;
 mod render;
 mod runs;

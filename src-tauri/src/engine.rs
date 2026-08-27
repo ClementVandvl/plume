@@ -15,7 +15,6 @@
 use crate::logbus;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 /// Official source. Pinned to the project's own repository on purpose: this is
 /// the one place Plume fetches an executable from, and it should never be
@@ -70,7 +69,7 @@ fn run(tool: &str, args: &[&str]) -> Result<String, String> {
     let binary = crate::env_check::resolve_tool(tool)
         .ok_or_else(|| format!("« {tool} » est introuvable sur cette machine."))?;
 
-    let output = Command::new(binary)
+    let output = crate::proc::quiet(binary)
         .args(args)
         .output()
         .map_err(|e| format!("Lancement de {tool} : {e}"))?;
@@ -204,7 +203,7 @@ pub fn install(on_step: &dyn Fn(&str)) -> Result<PathBuf, String> {
     // Running it is the real check: a truncated download extracts happily and
     // then fails at the worst possible moment, mid-compilation.
     on_step("Vérification…");
-    let version = Command::new(&destination)
+    let version = crate::proc::quiet(&destination)
         .arg("--version")
         .output()
         .map_err(|e| format!("Le moteur téléchargé ne démarre pas : {e}"))?;

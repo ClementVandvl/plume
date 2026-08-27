@@ -11,7 +11,6 @@ use crate::logbus;
 use crate::templates::Template;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::Mutex;
 
 /// Figure renders are serialised.
@@ -94,7 +93,7 @@ fn rasterise(dir: &Path, stem: &str) -> Result<PathBuf, String> {
 
     if let Some(tool) = crate::env_check::resolve_tool("pdftocairo") {
         let svg = dir.join(format!("{stem}.svg"));
-        let done = Command::new(tool)
+        let done = crate::proc::quiet(tool)
             .args(["-svg", "-f", "1", "-l", "1"])
             .arg(&pdf)
             .arg(&svg)
@@ -108,7 +107,7 @@ fn rasterise(dir: &Path, stem: &str) -> Result<PathBuf, String> {
 
     if let Some(tool) = crate::env_check::resolve_tool("pdftoppm") {
         let base = dir.join(stem);
-        let done = Command::new(tool)
+        let done = crate::proc::quiet(tool)
             .args(["-png", "-r", "220", "-f", "1", "-l", "1", "-singlefile"])
             .arg(&pdf)
             .arg(&base)
@@ -174,7 +173,7 @@ pub fn render(
         })
         .ok_or("Aucun moteur LaTeX détecté.")?;
 
-    let mut command = Command::new(&engine.1);
+    let mut command = crate::proc::quiet(&engine.1);
     command.current_dir(&build);
     if engine.0 == "tectonic" {
         command.args(["-X", "compile", &format!("{stem}.tex")]);

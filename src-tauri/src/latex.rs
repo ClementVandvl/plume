@@ -6,7 +6,6 @@
 
 use crate::logbus;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 const ENGINES: &[&str] = &["tectonic", "pdflatex", "xelatex", "lualatex"];
 
@@ -48,7 +47,7 @@ pub fn compile(dir: &Path, tex_name: &str) -> Result<PathBuf, String> {
     );
 
     for pass in 0..passes {
-        let mut command = Command::new(&engine);
+        let mut command = crate::proc::quiet(&engine);
         command.current_dir(dir);
         if engine_name == "tectonic" {
             command.args(["-X", "compile", "--keep-logs", tex_name]);
