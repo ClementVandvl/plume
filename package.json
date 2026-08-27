@@ -4,6 +4,8 @@
   "version": "0.1.2",
   "type": "module",
   "scripts": {
+    "desktop": "tauri dev",
+    "desktop:build": "tauri build",
     "dev": "vite",
     "build": "node scripts/check-tokens.mjs && vitest run && tsc && vite build",
     "preview": "vite preview",

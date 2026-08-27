@@ -16,8 +16,24 @@ dans le modèle LaTeX que vous avez défini — prête à relire bloc par bloc, 
 
 ```bash
 npm install
-npm run tauri dev
+npm run desktop
 ```
+
+`desktop` lance la vraie application — la fenêtre Tauri, avec l'accès aux
+fichiers, à Claude Code et au moteur LaTeX. C'est ce qu'il faut dans presque
+tous les cas.
+
+| Commande | Ce qu'elle lance |
+|---|---|
+| `npm run desktop` | L'application, en développement |
+| `npm run desktop:build` | Le paquet installable pour cette plateforme |
+| `npm run dev` | L'interface seule dans le navigateur, sans backend |
+
+`npm run dev` ne sert qu'au travail sur la mise en page : hors de la fenêtre
+Tauri, aucune commande n'existe et l'application ne dépasse pas son écran
+d'accueil. C'est aussi la commande que Tauri appelle lui-même
+(`beforeDevCommand`), donc elle doit rester le serveur Vite : la renommer en
+`tauri dev` ferait se relancer Tauri à l'infini.
 
 ```bash
 npm run build                                  # tokens de style, tests, typecheck
