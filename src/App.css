@@ -1064,6 +1064,51 @@ textarea.input {
   gap: var(--space-xs);
 }
 
+/* ---------- Updates ---------- */
+.update {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-bg);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.update__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.update__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.update__name {
+  font-weight: var(--font-weight-medium);
+}
+
+.update__status {
+  font-size: var(--font-size-label);
+  color: var(--color-text-muted);
+}
+
+.update__status--highlight {
+  color: var(--color-info);
+}
+
+.update__auto {
+  padding-top: var(--space-sm);
+  border-top: var(--border-width) solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
 /* ---------- Console ---------- */
 .console {
   grid-column: 2;

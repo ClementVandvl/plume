@@ -14,39 +14,46 @@
     <div class="shell">
       <nav class="sidebar"><div class="sidebar__brand"><span class="sidebar__wordmark">Plume</span></div></nav>
       <main class="content">
-        <div class="review__paper" style="padding:24px 16px">
-          <div class="paper">
-            <div class="pblock">
-              <div class="pblock__body">
-                <p class="tex-heading" style="color:#A93226;border-color:#A93226">I – Vecteurs du plan</p>
-              </div>
-            </div>
-            <div class="pblock pblock--teacher">
-              <span class="pblock__aside">prof</span>
-              <div class="pblock__body">
-                <div class="tex-env tex-env--bracket" style="border-color:#A93226">
-                  <span class="tex-label" style="color:#A93226;border-color:#A93226">Définition</span>
-                  <div class="tex-body"><p>Réservé à ma version : la réponse complète de l'exemple.</p></div>
+        <div class="modal" style="position:static; width:min(560px,100%)">
+          <header class="modal__head">
+            <div><h2 class="modal__title">Réglages</h2></div>
+          </header>
+          <div class="modal__body">
+            <section class="stack stack--tight">
+              <h3 class="section-title">Mises à jour</h3>
+              <div class="update">
+                <div class="update__row">
+                  <div class="update__identity">
+                    <span class="update__name">Plume 0.1.1</span>
+                    <span class="update__status">Plume est à jour.</span>
+                  </div>
+                  <button class="btn btn--ghost">Rechercher</button>
                 </div>
+                <label class="check update__auto">
+                  <input type="checkbox" checked>
+                  Rechercher automatiquement au démarrage
+                </label>
               </div>
-            </div>
-            <div class="pblock pblock--student">
-              <span class="pblock__aside pblock__aside--student">élève</span>
-              <div class="pblock__body">
-                <div class="tex-env" style="border-color:#117A65">
-                  <span class="tex-label" style="color:#117A65;border-color:#117A65">Exemple</span>
-                  <div class="tex-body"><p>Énoncé donné aux élèves, sans la correction.</p></div>
+            </section>
+
+            <section class="stack stack--tight">
+              <h3 class="section-title">Mises à jour — version disponible</h3>
+              <div class="update">
+                <div class="update__row">
+                  <div class="update__identity">
+                    <span class="update__name">Plume 0.1.1</span>
+                    <span class="update__status update__status--highlight">Version 0.1.2 disponible — publiée le 2026-08-24.</span>
+                  </div>
+                  <button class="btn btn--primary">Installer 0.1.2</button>
                 </div>
+                <pre class="release-notes">Corrige la lecture sur les machines de 8 Go.
+Les fenêtres de console n'apparaissent plus sous Windows.</pre>
+                <label class="check update__auto">
+                  <input type="checkbox" checked>
+                  Rechercher automatiquement au démarrage
+                </label>
               </div>
-            </div>
-            <div class="pblock pblock--flagged">
-              <div class="pblock__body">
-                <div class="tex-env tex-env--bracket" style="border-color:#A93226">
-                  <span class="tex-label" style="color:#A93226;border-color:#A93226">Propriété</span>
-                  <div class="tex-body"><p>Un bloc dont la lecture est incertaine.</p></div>
-                </div>
-              </div>
-            </div>
+            </section>
           </div>
         </div>
       </main>

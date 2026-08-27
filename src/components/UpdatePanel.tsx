@@ -11,6 +11,9 @@ import { logError, logInfo } from "../log";
  * Checking may happen on its own; installing never does. Replacing the
  * application someone is working in is not a decision to take on their behalf,
  * and a teacher mid-transcription least of all.
+ *
+ * One row reads like a sentence: the app and its version on the left, what is
+ * known about it underneath, the single relevant action on the right.
  */
 
 type State =
@@ -23,7 +26,16 @@ type State =
   | { kind: "installed" }
   | { kind: "failed"; message: string };
 
-export function UpdatePanel({ auto }: { auto: boolean }) {
+type Props = {
+  /** Run a check when the panel mounts. */
+  auto: boolean;
+  /** Current value of the start-up check toggle. */
+  enabled: boolean;
+  /** Toggling saves immediately — a preference, not a form. */
+  onToggleAuto: (value: boolean) => void;
+};
+
+export function UpdatePanel({ auto, enabled, onToggleAuto }: Props) {
   const [state, setState] = useState<State>({ kind: "idle" });
   const [version, setVersion] = useState("");
 
@@ -41,7 +53,6 @@ export function UpdatePanel({ auto }: { auto: boolean }) {
           setState({ kind: "unconfigured" });
           return;
         }
-        // Only the check is automatic, and only when enabled.
         if (auto) look(true);
       })
       .catch(() => {});
@@ -60,17 +71,12 @@ export function UpdatePanel({ auto }: { auto: boolean }) {
         logInfo("app", `Mise à jour disponible : ${update.version}`);
         setState({ kind: "available", update });
       } else {
-        setState(quiet ? { kind: "idle" } : { kind: "current" });
+        setState({ kind: "current" });
       }
     } catch (cause) {
-      // A silent check that fails should not shout: the teacher did not ask.
-      if (quiet) {
-        setState({ kind: "idle" });
-        logError("app", "Vérification des mises à jour impossible", cause);
-        return;
-      }
-      setState({ kind: "failed", message: String(cause) });
       logError("app", "Vérification des mises à jour impossible", cause);
+      // A silent check that fails should not shout: the teacher did not ask.
+      setState(quiet ? { kind: "idle" } : { kind: "failed", message: String(cause) });
     }
   }
 
@@ -103,73 +109,103 @@ export function UpdatePanel({ auto }: { auto: boolean }) {
     }
   }
 
+  const status = (() => {
+    switch (state.kind) {
+      case "unconfigured":
+        return "Les mises à jour ne sont pas configurées pour cette version.";
+      case "checking":
+        return "Recherche en cours…";
+      case "current":
+        return "Plume est à jour.";
+      case "available":
+        return `Version ${state.update.version} disponible${
+          state.update.date ? ` — publiée le ${state.update.date.slice(0, 10)}` : ""
+        }.`;
+      case "installing":
+        return state.progress;
+      case "installed":
+        return "Mise à jour installée — elle s'appliquera au redémarrage.";
+      default:
+        return "Dernière version connue de cette machine.";
+    }
+  })();
+
   return (
     <section className="stack stack--tight">
       <h3 className="section-title">Mises à jour</h3>
 
-      <p className="field__hint">
-        Version installée {version || "…"}.
-        {state.kind === "unconfigured" &&
-          " Les mises à jour ne sont pas encore configurées pour cette version."}
-      </p>
+      <div className="update">
+        <div className="update__row">
+          <div className="update__identity">
+            <span className="update__name">Plume {version || "…"}</span>
+            <span
+              className={`update__status ${
+                state.kind === "available" || state.kind === "installed"
+                  ? "update__status--highlight"
+                  : ""
+              }`}
+            >
+              {status}
+            </span>
+          </div>
 
-      {state.kind === "available" && (
-        <div className="banner banner--info">
-          <span>
-            <strong>Plume {state.update.version}</strong> est disponible.
-            {state.update.date && ` Publiée le ${state.update.date.slice(0, 10)}.`}
-          </span>
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={() => install(state.update)}
-          >
-            Installer
-          </button>
-        </div>
-      )}
-
-      {state.kind === "available" && state.update.body && (
-        <pre className="release-notes">{state.update.body}</pre>
-      )}
-
-      {state.kind === "installing" && <p className="notice">{state.progress}</p>}
-
-      {state.kind === "installed" && (
-        <div className="banner banner--info">
-          <span>Mise à jour installée. Elle s'appliquera au redémarrage.</span>
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={() => relaunch().catch((cause) => logError("app", "Redémarrage impossible", cause))}
-          >
-            Redémarrer maintenant
-          </button>
-        </div>
-      )}
-
-      {state.kind === "current" && <p className="notice">Plume est à jour.</p>}
-
-      {state.kind === "failed" && (
-        <p className="notice notice--error" role="alert">
-          {state.message}
-        </p>
-      )}
-
-      {state.kind !== "unconfigured" &&
-        state.kind !== "installing" &&
-        state.kind !== "installed" && (
-          <div className="row-actions">
+          {state.kind === "available" ? (
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => install(state.update)}
+            >
+              Installer {state.update.version}
+            </button>
+          ) : state.kind === "installed" ? (
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() =>
+                relaunch().catch((cause) =>
+                  logError("app", "Redémarrage impossible", cause),
+                )
+              }
+            >
+              Redémarrer maintenant
+            </button>
+          ) : state.kind === "installing" ? (
+            <button type="button" className="btn btn--primary" disabled>
+              Installation…
+            </button>
+          ) : state.kind === "unconfigured" ? null : (
             <button
               type="button"
               className="btn btn--ghost"
               onClick={() => look()}
               disabled={state.kind === "checking"}
             >
-              {state.kind === "checking" ? "Recherche…" : "Rechercher une mise à jour"}
+              {state.kind === "checking" ? "Recherche…" : "Rechercher"}
             </button>
-          </div>
+          )}
+        </div>
+
+        {state.kind === "available" && state.update.body && (
+          <pre className="release-notes">{state.update.body}</pre>
         )}
+
+        {state.kind === "failed" && (
+          <p className="notice notice--error" role="alert">
+            {state.message}
+          </p>
+        )}
+
+        {state.kind !== "unconfigured" && (
+          <label className="check update__auto">
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(event) => onToggleAuto(event.target.checked)}
+            />
+            Rechercher automatiquement au démarrage
+          </label>
+        )}
+      </div>
     </section>
   );
 }

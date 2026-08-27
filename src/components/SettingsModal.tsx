@@ -46,8 +46,21 @@ export function SettingsModal({
   // Reading rules live on their own page now; this modal only owns the model.
   const dirty =
     draft.defaultModel !== settings.defaultModel ||
-    draft.checkUpdates !== settings.checkUpdates ||
     draft.concurrentPages !== settings.concurrentPages;
+
+  // Saved on the spot: a checkbox that waits for a distant "Enregistrer" reads
+  // as broken. `settings` may have moved since the draft was taken, so the
+  // toggle builds on the live value, and persist() below never overwrites it.
+  async function toggleAuto(value: boolean) {
+    try {
+      const next = { ...settings, checkUpdates: value };
+      await saveSettings(next);
+      onSaved(next);
+    } catch (cause) {
+      setError(String(cause));
+      logError("workspace", "Enregistrement du réglage impossible", cause);
+    }
+  }
 
   // The engine download reports coarse steps: it runs once, and what matters is
   // that it is progressing.
@@ -78,8 +91,10 @@ export function SettingsModal({
     setSaving(true);
     setError(null);
     try {
-      await saveSettings(draft);
-      onSaved(draft);
+      // checkUpdates saves on toggle; the draft's copy may be stale.
+      const next = { ...draft, checkUpdates: settings.checkUpdates };
+      await saveSettings(next);
+      onSaved(next);
     } catch (cause) {
       setError(String(cause));
       logError("workspace", "Enregistrement des réglages impossible", cause);
@@ -215,16 +230,11 @@ export function SettingsModal({
         </div>
       </section>
 
-      <UpdatePanel auto={settings.checkUpdates} />
-
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={draft.checkUpdates}
-          onChange={(e) => setDraft({ ...draft, checkUpdates: e.target.checked })}
-        />
-        Rechercher une mise à jour au démarrage
-      </label>
+      <UpdatePanel
+        auto={settings.checkUpdates}
+        enabled={settings.checkUpdates}
+        onToggleAuto={toggleAuto}
+      />
 
       <section className="stack stack--tight">
         <h3 className="section-title">Classeur</h3>
