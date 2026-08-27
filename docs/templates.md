@@ -82,6 +82,37 @@ A kind with no mapping falls back to raw output and loses its environment;
 `bundled_template_maps_every_block_kind` makes sure the bundled template never
 does that.
 
+## Conventions
+
+A template carries its own typesetting instructions, compiled into the
+recogniser's prompt after the teacher's standing conventions and before
+anything specific to the course. The distinction is scope: marker rules and
+standing conventions describe *how this teacher writes* whatever template they
+use; these describe *what this house style wants of the LaTeX*, and follow the
+template when a course changes style.
+
+The bundled one ships a single rule, `align-equals`. A calculation continued
+over several lines must be grouped in one `aligned` environment with `&=`
+alignment points, rather than emitted as separate display equations:
+
+```latex
+2) $\begin{aligned}[t]
+-2x(4x-1) &= -2x \times 4x - (-2x) \times 1 \\
+&= -8x^2 + 2x
+\end{aligned}$
+```
+
+Without it, the continuation becomes `\[ = -8x^2 + 2x \]` and is flung to the
+centre of the page, far from the line it continues. The `[t]` keeps the block on
+the baseline of the text that introduces it — drop it and the list number floats
+to the middle of the block. KaTeX ignores that option and would typeset it as a
+literal "[t]", so `forKatex` strips it **for the preview only**; the exported
+LaTeX keeps it.
+
+Unlike the preamble, conventions on the bundled template **are** editable: `seed`
+keeps what is installed and only appends bundled entries whose id is new. What
+survives an upgrade is what may be edited — that is the whole rule.
+
 ## Deleting
 
 A deleted template moves to `Corbeille/Modeles/` rather than being erased — the

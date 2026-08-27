@@ -10,7 +10,8 @@ import {
 } from "../api";
 import { useConfirm } from "../confirm";
 import { logError, logInfo } from "../log";
-import type { Template, TemplateKey } from "../types";
+import { ConventionPanel } from "./ConventionPanel";
+import type { Convention, Template, TemplateKey } from "../types";
 
 /**
  * The template editor.
@@ -51,7 +52,7 @@ const MODES: { id: string; label: string }[] = [
   { id: "centered", label: "Centré — dans un center" },
 ];
 
-type Tab = "keys" | "preamble" | "blocks";
+type Tab = "keys" | "rules" | "preamble" | "blocks";
 
 export function TemplatesView({
   templates,
@@ -69,6 +70,7 @@ export function TemplatesView({
   const [savedPreamble, setSavedPreamble] = useState("");
   const [rendered, setRendered] = useState<string | null>(null);
 
+  const [openConvention, setOpenConvention] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -81,6 +83,7 @@ export function TemplatesView({
     setRendered(null);
     setError(null);
     setDone(null);
+    setOpenConvention(null);
     if (!selected) return;
     readTemplatePreamble(selected.id)
       .then((text) => {
@@ -103,7 +106,8 @@ export function TemplatesView({
       ? draft.keys.some((k, i) => k.value !== selected.keys[i]?.value) ||
         draft.name !== selected.name ||
         draft.description !== selected.description ||
-        JSON.stringify(draft.blocks) !== JSON.stringify(selected.blocks)
+        JSON.stringify(draft.blocks) !== JSON.stringify(selected.blocks) ||
+        JSON.stringify(draft.conventions) !== JSON.stringify(selected.conventions)
       : false;
   const preambleDirty = preamble !== savedPreamble;
   const dirty = keysDirty || preambleDirty;
@@ -114,6 +118,19 @@ export function TemplatesView({
         ? { ...current, keys: current.keys.map((k) => (k.key === key ? { ...k, value } : k)) }
         : current,
     );
+  }
+
+  function addConvention() {
+    if (!draft) return;
+    const convention: Convention = {
+      // Same as the reading rules: an index would collide after a deletion.
+      id: crypto.randomUUID(),
+      enabled: true,
+      title: "",
+      text: "",
+    };
+    setDraft({ ...draft, conventions: [...draft.conventions, convention] });
+    setOpenConvention(convention.id);
   }
 
   function editBlock(kind: string, patch: { mode?: string; name?: string }) {
@@ -264,9 +281,10 @@ export function TemplatesView({
 
       {builtin && (
         <p className="notice">
-          Modèle livré avec Plume. Ses couleurs et ses valeurs vous appartiennent et
-          survivent aux mises à jour — mais son squelette LaTeX est remplacé à chaque
-          nouvelle version. Dupliquez-le pour en changer la structure.
+          Modèle livré avec Plume. Ses couleurs et ses règles vous appartiennent :
+          vos modifications survivent aux mises à jour. Son squelette LaTeX, lui, est
+          remplacé à chaque nouvelle version — dupliquez-le pour en changer la
+          structure.
         </p>
       )}
 
@@ -281,6 +299,7 @@ export function TemplatesView({
         {(
           [
             ["keys", "Apparence"],
+            ["rules", "Règles"],
             ["preamble", "Préambule"],
             ["blocks", "Blocs"],
           ] as [Tab, string][]
@@ -341,6 +360,84 @@ export function TemplatesView({
             </section>
           ))}
         </>
+      )}
+
+      {tab === "rules" && (
+        <div className={`split ${openConvention ? "split--open" : ""}`}>
+          <div className="split__main">
+            <section className="registry">
+              <header className="registry__head">
+                <div>
+                  <h2 className="section-title">Règles de mise en forme</h2>
+                  <p className="registry__hint">
+                    Ce que ce modèle attend du LaTeX produit. Elles s'ajoutent aux
+                    règles de lecture et aux conventions générales, qui valent pour
+                    tous les modèles — celles-ci suivent la charte.
+                  </p>
+                </div>
+                <button type="button" className="btn btn--ghost" onClick={addConvention}>
+                  Ajouter une règle
+                </button>
+              </header>
+
+              {draft.conventions.length === 0 ? (
+                <p className="registry__empty">
+                  Aucune règle. Par exemple : aligner sur le signe égal les lignes de
+                  calcul qui commencent par « = ».
+                </p>
+              ) : (
+                <ul className="rules">
+                  {draft.conventions.map((convention) => (
+                    <li key={convention.id}>
+                      <button
+                        type="button"
+                        className={`rule rule--convention ${
+                          convention.enabled ? "" : "rule--off"
+                        } ${openConvention === convention.id ? "rule--selected" : ""}`}
+                        onClick={() => setOpenConvention(convention.id)}
+                      >
+                        <span className="rule__trigger">
+                          {convention.title.trim() || "Sans titre"}
+                        </span>
+                        <span className="rule__effect">
+                          {convention.text.trim().split("\n")[0] || "Sans consigne"}
+                        </span>
+                        {!convention.enabled && <span className="flag">désactivée</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+
+          {openConvention !== null &&
+            (() => {
+              const convention = draft.conventions.find((c) => c.id === openConvention);
+              if (!convention) return null;
+              return (
+                <ConventionPanel
+                  convention={convention}
+                  onChange={(next) =>
+                    setDraft({
+                      ...draft,
+                      conventions: draft.conventions.map((c) =>
+                        c.id === next.id ? next : c,
+                      ),
+                    })
+                  }
+                  onDelete={() => {
+                    setDraft({
+                      ...draft,
+                      conventions: draft.conventions.filter((c) => c.id !== openConvention),
+                    });
+                    setOpenConvention(null);
+                  }}
+                  onClose={() => setOpenConvention(null)}
+                />
+              );
+            })()}
+        </div>
       )}
 
       {tab === "preamble" && (

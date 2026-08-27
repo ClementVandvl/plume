@@ -128,8 +128,22 @@ text in `title` without handwritten numbering, diagrams become `tikzpicture` tha
 colour maps to the template's semantic colours, and confidence below `0.85`
 *requires* filling `doubt`.
 
-The teacher's own reading conventions are appended verbatim, in their own words
-and language. They are authoritative over the defaults.
+The teacher's own conventions are appended verbatim, in their own words and
+language, and are authoritative over the defaults. They arrive in four levels,
+each narrowing the scope of the last:
+
+| Level | Describes | Lives in |
+|---|---|---|
+| Marker rules | A visual trigger and its effect — "highlighted orange means bold" | Settings |
+| Standing conventions | How this teacher works, whatever template | Settings |
+| Template conventions | What this house style wants of the LaTeX | The template |
+| Course rules | This one course | The course |
+
+The template level exists because some instructions belong to the typesetting
+rather than to the person: the bundled maths template asks for a continued
+calculation to be grouped in an `aligned` environment, so that a line beginning
+with `=` lands under the `=` above it instead of being centred on its own. Move
+a course to another template and that instruction moves with it.
 
 ### Concurrency
 

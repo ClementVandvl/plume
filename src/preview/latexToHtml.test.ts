@@ -54,6 +54,22 @@ describe("latexToHtml", () => {
     expect(html).toContain("Le vecteur");
   });
 
+  // The maths template asks for continued calculations to be grouped in an
+  // `aligned` environment rather than centred on their own line. The preview
+  // has to typeset that, or the rule would look broken before it is exported.
+  it("typesets a calculation aligned on its equals signs", () => {
+    const html = latexToHtml(
+      "2) $\\begin{aligned}[t]\n-2x(4x-1) &= -2x \\times 4x - (-2x) \\times 1 \\\\\n&= -8x^2 + 2x\n\\end{aligned}$",
+    );
+    expect(html).toContain("katex");
+    // KaTeX ignores the [t] option and would otherwise typeset it as text.
+    // It is checked in the visible half: the source is echoed verbatim in the
+    // MathML annotation, where its presence means nothing.
+    const visible = html.slice(html.indexOf('katex-html'));
+    expect(visible).not.toContain("[");
+    expect(html).not.toContain("ParseError");
+  });
+
   it("turns itemize into a list", () => {
     const html = latexToHtml(
       "Caractérisé par :\n\\begin{itemize}\n\\item une direction\n\\item un sens\n\\end{itemize}",

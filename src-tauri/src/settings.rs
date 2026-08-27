@@ -231,17 +231,9 @@ fn compile(settings: &Settings) -> String {
     )
 }
 
-/// The full instruction block: marker rules, standing conventions, then
-/// anything specific to this course.
-pub fn combine(settings: &Settings, course_rules: &str) -> String {
-    let mut parts: Vec<String> = Vec::new();
-
-    let compiled = compile(settings);
-    if !compiled.is_empty() {
-        parts.push(compiled);
-    }
-    let conventions: Vec<String> = settings
-        .conventions
+/// Formats a list of conventions into numbered, titled lines.
+fn number(conventions: &[Convention]) -> Vec<String> {
+    conventions
         .iter()
         .filter(|convention| convention.enabled && !convention.text.trim().is_empty())
         .enumerate()
@@ -253,13 +245,37 @@ pub fn combine(settings: &Settings, course_rules: &str) -> String {
                 format!("{}. {} — {}", index + 1, title, convention.text.trim())
             }
         })
-        .collect();
+        .collect()
+}
 
+/// The full instruction block, narrowing from the teacher to this one course:
+/// marker rules, standing conventions, the template's own, then the course's.
+pub fn combine(
+    settings: &Settings,
+    template_conventions: &[Convention],
+    course_rules: &str,
+) -> String {
+    let mut parts: Vec<String> = Vec::new();
+
+    let compiled = compile(settings);
+    if !compiled.is_empty() {
+        parts.push(compiled);
+    }
+    let conventions = number(&settings.conventions);
     if !conventions.is_empty() {
         parts.push(format!(
             "Standing conventions defined by the teacher, in their own words. \
              Follow every one of them.\n{}",
             conventions.join("\n")
+        ));
+    }
+
+    let from_template = number(template_conventions);
+    if !from_template.is_empty() {
+        parts.push(format!(
+            "Typesetting conventions of the template this course uses. They \
+             shape the LaTeX you produce.\n{}",
+            from_template.join("\n")
         ));
     }
     if !course_rules.trim().is_empty() {
@@ -269,8 +285,10 @@ pub fn combine(settings: &Settings, course_rules: &str) -> String {
     parts.join("\n\n")
 }
 
-pub fn combined_rules(course_rules: &str) -> String {
-    combine(&load(), course_rules)
+pub fn combined_rules(template_id: &str, course_rules: &str) -> String {
+    let template = crate::templates::load(&crate::workspace::root(), template_id);
+    let conventions = template.map(|t| t.conventions).unwrap_or_default();
+    combine(&load(), &conventions, course_rules)
 }
 
 #[cfg(test)]
@@ -329,7 +347,7 @@ mod tests {
             ..Settings::default()
         };
 
-        let text = combine(&settings, "");
+        let text = combine(&settings, &[], "");
         assert!(text.contains("1. Annotations — Aucune étiquette ne chevauche un trait."));
         assert!(text.contains("2. Sans titre mais active."));
         assert!(!text.contains("Ne doit pas apparaître"), "disabled entries must be dropped");
@@ -343,11 +361,45 @@ mod tests {
             ..Settings::default()
         };
 
-        let text = combine(&settings, "Ce chapitre utilise des repères.");
+        let text = combine(&settings, &[], "Ce chapitre utilise des repères.");
         let marker = text.find("Marker conventions").expect("marker block");
         let standing = text.find("Standing conventions").expect("standing block");
         let course = text.find("Specific to this course").expect("course block");
         assert!(marker < standing && standing < course);
+    }
+
+    /// The template's own typesetting rules sit between the teacher's standing
+    /// conventions and whatever this one course adds.
+    #[test]
+    fn template_conventions_are_a_level_of_their_own() {
+        let settings = Settings {
+            conventions: vec![convention("c1", true, "Schémas", "Pas de recouvrement.")],
+            ..Settings::default()
+        };
+        let from_template = vec![
+            convention("t1", true, "Alignement", "Aligne les calculs sur le =."),
+            convention("t2", false, "Ignorée", "Ne doit pas apparaître."),
+        ];
+
+        let text = combine(&settings, &from_template, "Ce chapitre utilise des repères.");
+        let standing = text.find("Standing conventions").expect("standing block");
+        let template = text.find("Typesetting conventions").expect("template block");
+        let course = text.find("Specific to this course").expect("course block");
+        assert!(standing < template && template < course);
+        assert!(text.contains("Aligne les calculs sur le =."));
+        assert!(!text.contains("Ne doit pas apparaître"), "disabled entries must be dropped");
+    }
+
+    /// Numbering restarts per section, so the model never sees two "1.".
+    #[test]
+    fn each_level_numbers_itself_from_one() {
+        let settings = Settings {
+            conventions: vec![convention("c1", true, "", "Première du prof.")],
+            ..Settings::default()
+        };
+        let text = combine(&settings, &[convention("t1", true, "", "Première du modèle.")], "");
+        assert!(text.contains("1. Première du prof."));
+        assert!(text.contains("1. Première du modèle."));
     }
 
     #[test]

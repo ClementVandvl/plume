@@ -92,9 +92,22 @@ function stripComments(text: string): string {
     .replace(new RegExp(ESCAPED_PERCENT, "g"), "\\%");
 }
 
+/**
+ * Smooths over what KaTeX does not implement.
+ *
+ * `\begin{aligned}[t]` is how a continued calculation stays on the baseline of
+ * the line that introduces it — without it, LaTeX centres the block vertically
+ * and the list number floats to its middle. KaTeX ignores the option and
+ * typesets a literal "[t]" instead, so it is dropped for the preview only. The
+ * exported LaTeX keeps it.
+ */
+function forKatex(source: string): string {
+  return source.replace(/(\\begin\{(?:aligned|gathered|alignedat)\})\[[tbc]\]/g, "$1");
+}
+
 function math(source: string, display: boolean): string {
   try {
-    return katex.renderToString(source, {
+    return katex.renderToString(forKatex(source), {
       displayMode: display,
       throwOnError: false,
       strict: false,

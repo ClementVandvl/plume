@@ -42,6 +42,14 @@ export type Template = {
   engine: string;
   keys: TemplateKey[];
   blocks: Record<string, BlockMapping>;
+  /**
+   * Typesetting instructions belonging to this house style.
+   *
+   * Reading rules and standing conventions describe how the teacher writes,
+   * whatever template they use; these describe what the template wants of the
+   * LaTeX, and follow the template when a course changes style.
+   */
+  conventions: Convention[];
 };
 
 export type DocumentStatus = "draft" | "review" | "ready";

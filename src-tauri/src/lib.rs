@@ -643,7 +643,7 @@ async fn transcribe_document(
             return Err("Ce document n'a aucune page.".to_string());
         }
 
-        let rules = settings::combined_rules(&document.reading_rules);
+        let rules = settings::combined_rules(&document.template_id, &document.reading_rules);
         let total = files.len();
         let job = runs::reading(&id);
         runs::begin(&job);

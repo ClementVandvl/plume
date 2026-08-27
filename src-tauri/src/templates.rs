@@ -62,6 +62,14 @@ pub struct Template {
     /// IR block kind -> LaTeX form. Missing kinds fall back to raw output.
     #[serde(default)]
     pub blocks: std::collections::HashMap<String, BlockMapping>,
+    /// Instructions that belong to this house style rather than to the teacher.
+    ///
+    /// Marker rules and standing conventions describe how *this teacher* writes,
+    /// whatever template they use. These describe how *this template* wants its
+    /// LaTeX shaped -- aligning a continued calculation on its equals sign, for
+    /// instance -- and follow the template when a course changes style.
+    #[serde(default)]
+    pub conventions: Vec<crate::settings::Convention>,
 }
 
 fn one() -> u32 {
@@ -111,6 +119,18 @@ pub fn seed(root: &Path) -> io::Result<()> {
                     key.value = (*value).to_string();
                 }
             }
+
+            // Conventions are the teacher's to edit, so what is installed wins
+            // and only genuinely new bundled entries are added. Editing one and
+            // finding it reworded by an update would be the same silent loss
+            // the preamble guard exists to prevent.
+            let mut conventions = installed.conventions.clone();
+            for bundled_convention in &bundled.conventions {
+                if !conventions.iter().any(|c| c.id == bundled_convention.id) {
+                    conventions.push(bundled_convention.clone());
+                }
+            }
+            upgraded.conventions = conventions;
 
             fs::create_dir_all(&target)?;
             fs::write(
@@ -485,6 +505,42 @@ mod tests {
 
         assert_eq!(read_preamble(&root, &copy.id).unwrap(), "% entièrement le mien\n");
         assert!(read_preamble(&root, BUILTIN_ID).unwrap().contains("chapitre"));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// Conventions are editable precisely because an upgrade keeps them.
+    #[test]
+    fn an_upgrade_keeps_edited_conventions_and_adds_new_ones() {
+        let root = scratch("conventions");
+
+        let mut installed = load(&root, BUILTIN_ID).unwrap();
+        assert!(
+            installed.conventions.iter().any(|c| c.id == "align-equals"),
+            "the bundled template must ship the alignment rule"
+        );
+
+        // The teacher reworded one and added their own, then Plume upgrades.
+        installed.conventions[0].text = "Ma formulation à moi.".into();
+        installed.conventions.push(crate::settings::Convention {
+            id: "mine".into(),
+            enabled: true,
+            title: "La mienne".into(),
+            text: "À conserver.".into(),
+        });
+        installed.version = 1;
+        fs::write(
+            dir(&root).join(BUILTIN_ID).join("template.json"),
+            serde_json::to_string_pretty(&installed).unwrap(),
+        )
+        .unwrap();
+
+        seed(&root).expect("upgrade");
+
+        let after = load(&root, BUILTIN_ID).unwrap();
+        let aligned = after.conventions.iter().find(|c| c.id == "align-equals").unwrap();
+        assert_eq!(aligned.text, "Ma formulation à moi.", "an edit must survive");
+        assert!(after.conventions.iter().any(|c| c.id == "mine"), "additions must survive");
+
         let _ = fs::remove_dir_all(&root);
     }
 

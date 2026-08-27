@@ -1,6 +1,6 @@
 {
   "id": "charte-maths",
-  "version": 3,
+  "version": 4,
   "name": "Charte cours de maths",
   "description": "Environnements à crochet coloré, titres soulignés, numérotation I / 1 / a.",
   "engine": "pdflatex",
@@ -239,5 +239,13 @@
       "mode": "centered",
       "name": ""
     }
-  }
+  },
+  "conventions": [
+    {
+      "id": "align-equals",
+      "enabled": true,
+      "title": "Calculs alignés sur le signe égal",
+      "text": "Quand un calcul se poursuit sur plusieurs lignes et qu'une ligne commence par « = », ne produis pas une équation séparée par ligne : regroupe-les dans un seul environnement aligned, chaque ligne alignée sur son signe égal avec &=. Le calcul reste ainsi à la marge du texte qui le précède au lieu d'être centré au milieu de la page. N'applique cela qu'à un enchaînement de lignes de calcul : une formule isolée garde sa forme habituelle."
+    }
+  ]
 }

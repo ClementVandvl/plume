@@ -16,72 +16,55 @@
       <main class="content">
         <div class="stack">
           <header class="page-head">
-            <div>
-              <h1 class="page-title">Modèles</h1>
-              <p class="page-subtitle">Votre charte : les couleurs, le squelette LaTeX, et la façon dont chaque type de bloc est écrit.</p>
-            </div>
+            <div><h1 class="page-title">Modèles</h1>
+            <p class="page-subtitle">Votre charte : les couleurs, le squelette LaTeX, et la façon dont chaque type de bloc est écrit.</p></div>
             <div class="review__actions">
               <button class="btn btn--ghost">Dupliquer</button>
               <button class="btn btn--primary">Enregistrer</button>
             </div>
           </header>
-
-          <div class="chips">
-            <button class="chip chip--on">Charte cours de maths<span class="chip__count">livré</span></button>
-            <button class="chip">Ma charte 2nde</button>
-          </div>
-
-          <p class="notice">Modèle livré avec Plume. Ses couleurs et ses valeurs vous appartiennent et survivent aux mises à jour — mais son squelette LaTeX est remplacé à chaque nouvelle version. Dupliquez-le pour en changer la structure.</p>
-          <p class="notice notice--ok">Le modèle compile.</p>
-
           <div class="tabs">
             <button class="tab">Apparence</button>
-            <button class="tab tab--on">Préambule</button>
+            <button class="tab tab--on">Règles</button>
+            <button class="tab">Préambule</button>
             <button class="tab">Blocs</button>
           </div>
-
-          <section class="stack stack--tight">
-            <div class="section-head">
-              <h2 class="section-title">Squelette LaTeX</h2>
-              <div class="review__actions">
-                <button class="btn btn--ghost">Vérifier</button>
-                <button class="btn btn--link">Voir valeurs substituées</button>
+          <div class="split split--open">
+            <div class="split__main">
+              <section class="registry">
+                <header class="registry__head">
+                  <div>
+                    <h2 class="section-title">Règles de mise en forme</h2>
+                    <p class="registry__hint">Ce que ce modèle attend du LaTeX produit. Elles s'ajoutent aux règles de lecture et aux conventions générales, qui valent pour tous les modèles — celles-ci suivent la charte.</p>
+                  </div>
+                  <button class="btn btn--ghost">Ajouter une règle</button>
+                </header>
+                <ul class="rules">
+                  <li><button class="rule rule--convention rule--selected">
+                    <span class="rule__trigger">Calculs alignés sur le signe égal</span>
+                    <span class="rule__effect">Quand un calcul se poursuit sur plusieurs lignes et qu'une ligne commence par « = », regroupe-les dans un seul environnement aligned…</span>
+                  </button></li>
+                  <li><button class="rule rule--convention rule--off">
+                    <span class="rule__trigger">Vecteurs en gras</span>
+                    <span class="rule__effect">Note les vecteurs avec une flèche, jamais en gras.</span>
+                    <span class="flag">désactivée</span>
+                  </button></li>
+                </ul>
+              </section>
+            </div>
+            <aside class="panel-side">
+              <header class="panel-side__head">
+                <div><span class="panel-side__kind">Convention</span><span class="panel-side__meta">active</span></div>
+                <button class="icon-btn icon-btn--close">×</button>
+              </header>
+              <div class="panel-side__body">
+                <label class="field"><span class="field__label">Titre</span>
+                  <input class="input" value="Calculs alignés sur le signe égal"></label>
+                <label class="field"><span class="field__label">Consigne</span>
+                  <textarea class="input" rows="6">Quand un calcul se poursuit sur plusieurs lignes et qu'une ligne commence par « = », ne produis pas une équation séparée par ligne : regroupe-les dans un seul environnement aligned.</textarea></label>
               </div>
-            </div>
-            <p class="field__hint">Les <code>{{clé}}</code> sont remplacés par les valeurs de l'onglet Apparence. « Vérifier » compile le modèle seul.</p>
-            <textarea class="input code-area" spellcheck="false">\documentclass[{{page.fontSize}},{{page.paper}}]{article}
-\usepackage[most]{tcolorbox}
-\definecolor{mcChapitre}{HTML}{{{color.chapter}}}
-
-\newcommand{\chapitre}[1]{%
-  \par\refstepcounter{mcchapitre}%
-  \begin{tcolorbox}[hbox, enhanced, colback=white, colframe=mcChapitre,
-      boxrule=0.9pt, sharp corners]
-    \large\bfseries\color{mcChapitre}\mcul{mcChapitre}{Chapitre~\themcchapitre~:}\ #1
-  \end{tcolorbox}}</textarea>
-          </section>
-
-          <section class="stack stack--tight">
-            <h2 class="section-title">Écriture des blocs</h2>
-            <div class="keys">
-              <label class="key">
-                <span class="key__label">Définition</span>
-                <span class="key__pair">
-                  <select class="input"><option>Environnement — \begin{nom}…</option></select>
-                  <input class="input input--compact" value="definition">
-                </span>
-                <code class="key__id">definition</code>
-              </label>
-              <label class="key">
-                <span class="key__label">Chapitre</span>
-                <span class="key__pair">
-                  <select class="input"><option>Commande — \nom{contenu}</option></select>
-                  <input class="input input--compact" value="chapitre">
-                </span>
-                <code class="key__id">chapter</code>
-              </label>
-            </div>
-          </section>
+            </aside>
+          </div>
         </div>
       </main>
     </div>
