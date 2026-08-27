@@ -332,6 +332,28 @@ struct ImportProgress {
     total: usize,
 }
 
+/// Lifecycle of one page during a read, for the timeline.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct PageState {
+    document_id: String,
+    page: usize,
+    /// `reading` | `done` | `failed` | `cancelled`
+    state: String,
+    blocks: usize,
+    message: Option<String>,
+}
+
+/// Proof of life while a page is being read. The label is one of a fixed set —
+/// never the model's own words.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct Heartbeat {
+    document_id: String,
+    page: usize,
+    label: String,
+}
+
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct Progress {
@@ -632,6 +654,17 @@ async fn transcribe_document(
                         break;
                     }
                     let number = index + 1;
+                    let _ = app.emit(
+                        "page-state",
+                        PageState {
+                            document_id: id.clone(),
+                            page: number,
+                            state: "reading".into(),
+                            blocks: 0,
+                            message: None,
+                        },
+                    );
+
                     let outcome = recognizer::transcribe_page(
                         &job,
                         &dir,
@@ -639,6 +672,16 @@ async fn transcribe_document(
                         &files[index],
                         &model,
                         &rules,
+                        &|label| {
+                            let _ = app.emit(
+                                "heartbeat",
+                                Heartbeat {
+                                    document_id: id.clone(),
+                                    page: number,
+                                    label: label.to_string(),
+                                },
+                            );
+                        },
                     );
 
                     let (phase, blocks, message) = match &outcome {
@@ -652,6 +695,21 @@ async fn transcribe_document(
                             ("failed", 0, Some(error.clone()))
                         }
                     };
+
+                    let _ = app.emit(
+                        "page-state",
+                        PageState {
+                            document_id: id.clone(),
+                            page: number,
+                            state: match phase {
+                                "page" => "done".into(),
+                                "cancelled" => "cancelled".into(),
+                                _ => "failed".into(),
+                            },
+                            blocks,
+                            message: message.clone(),
+                        },
+                    );
 
                     *slots[index].lock().unwrap() = Some(outcome);
                     let completed = done.fetch_add(1, Ordering::SeqCst) + 1;

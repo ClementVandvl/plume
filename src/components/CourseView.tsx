@@ -31,6 +31,9 @@ import {
   type TranscriptionProgress,
   type Transcript,
   type Template,
+  type PageStateEvent,
+  type HeartbeatEvent,
+  type ScanInfo,
 } from "../types";
 import { logError, logInfo } from "../log";
 import { useConfirm } from "../confirm";
@@ -77,6 +80,7 @@ export function CourseView({
   const [audience, setAudience] = useState("all");
   const [rules, setRules] = useState("");
   const [progress, setProgress] = useState<TranscriptionProgress | null>(null);
+  const [scan, setScan] = useState<Record<number, ScanInfo>>({});
   const [correcting, setCorrecting] = useState<CorrectionProgress | null>(null);
   const [openBlock, setOpenBlock] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
@@ -110,6 +114,31 @@ export function CourseView({
     });
     return () => {
       stop.then((off) => off()).catch(() => {});
+    };
+  }, [documentId]);
+
+  // The timeline: page lifecycles plus heartbeats. A heartbeat only refreshes
+  // the label — the state machine belongs to page-state events.
+  useEffect(() => {
+    const states = listen<PageStateEvent>("page-state", (event) => {
+      if (event.payload.documentId !== documentId) return;
+      const { page, state, blocks, message } = event.payload;
+      setScan((current) => ({
+        ...current,
+        [page]: { ...current[page], state, blocks, message: message ?? undefined },
+      }));
+    });
+    const beats = listen<HeartbeatEvent>("heartbeat", (event) => {
+      if (event.payload.documentId !== documentId) return;
+      const { page, label } = event.payload;
+      setScan((current) => ({
+        ...current,
+        [page]: { ...(current[page] ?? { state: "reading" }), state: "reading", label },
+      }));
+    });
+    return () => {
+      states.then((off) => off()).catch(() => {});
+      beats.then((off) => off()).catch(() => {});
     };
   }, [documentId]);
 
@@ -187,6 +216,7 @@ export function CourseView({
     setError(null);
     setBuild(null);
     setProgress(null);
+    setScan({});
     try {
       setTranscript(await transcribeDocument(documentId, model));
       setStep("review");
@@ -448,6 +478,36 @@ export function CourseView({
               parallélisme suit vos réglages.
             </span>
           </label>
+
+          <ol className="scan">
+            {pagePaths.map((path, index) => {
+              const number = index + 1;
+              const info = scan[number];
+              const already = transcript?.pages.find((p) => p.number === number);
+              const state = info?.state ?? (already ? "done" : "waiting");
+              const blocks = info?.blocks || already?.blocks.length || 0;
+              return (
+                <li key={path} className={`scan__row scan__row--${state}`}>
+                  <img className="scan__thumb" src={convertFileSrc(path)} alt="" />
+                  <div className="scan__body">
+                    <span className="scan__title">Page {number}</span>
+                    <span className="scan__label">
+                      {state === "reading"
+                        ? (info?.label ?? "Lecture en cours…")
+                        : state === "done"
+                          ? `${blocks} bloc${blocks > 1 ? "s" : ""}`
+                          : state === "failed"
+                            ? (info?.message ?? "Échec de lecture")
+                            : state === "cancelled"
+                              ? "Annulée — pages déjà lues conservées"
+                              : "En attente"}
+                    </span>
+                  </div>
+                  <span className={`scan__dot scan__dot--${state}`} aria-hidden="true" />
+                </li>
+              );
+            })}
+          </ol>
 
           {progress && (
             <p className={`notice ${progress.phase === "failed" ? "notice--error" : ""}`}>

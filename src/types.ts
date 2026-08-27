@@ -219,3 +219,27 @@ export const EFFECT_LABEL: Record<Effect["kind"], string> = {
 
 /** Emitted while photos are being imported and normalised. */
 export type ImportProgress = { done: number; total: number };
+
+/** Lifecycle of one page during a read. */
+export type PageStateEvent = {
+  documentId: string;
+  page: number;
+  state: "reading" | "done" | "failed" | "cancelled";
+  blocks: number;
+  message: string | null;
+};
+
+/** Proof of life while a page is being read; the label is from a fixed set. */
+export type HeartbeatEvent = {
+  documentId: string;
+  page: number;
+  label: string;
+};
+
+/** What the timeline knows about one page. */
+export type ScanInfo = {
+  state: PageStateEvent["state"] | "waiting";
+  blocks?: number;
+  message?: string;
+  label?: string;
+};

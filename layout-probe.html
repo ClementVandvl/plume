@@ -14,47 +14,45 @@
     <div class="shell">
       <nav class="sidebar"><div class="sidebar__brand"><span class="sidebar__wordmark">Plume</span></div></nav>
       <main class="content">
-        <div class="modal" style="position:static; width:min(560px,100%)">
-          <header class="modal__head">
-            <div><h2 class="modal__title">Réglages</h2></div>
-          </header>
-          <div class="modal__body">
-            <section class="stack stack--tight">
-              <h3 class="section-title">Mises à jour</h3>
-              <div class="update">
-                <div class="update__row">
-                  <div class="update__identity">
-                    <span class="update__name">Plume 0.1.1</span>
-                    <span class="update__status">Plume est à jour.</span>
-                  </div>
-                  <button class="btn btn--ghost">Rechercher</button>
+        <div class="stack" style="max-width:620px">
+          <section class="stack stack--tight">
+            <h2 class="section-title">Lecture des pages</h2>
+            <ol class="scan">
+              <li class="scan__row scan__row--done">
+                <span class="scan__thumb" style="background:#e8e4dc"></span>
+                <div class="scan__body">
+                  <span class="scan__title">Page 1</span>
+                  <span class="scan__label">7 blocs</span>
                 </div>
-                <label class="check update__auto">
-                  <input type="checkbox" checked>
-                  Rechercher automatiquement au démarrage
-                </label>
-              </div>
-            </section>
-
-            <section class="stack stack--tight">
-              <h3 class="section-title">Mises à jour — version disponible</h3>
-              <div class="update">
-                <div class="update__row">
-                  <div class="update__identity">
-                    <span class="update__name">Plume 0.1.1</span>
-                    <span class="update__status update__status--highlight">Version 0.1.2 disponible — publiée le 2026-08-24.</span>
-                  </div>
-                  <button class="btn btn--primary">Installer 0.1.2</button>
+                <span class="scan__dot scan__dot--done"></span>
+              </li>
+              <li class="scan__row scan__row--reading">
+                <span class="scan__thumb" style="background:#e8e4dc"></span>
+                <div class="scan__body">
+                  <span class="scan__title">Page 2</span>
+                  <span class="scan__label">Examine la photo…</span>
                 </div>
-                <pre class="release-notes">Corrige la lecture sur les machines de 8 Go.
-Les fenêtres de console n'apparaissent plus sous Windows.</pre>
-                <label class="check update__auto">
-                  <input type="checkbox" checked>
-                  Rechercher automatiquement au démarrage
-                </label>
-              </div>
-            </section>
-          </div>
+                <span class="scan__dot scan__dot--reading"></span>
+              </li>
+              <li class="scan__row scan__row--reading">
+                <span class="scan__thumb" style="background:#e8e4dc"></span>
+                <div class="scan__body">
+                  <span class="scan__title">Page 3</span>
+                  <span class="scan__label">Met les blocs en forme…</span>
+                </div>
+                <span class="scan__dot scan__dot--reading"></span>
+              </li>
+              <li class="scan__row scan__row--waiting">
+                <span class="scan__thumb" style="background:#e8e4dc"></span>
+                <div class="scan__body">
+                  <span class="scan__title">Page 4</span>
+                  <span class="scan__label">En attente</span>
+                </div>
+                <span class="scan__dot scan__dot--waiting"></span>
+              </li>
+            </ol>
+            <p class="notice">Page 1 sur 4 — 0,11 $ cumulés.</p>
+          </section>
         </div>
       </main>
     </div>

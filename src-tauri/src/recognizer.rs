@@ -12,7 +12,7 @@
 use crate::ir;
 use crate::logbus;
 use serde::Serialize;
-use std::io::Write;
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
 use std::process::Stdio;
 
@@ -47,11 +47,45 @@ pub struct PageOutcome {
     pub turns: u32,
 }
 
+/// Coarse, user-safe reading of one stream event.
+///
+/// The stream carries the model's actual words and tool calls; none of that
+/// belongs on screen. What the teacher needs is proof of life, so events are
+/// flattened to a handful of French labels — and anything unrecognised maps to
+/// nothing rather than leaking.
+fn classify(event: &serde_json::Value) -> Option<&'static str> {
+    match event.get("type")?.as_str()? {
+        "system" => Some("Préparation de la lecture…"),
+        "user" => Some("Photo chargée…"),
+        "assistant" => {
+            let blocks = event.pointer("/message/content")?.as_array()?;
+            let mut has_text = false;
+            for block in blocks {
+                match block.get("type").and_then(|v| v.as_str()) {
+                    Some("tool_use") => {
+                        return match block.get("name").and_then(|v| v.as_str()) {
+                            Some("Read") => Some("Examine la photo…"),
+                            _ => Some("Met les blocs en forme…"),
+                        };
+                    }
+                    Some("text") => has_text = true,
+                    _ => {}
+                }
+            }
+            has_text.then_some("Analyse le contenu…")
+        }
+        _ => None,
+    }
+}
+
 /// Transcribes `pages/NN.ext` inside `document_dir`.
 ///
 /// `reading_rules` is the user's own natural-language instruction block (their
 /// highlighter conventions, teacher-only markers...). It is appended verbatim,
 /// in whatever language they wrote it.
+///
+/// `on_activity` receives the heartbeat labels from `classify` as the model
+/// works: a page takes a minute or two, and a silent minute reads as a crash.
 pub fn transcribe_page(
     run_id: &str,
     document_dir: &Path,
@@ -59,6 +93,7 @@ pub fn transcribe_page(
     image_name: &str,
     model: &str,
     reading_rules: &str,
+    on_activity: &dyn Fn(&'static str),
 ) -> Result<PageOutcome, String> {
     let mut system = SYSTEM_PROMPT.to_string();
     if !reading_rules.trim().is_empty() {
@@ -97,7 +132,8 @@ pub fn transcribe_page(
         .arg("--model")
         .arg(model)
         .arg("--output-format")
-        .arg("json")
+        .arg("stream-json")
+        .arg("--verbose")
         .arg("--json-schema")
         .arg(ir::page_schema())
         .arg("--system-prompt")
@@ -122,8 +158,31 @@ pub fn transcribe_page(
         .write_all(prompt.as_bytes())
         .map_err(|e| format!("Envoi de la consigne : {e}"))?;
 
-    let output = child
-        .wait_with_output()
+    // The stream is read as it arrives: each event becomes a heartbeat, and the
+    // final `result` line carries the same envelope the one-shot format did.
+    let stdout = child.stdout.take().ok_or("Sortie standard indisponible.")?;
+    let mut envelope: Option<serde_json::Value> = None;
+    for line in BufReader::new(stdout).lines() {
+        let Ok(line) = line else { break };
+        if line.trim().is_empty() {
+            continue;
+        }
+        let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) else {
+            continue;
+        };
+        if event.get("type").and_then(|v| v.as_str()) == Some("result") {
+            envelope = Some(event);
+        } else if let Some(label) = classify(&event) {
+            on_activity(label);
+        }
+    }
+
+    let mut stderr_text = String::new();
+    if let Some(mut stream) = child.stderr.take() {
+        let _ = stream.read_to_string(&mut stderr_text);
+    }
+    let status = child
+        .wait()
         .map_err(|e| format!("Exécution de Claude Code : {e}"))?;
     crate::runs::unwatch(run_id, pid);
 
@@ -131,13 +190,11 @@ pub fn transcribe_page(
         return Err(CANCELLED.to_string());
     }
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let first = stderr.lines().next().unwrap_or("").trim().to_string();
-        logbus::error("claude", format!("Page {page_number} — {}", output.status));
+    if !status.success() {
+        let first = stderr_text.lines().next().unwrap_or("").trim().to_string();
+        logbus::error("claude", format!("Page {page_number} — {status}"));
         return Err(format!(
-            "Claude Code s'est arrêté ({}). {}",
-            output.status,
+            "Claude Code s'est arrêté ({status}). {}",
             if first.is_empty() {
                 "Aucun message d'erreur — détail dans la console."
             } else {
@@ -146,8 +203,7 @@ pub fn transcribe_page(
         ));
     }
 
-    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .map_err(|e| format!("Réponse illisible de Claude Code : {e}"))?;
+    let envelope = envelope.ok_or("Claude Code n'a renvoyé aucun résultat.")?;
 
     if envelope.get("is_error").and_then(|v| v.as_bool()) == Some(true) {
         return Err(format!(
@@ -353,4 +409,50 @@ pub fn correct_block(
     );
 
     Ok(corrected)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn event(raw: &str) -> serde_json::Value {
+        serde_json::from_str(raw).expect("valid test event")
+    }
+
+    /// Shapes captured from a real `--output-format stream-json` run.
+    #[test]
+    fn classify_covers_the_observed_stream() {
+        assert_eq!(
+            classify(&event(r#"{"type":"system","subtype":"init"}"#)),
+            Some("Préparation de la lecture…")
+        );
+        assert_eq!(
+            classify(&event(
+                r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{}}]}}"#
+            )),
+            Some("Examine la photo…")
+        );
+        assert_eq!(
+            classify(&event(
+                r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"StructuredOutput","input":{}}]}}"#
+            )),
+            Some("Met les blocs en forme…")
+        );
+        assert_eq!(
+            classify(&event(
+                r#"{"type":"assistant","message":{"content":[{"type":"text","text":"..."}]}}"#
+            )),
+            Some("Analyse le contenu…")
+        );
+        assert_eq!(classify(&event(r#"{"type":"user","message":{}}"#)), Some("Photo chargée…"));
+    }
+
+    /// The model's words must never leak through the heartbeat, and unknown
+    /// event types must map to silence rather than a guess.
+    #[test]
+    fn classify_stays_quiet_on_unknown_events() {
+        assert_eq!(classify(&event(r#"{"type":"rate_limit_event"}"#)), None);
+        assert_eq!(classify(&event(r#"{"type":"result","subtype":"success"}"#)), None);
+        assert_eq!(classify(&event(r#"{"no_type":true}"#)), None);
+    }
 }

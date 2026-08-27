@@ -1064,6 +1064,134 @@ textarea.input {
   gap: var(--space-xs);
 }
 
+/* ---------- Scan timeline ---------- */
+.scan {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.scan__row {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+/* A sweep of light while the model works: the animation runs continuously,
+   independent of when the next heartbeat lands. */
+.scan__row--reading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--color-info) 9%, transparent) 50%,
+    transparent 70%
+  );
+  animation: scan-sweep 1.8s linear infinite;
+  pointer-events: none;
+}
+
+.scan__thumb {
+  width: 34px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: var(--radius-subtle);
+  border: var(--border-width) solid var(--color-border);
+}
+
+.scan__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.scan__title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.scan__label {
+  font-size: var(--font-size-label);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scan__row--reading .scan__label {
+  color: var(--color-info);
+}
+
+.scan__row--done .scan__label {
+  color: var(--color-success);
+}
+
+.scan__row--failed .scan__label {
+  color: var(--color-accent);
+}
+
+.scan__row--waiting {
+  opacity: 0.65;
+}
+
+.scan__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
+}
+
+.scan__dot--reading {
+  background: var(--color-info);
+  animation: scan-pulse 1.2s ease-in-out infinite;
+}
+
+.scan__dot--done {
+  background: var(--color-success);
+}
+
+.scan__dot--failed {
+  background: var(--color-accent);
+}
+
+.scan__dot--cancelled {
+  background: var(--color-warning);
+}
+
+@keyframes scan-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes scan-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
 /* ---------- Updates ---------- */
 .update {
   display: flex;
