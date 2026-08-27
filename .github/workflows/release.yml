@@ -198,6 +198,30 @@ jobs:
           # polls. Without it, nothing can find an update.
           includeUpdaterJson: true
 
+      # The run itself never said where the packages went, which read as "no
+      # draft appeared" when the publish box was simply unticked.
+      - name: Résumé
+        shell: bash
+        run: |
+          {
+            if [ -n "${{ needs.plan.outputs.tag }}" ]; then
+              echo "### Release brouillon ${{ needs.plan.outputs.tag }}"
+              echo ""
+              echo "Les paquets de **${{ matrix.label }}** sont attachés au brouillon :"
+              echo "https://github.com/${{ github.repository }}/releases"
+              echo ""
+              echo "Un brouillon n'apparaît ni dans l'encart Releases de la page"
+              echo "d'accueil, ni pour les visiteurs — seulement sur la page des"
+              echo "releases, en haut, avec l'étiquette « Draft »."
+            else
+              echo "### Essai sans publication"
+              echo ""
+              echo "« Créer une release brouillon » n'était pas coché : les paquets de"
+              echo "**${{ matrix.label }}** sont dans les artefacts de ce run"
+              echo "(section Artifacts, en bas de cette page). Aucune release n'a été créée."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # Without a release, the packages would otherwise be thrown away with the
       # runner. Attached to the run instead, so a trial build is still testable.
       #
