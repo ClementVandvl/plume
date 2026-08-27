@@ -60,6 +60,19 @@ export const setReadingRules = (id: string, rules: string) =>
 export const saveTemplate = (template: Template) =>
   invoke<void>("save_template", { template });
 
+export const duplicateTemplate = (sourceId: string, name: string) =>
+  invoke<Template>("duplicate_template", { sourceId, name });
+
+export const deleteTemplate = (id: string) => invoke<void>("delete_template", { id });
+
+export const readTemplatePreamble = (id: string) =>
+  invoke<string>("read_template_preamble", { id });
+
+export const writeTemplatePreamble = (id: string, text: string) =>
+  invoke<void>("write_template_preamble", { id, text });
+
+export const checkTemplate = (id: string) => invoke<void>("check_template", { id });
+
 export const renderFigure = (id: string, tikz: string) =>
   invoke<string>("render_figure", { id, tikz });
 

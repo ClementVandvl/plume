@@ -26,12 +26,22 @@ export type TemplateKey = {
   value: string;
 };
 
+/** How one IR block kind is written in this template's LaTeX. */
+export type BlockMapping = {
+  /** `command` | `environment` | `raw` | `centered` */
+  mode: string;
+  /** Command or environment name; empty for `raw` and `centered`. */
+  name: string;
+};
+
 export type Template = {
   id: string;
+  version: number;
   name: string;
   description: string;
   engine: string;
   keys: TemplateKey[];
+  blocks: Record<string, BlockMapping>;
 };
 
 export type DocumentStatus = "draft" | "review" | "ready";

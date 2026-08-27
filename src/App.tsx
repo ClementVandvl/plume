@@ -68,7 +68,7 @@ export default function App() {
   // chrome would only compete with the document being reviewed.
   if (route.name === "course") {
     return (
-      <div className={`deep ${consoleOpen ? "deep--console" : ""}`}>
+      <div className="deep">
         <CourseView
           key={route.id}
           documentId={route.id}

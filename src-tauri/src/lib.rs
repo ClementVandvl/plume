@@ -222,6 +222,39 @@ async fn render_figure(id: String, tikz: String) -> Result<String, String> {
 /// Only values are meant to change; structure comes from the bundled template
 /// and is replaced on upgrade.
 #[tauri::command]
+fn duplicate_template(source_id: String, name: String) -> Result<templates::Template, String> {
+    templates::duplicate(&workspace::root(), &source_id, &name)
+}
+
+#[tauri::command]
+fn delete_template(id: String) -> Result<(), String> {
+    templates::delete(&workspace::root(), &id)
+}
+
+#[tauri::command]
+fn read_template_preamble(id: String) -> Result<String, String> {
+    templates::read_preamble(&workspace::root(), &id)
+}
+
+#[tauri::command]
+fn write_template_preamble(id: String, text: String) -> Result<(), String> {
+    templates::write_preamble(&workspace::root(), &id, &text)
+}
+
+/// Compiles the template on its own, so an error surfaces in the editor rather
+/// than during an export.
+#[tauri::command]
+async fn check_template(id: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = workspace::root();
+        let template = templates::load(&root, &id).ok_or("Modèle introuvable.")?;
+        templates::check(&root, &template)
+    })
+    .await
+    .map_err(|e| format!("Vérification interrompue : {e}"))?
+}
+
+#[tauri::command]
 fn save_template(template: templates::Template) -> Result<(), String> {
     templates::save(&workspace::root(), &template)
 }
@@ -913,6 +946,11 @@ pub fn run() {
             get_settings,
             save_settings,
             save_template,
+            duplicate_template,
+            delete_template,
+            read_template_preamble,
+            write_template_preamble,
+            check_template,
             list_templates,
             create_document,
             preview_preamble,

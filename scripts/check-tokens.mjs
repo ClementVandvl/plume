@@ -65,18 +65,125 @@ for (const file of componentCss) {
 
 const declared = new Set(
   componentCss
-    .flatMap((file) => [...readFileSync(file, "utf8").matchAll(/^\.([a-zA-Z0-9_-]+)/gm)])
+    // An element-qualified selector declares the class too: `textarea.code-area`
+    // exists precisely to outrank `textarea.input`, and reading only bare `.x`
+    // selectors reported it as an orphan.
+    .flatMap((file) => [
+      ...readFileSync(file, "utf8").matchAll(/^(?:[a-zA-Z][a-zA-Z0-9]*)?\.([a-zA-Z0-9_-]+)/gm),
+    ])
     .map((match) => match[1]),
 );
+
+/**
+ * The static string literals inside a JSX expression.
+ *
+ * Template literals are walked rather than pattern-matched: `${...}` spans are
+ * skipped (and mined for literals of their own, so a ternary's branches still
+ * count), leaving only text the author actually wrote. A crude regex here read
+ * `${consoleOpen ? "` as a literal and invented a `.consoleOpen` class.
+ */
+function literalsIn(source) {
+  const out = [];
+  let i = 0;
+  while (i < source.length) {
+    const ch = source[i];
+
+    if (ch === '"' || ch === "'") {
+      const end = source.indexOf(ch, i + 1);
+      if (end === -1) break;
+      // The operand of a comparison is a value being tested, not a class:
+      // `state.kind === "available"` names a state, and reporting `.available`
+      // as a missing rule is noise that hides the real orphans.
+      const before = source.slice(0, i).trimEnd();
+      if (!before.endsWith("=")) out.push(source.slice(i + 1, end));
+      i = end + 1;
+      continue;
+    }
+
+    if (ch === "`") {
+      i += 1;
+      let text = "";
+      while (i < source.length && source[i] !== "`") {
+        if (source[i] === "$" && source[i + 1] === "{") {
+          const start = i + 1;
+          let depth = 0;
+          for (; i < source.length; i += 1) {
+            if (source[i] === "{") depth += 1;
+            else if (source[i] === "}") {
+              depth -= 1;
+              if (depth === 0) {
+                i += 1;
+                break;
+              }
+            }
+          }
+          out.push(...literalsIn(source.slice(start + 1, i - 1)));
+          // A space, so `scan__row--${state}` does not fuse with what follows.
+          text += " ";
+        } else {
+          text += source[i];
+          i += 1;
+        }
+      }
+      out.push(text);
+      i += 1;
+      continue;
+    }
+
+    i += 1;
+  }
+  return out;
+}
+
+/**
+ * Every class named in a `className`, including inside template literals.
+ *
+ * Reading only up to the first brace missed `className={`deep ${x}`}`
+ * entirely, which is how a console panel shipped with no height rule at all:
+ * the class was there, the rule was not, and nothing complained.
+ */
+function classNamesIn(source) {
+  const names = [];
+  const marker = "className=";
+  for (let at = source.indexOf(marker); at !== -1; at = source.indexOf(marker, at + 1)) {
+    let i = at + marker.length;
+    let literals;
+
+    if (source[i] === '"' || source[i] === "'") {
+      const end = source.indexOf(source[i], i + 1);
+      if (end === -1) continue;
+      literals = [source.slice(i + 1, end)];
+    } else if (source[i] === "{") {
+      let depth = 0;
+      const start = i;
+      for (; i < source.length; i += 1) {
+        if (source[i] === "{") depth += 1;
+        else if (source[i] === "}") {
+          depth -= 1;
+          if (depth === 0) break;
+        }
+      }
+      literals = literalsIn(source.slice(start + 1, i));
+    } else {
+      continue;
+    }
+
+    for (const literal of literals) {
+      for (const token of literal.split(/\s+/)) {
+        // A name left open by an interpolation -- `scan__row--` -- cannot be
+        // checked, so it is not claimed to be missing either.
+        if (token && !token.endsWith("-")) names.push(token);
+      }
+    }
+  }
+  return names;
+}
 
 const used = new Set();
 for (const file of filesWith("src", ".tsx")) {
   const source = readFileSync(file, "utf8");
-  for (const [, value] of source.matchAll(/className=[{"`]([^"`}]*)/g)) {
-    for (const token of value.split(/[\s${}?:]+/)) {
-      const name = token.replace(/["'`]/g, "");
-      if (/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) used.add(name);
-    }
+  for (const name of classNamesIn(source)) {
+    if (/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) used.add(name);
   }
 }
 

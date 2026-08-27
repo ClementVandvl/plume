@@ -28,5 +28,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 - [Reconnaissance, l'IR et la boucle de vérification](docs/recognition.md) — comment
   une photo devient du LaTeX, et ce que valent réellement les garde-fous.
+- [Modèles](docs/templates.md) — clés, préambule, écriture des blocs, et pourquoi
+  le modèle livré se duplique au lieu de s'éditer.
 - [Empaquetage et publication](docs/packaging.md) — ce qui se construit où,
   signature, moteur LaTeX.

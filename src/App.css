@@ -964,6 +964,11 @@ textarea.input {
     color-mix(in srgb, var(--color-info) 25%, transparent);
 }
 
+.notice--ok {
+  border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border));
+  color: var(--color-success);
+}
+
 .notice--error {
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 9%, transparent);
@@ -1062,6 +1067,57 @@ textarea.input {
 .modal__buttons {
   display: flex;
   gap: var(--space-xs);
+}
+
+/* ---------- Tabs ---------- */
+.tabs {
+  display: flex;
+  gap: var(--space-2xs);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.tab {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: var(--space-xs) var(--space-sm);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--color-text);
+}
+
+.tab--on {
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent);
+}
+
+/* ---------- Template editing ---------- */
+/* Tall on purpose: a preamble is read in blocks, and a four-line window turns
+   editing it into scrolling. */
+/* `textarea.input` zeroes the control's min-height and outranks a lone class,
+   so this one has to match its specificity to win. */
+textarea.code-area {
+  min-height: 420px;
+  resize: vertical;
+  font-family: var(--font-code);
+  font-size: var(--font-size-label);
+  line-height: 1.5;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+.key__pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: var(--space-2xs);
 }
 
 /* ---------- Scan timeline ---------- */

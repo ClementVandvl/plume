@@ -18,7 +18,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-const BUILTIN_ID: &str = "charte-maths";
+pub const BUILTIN_ID: &str = "charte-maths";
 const BUILTIN_MANIFEST: &str = include_str!("../resources/templates/charte-maths/template.json");
 const BUILTIN_PREAMBLE: &str =
     include_str!("../resources/templates/charte-maths/preamble.tex.tmpl");
@@ -164,6 +164,29 @@ pub fn load(root: &Path, id: &str) -> Option<Template> {
 
 /// Writes a template back to disk.
 pub fn save(root: &Path, template: &Template) -> Result<(), String> {
+    // Key values survive an upgrade; name, description and block mappings do
+    // not. Refusing here beats accepting an edit that a future release erases.
+    if is_builtin(&template.id) {
+        if let Some(bundled) = load(root, BUILTIN_ID) {
+            let restructured = template.name != bundled.name
+                || template.description != bundled.description
+                || template.blocks.len() != bundled.blocks.len()
+                || template.blocks.iter().any(|(kind, mapping)| {
+                    bundled.blocks.get(kind).is_none_or(|other| {
+                        other.mode != mapping.mode || other.name != mapping.name
+                    })
+                });
+            if restructured {
+                return Err(
+                    "Le modèle livré avec Plume est remplacé à chaque mise à jour : \
+                     seules ses couleurs et ses valeurs sont conservées. \
+                     Dupliquez-le pour en changer la structure."
+                        .into(),
+                );
+            }
+        }
+    }
+
     let target = dir(root).join(&template.id);
     fs::create_dir_all(&target).map_err(|e| format!("Dossier du modèle : {e}"))?;
     let manifest =
@@ -171,6 +194,181 @@ pub fn save(root: &Path, template: &Template) -> Result<(), String> {
     fs::write(target.join("template.json"), manifest)
         .map_err(|e| format!("Écriture du modèle : {e}"))?;
     logbus::info("template", format!("Modèle « {} » enregistré", template.name));
+    Ok(())
+}
+
+/// The bundled template, which Plume owns and overwrites on upgrade.
+///
+/// This is the whole reason duplication exists. `seed` rewrites
+/// `preamble.tex.tmpl` whenever the bundled version rises, so an edit made
+/// there would vanish at the next update — silently, months later, with no way
+/// to tell what happened. Key *values* survive, because `seed` carries them
+/// over; nothing else does.
+pub fn is_builtin(id: &str) -> bool {
+    id == BUILTIN_ID
+}
+
+/// A file-system-safe id derived from a display name.
+fn slug(name: &str) -> String {
+    let mut out = String::new();
+    let mut dash = false;
+    for c in name.to_lowercase().chars() {
+        // Accented letters are folded rather than dropped: "Modèle élève"
+        // should not become "modle-lve".
+        let folded = match c {
+            'à' | 'â' | 'ä' | 'á' | 'ã' => 'a',
+            'é' | 'è' | 'ê' | 'ë' => 'e',
+            'î' | 'ï' | 'í' => 'i',
+            'ô' | 'ö' | 'ó' | 'õ' => 'o',
+            'û' | 'ü' | 'ù' | 'ú' => 'u',
+            'ç' => 'c',
+            'ÿ' | 'ý' => 'y',
+            'ñ' => 'n',
+            other => other,
+        };
+        if folded.is_ascii_alphanumeric() {
+            out.push(folded);
+            dash = false;
+        } else if !out.is_empty() && !dash {
+            out.push('-');
+            dash = true;
+        }
+    }
+    let trimmed = out.trim_matches('-').to_string();
+    if trimmed.is_empty() {
+        "modele".to_string()
+    } else {
+        trimmed
+    }
+}
+
+/// Copies a template under a new name, so the original stays untouched.
+pub fn duplicate(root: &Path, source_id: &str, name: &str) -> Result<Template, String> {
+    let source = load(root, source_id).ok_or("Modèle introuvable.")?;
+
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("Donnez un nom au modèle.".into());
+    }
+
+    // Suffix rather than reject: being told "that name is taken" while holding
+    // a perfectly good name helps nobody.
+    let base = slug(name);
+    let mut id = base.clone();
+    let mut n = 2;
+    while dir(root).join(&id).exists() {
+        id = format!("{base}-{n}");
+        n += 1;
+    }
+
+    let mut copy = source.clone();
+    copy.id = id.clone();
+    copy.name = name.to_string();
+    // Version 1 and a distinct id keep it clear of `seed`, which only ever
+    // touches BUILTIN_ID. A personal template is never upgraded under the
+    // teacher's feet.
+    copy.version = 1;
+
+    let target = dir(root).join(&id);
+    fs::create_dir_all(&target).map_err(|e| format!("Création du modèle : {e}"))?;
+    fs::write(
+        target.join("preamble.tex.tmpl"),
+        read_preamble(root, source_id)?,
+    )
+    .map_err(|e| format!("Écriture du préambule : {e}"))?;
+    save(root, &copy)?;
+
+    logbus::detail(
+        "template",
+        format!("Modèle « {} » créé", copy.name),
+        format!("copié depuis « {} »", source.name),
+    );
+    Ok(copy)
+}
+
+/// Moves a template to the workbook's bin. Never the bundled one.
+pub fn delete(root: &Path, id: &str) -> Result<(), String> {
+    if is_builtin(id) {
+        return Err("Le modèle livré avec Plume ne peut pas être supprimé.".into());
+    }
+    let source = dir(root).join(id);
+    if !source.exists() {
+        return Err("Modèle introuvable.".into());
+    }
+
+    // Kept rather than erased, like a deleted course: a template is hours of
+    // work and the teacher may have meant the other one.
+    let bin = crate::workspace::bin_dir().join("Modeles");
+    fs::create_dir_all(&bin).map_err(|e| format!("Corbeille inaccessible : {e}"))?;
+
+    let mut target = bin.join(id);
+    let mut n = 2;
+    while target.exists() {
+        target = bin.join(format!("{id}-{n}"));
+        n += 1;
+    }
+    fs::rename(&source, &target).map_err(|e| format!("Suppression du modèle : {e}"))?;
+    logbus::info("template", format!("Modèle « {id} » déplacé vers la corbeille"));
+    Ok(())
+}
+
+/// The preamble as written, placeholders intact.
+pub fn read_preamble(root: &Path, id: &str) -> Result<String, String> {
+    fs::read_to_string(dir(root).join(id).join("preamble.tex.tmpl"))
+        .map_err(|e| format!("Lecture du préambule : {e}"))
+}
+
+/// Replaces the preamble, refusing placeholders no key defines.
+///
+/// An unknown `{{key}}` would survive substitution and reach the compiler as
+/// literal braces — a LaTeX error far from its cause. Caught here, it names the
+/// key instead.
+pub fn write_preamble(root: &Path, id: &str, text: &str) -> Result<(), String> {
+    if is_builtin(id) {
+        return Err(
+            "Le modèle livré avec Plume est remplacé à chaque mise à jour.              Dupliquez-le pour modifier sa mise en forme."
+                .into(),
+        );
+    }
+    let template = load(root, id).ok_or("Modèle introuvable.")?;
+    let known: std::collections::HashSet<&str> =
+        template.keys.iter().map(|k| k.key.as_str()).collect();
+
+    let mut unknown: Vec<String> = Vec::new();
+    let mut rest = text;
+    while let Some(start) = rest.find("{{") {
+        // A placeholder usually sits inside a LaTeX group -- `{{{color.body}}}`
+        // -- so the extra braces are skipped before reading the name. Anything
+        // that is not a bare key between the braces is ordinary LaTeX, such as
+        // `{{\bfseries x}}`, and is left alone.
+        let after = &rest[start + 2..];
+        let inner = after.trim_start_matches('{');
+        let name: String = inner
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+            .collect();
+
+        if !name.is_empty()
+            && inner[name.len()..].starts_with("}}")
+            && !known.contains(name.as_str())
+            && !unknown.contains(&name)
+        {
+            unknown.push(name);
+        }
+        rest = after;
+    }
+    if !unknown.is_empty() {
+        return Err(format!(
+            "Clé{} inconnue{} dans le préambule : {}. Utilisez une clé existante ou corrigez la faute de frappe.",
+            if unknown.len() > 1 { "s" } else { "" },
+            if unknown.len() > 1 { "s" } else { "" },
+            unknown.join(", ")
+        ));
+    }
+
+    fs::write(dir(root).join(id).join("preamble.tex.tmpl"), text)
+        .map_err(|e| format!("Écriture du préambule : {e}"))?;
+    logbus::info("template", format!("Préambule de « {} » enregistré", template.name));
     Ok(())
 }
 
@@ -193,9 +391,186 @@ pub fn render_preamble(root: &Path, template: &Template) -> io::Result<String> {
     Ok(preamble)
 }
 
+/// Compiles the preamble against a token document.
+///
+/// A preamble is only ever wrong at compile time, and finding that out during
+/// an export — after a reading has been paid for — is the wrong moment. The
+/// probe exercises every environment the template declares, so a mistyped
+/// `\newtcolorbox` is caught here and not on the one block that used it.
+pub fn check(root: &Path, template: &Template) -> Result<(), String> {
+    let preamble = render_preamble(root, template).map_err(|e| format!("Préambule : {e}"))?;
+
+    let mut body = String::from("\\begin{document}\n");
+    for (kind, mapping) in &template.blocks {
+        match mapping.mode.as_str() {
+            "environment" => body.push_str(&format!(
+                "\\begin{{{name}}}[{kind}]\nTexte de contrôle.\n\\end{{{name}}}\n",
+                name = mapping.name
+            )),
+            "command" => body.push_str(&format!(
+                "\\{}{{Texte de contrôle}}\n",
+                mapping.name
+            )),
+            _ => {}
+        }
+    }
+    body.push_str("\\end{document}\n");
+
+    let dir = std::env::temp_dir().join(format!("plume-check-{}", template.id));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).map_err(|e| format!("Dossier temporaire : {e}"))?;
+    fs::write(dir.join("check.tex"), format!("{preamble}\n{body}"))
+        .map_err(|e| format!("Écriture du document de contrôle : {e}"))?;
+
+    let outcome = crate::latex::compile(&dir, "check.tex");
+    let _ = fs::remove_dir_all(&dir);
+    outcome.map(|_| ())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A scratch workbook root, so these never touch the real one.
+    fn scratch(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("plume-tpl-test-{name}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("scratch root");
+        seed(&root).expect("seed");
+        root
+    }
+
+    #[test]
+    fn slugs_fold_accents_rather_than_dropping_them() {
+        assert_eq!(slug("Modèle élève"), "modele-eleve");
+        assert_eq!(slug("Charte 2nde — maths"), "charte-2nde-maths");
+        assert_eq!(slug("   "), "modele");
+        assert_eq!(slug("Français"), "francais");
+    }
+
+    #[test]
+    fn duplicating_gives_an_independent_copy() {
+        let root = scratch("duplicate");
+        let copy = duplicate(&root, BUILTIN_ID, "Ma charte").expect("duplicate");
+
+        assert_eq!(copy.id, "ma-charte");
+        assert!(!is_builtin(&copy.id));
+        assert_eq!(copy.version, 1, "a personal template must stay clear of seed");
+        assert_eq!(copy.keys.len(), load(&root, BUILTIN_ID).unwrap().keys.len());
+        assert!(dir(&root).join("ma-charte").join("preamble.tex.tmpl").is_file());
+
+        // Editing the copy must leave the bundled preamble untouched.
+        let mine = read_preamble(&root, &copy.id).unwrap().replace("0.9pt", "2.4pt");
+        write_preamble(&root, &copy.id, &mine).expect("write copy");
+        assert!(read_preamble(&root, &copy.id).unwrap().contains("2.4pt"));
+        assert!(!read_preamble(&root, BUILTIN_ID).unwrap().contains("2.4pt"));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// The whole point of duplication: `seed` must not reach a personal copy.
+    #[test]
+    fn upgrading_never_touches_a_personal_template() {
+        let root = scratch("upgrade");
+        let copy = duplicate(&root, BUILTIN_ID, "Ma charte").expect("duplicate");
+        write_preamble(&root, &copy.id, "% entièrement le mien\n").expect("write");
+
+        // Force the upgrade path by ageing the installed bundled manifest.
+        let mut installed = load(&root, BUILTIN_ID).unwrap();
+        installed.version = 1;
+        let target = dir(&root).join(BUILTIN_ID).join("template.json");
+        fs::write(&target, serde_json::to_string_pretty(&installed).unwrap()).unwrap();
+
+        seed(&root).expect("re-seed");
+
+        assert_eq!(read_preamble(&root, &copy.id).unwrap(), "% entièrement le mien\n");
+        assert!(read_preamble(&root, BUILTIN_ID).unwrap().contains("chapitre"));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_bundled_template_refuses_edits_an_upgrade_would_erase() {
+        let root = scratch("builtin");
+
+        assert!(write_preamble(&root, BUILTIN_ID, "% nope").is_err());
+        assert!(delete(&root, BUILTIN_ID).is_err());
+
+        let mut renamed = load(&root, BUILTIN_ID).unwrap();
+        renamed.name = "Autre nom".into();
+        assert!(save(&root, &renamed).is_err(), "renaming would be undone by seed");
+
+        // Colours, however, are carried over by seed and must stay editable.
+        let mut recoloured = load(&root, BUILTIN_ID).unwrap();
+        recoloured.keys[0].value = "#123456".into();
+        assert!(save(&root, &recoloured).is_ok());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn an_unknown_placeholder_is_named_rather_than_compiled() {
+        let root = scratch("placeholder");
+        let copy = duplicate(&root, BUILTIN_ID, "Copie").expect("duplicate");
+
+        let error = write_preamble(&root, &copy.id, "{{color.chaptre}} {{color.chapter}}")
+            .expect_err("typo must be refused");
+        assert!(error.contains("color.chaptre"), "the error must name the key: {error}");
+        assert!(!error.contains("color.chapter,"), "valid keys must not be listed");
+
+        assert!(write_preamble(&root, &copy.id, "{{color.chapter}}").is_ok());
+
+        // The real preamble writes a placeholder inside a LaTeX group, and
+        // ordinary doubled braces must not be mistaken for one.
+        write_preamble(
+            &root,
+            &copy.id,
+            "\\definecolor{mc}{HTML}{{{color.chapter}}}\n{{\\bfseries x}}\n",
+        )
+        .expect("a grouped placeholder is valid LaTeX and a valid key");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// The whole editing chain against the real engine.
+    ///
+    /// Ignored by default: it needs Tectonic and a network for its first run,
+    /// neither of which belongs in CI. Run it with
+    /// `cargo test -- --ignored check_compiles` after touching the probe.
+    #[test]
+    #[ignore = "needs the LaTeX engine"]
+    fn the_check_compiles_a_healthy_template_and_rejects_a_broken_one() {
+        let root = scratch("check");
+        let copy = duplicate(&root, BUILTIN_ID, "Contrôle").expect("duplicate");
+        let template = load(&root, &copy.id).expect("load");
+
+        check(&root, &template).expect("a healthy template must compile");
+
+        let broken = read_preamble(&root, &copy.id)
+            .unwrap()
+            .replace("\\newtcolorbox{mccrochet}", "\\newtcolorbox{mccroche}");
+        write_preamble(&root, &copy.id, &broken).expect("write");
+        assert!(
+            check(&root, &template).is_err(),
+            "a check that never fails is worthless"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn deleting_keeps_the_template_in_the_bin() {
+        let root = scratch("delete");
+        let copy = duplicate(&root, BUILTIN_ID, "Jetable").expect("duplicate");
+        delete(&root, &copy.id).expect("delete");
+
+        assert!(load(&root, &copy.id).is_none());
+        assert!(
+            crate::workspace::bin_dir().join("Modeles").join(&copy.id).exists(),
+            "a deleted template must be recoverable"
+        );
+        let _ = fs::remove_dir_all(crate::workspace::bin_dir().join("Modeles").join(&copy.id));
+        let _ = fs::remove_dir_all(&root);
+    }
 
     /// Every kind the recogniser may emit must have a LaTeX form here, or the
     /// renderer falls back to raw output and the block loses its environment.
