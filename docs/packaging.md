@@ -25,14 +25,19 @@ only**.
 
 ## Releasing
 
-1. Commit and push the repository to GitHub.
-2. Tag a version and push the tag:
+1. **Bump the app version first**: `version` in `src-tauri/tauri.conf.json`
+   (and `Cargo.toml`). The update manifest announces *that* version — the tag
+   name plays no part in it. Publishing `v0.1.1` while the config still says
+   `0.1.0` ships a manifest announcing `0.1.0`, and every installed copy calls
+   itself up to date. The workflow now refuses a tag that does not match.
+2. Commit and push.
+3. Tag the same version and push the tag:
 
    ```bash
    git tag v0.1.0 && git push origin v0.1.0
    ```
 
-3. The workflow builds all four targets and opens a **draft** release with the
+4. The workflow builds all four targets and opens a **draft** release with the
    packages attached. Review it, then publish.
 
 ### Trying one platform

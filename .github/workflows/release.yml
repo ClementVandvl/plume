@@ -44,6 +44,8 @@ jobs:
       any: ${{ steps.targets.outputs.any }}
       tag: ${{ steps.targets.outputs.tag }}
     steps:
+      - uses: actions/checkout@v4
+
       - id: targets
         shell: bash
         run: |
@@ -67,6 +69,14 @@ jobs:
                 echo "::error::Cochez une version (ex. v0.1.0) pour publier."
                 exit 1
               fi
+            fi
+          fi
+
+          if [ -n "$tag" ]; then
+            app_version=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
+            if [ "v$app_version" != "$tag" ]; then
+              echo "::error::Le tag $tag ne correspond pas à la version de l'application ($app_version dans src-tauri/tauri.conf.json). Le manifeste de mise à jour annoncerait $app_version et les copies installées se croiraient à jour. Alignez la version, commitez, puis relancez."
+              exit 1
             fi
           fi
 
