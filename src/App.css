@@ -35,7 +35,7 @@ body {
 /* The console takes a real row rather than floating over the content, so
    nothing is ever hidden behind it. */
 .shell--console {
-  grid-template-rows: minmax(0, 1fr) 38vh;
+  grid-template-rows: minmax(0, 1fr) var(--console-height);
 }
 
 .content {
@@ -1067,6 +1067,9 @@ textarea.input {
 /* ---------- Console ---------- */
 .console {
   grid-column: 2;
+  /* A fixed height, never the content's: the log grows forever, the panel must
+     not. Entries scroll inside the body instead. */
+  height: var(--console-height);
   min-height: 0;
   display: flex;
   flex-direction: column;

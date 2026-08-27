@@ -155,6 +155,7 @@
 
   /* Layout */
   --sidebar-width: 216px;
+  --console-height: 38vh;
   /* Every interactive control lines up on this height. */
   --control-height: 38px;
 
