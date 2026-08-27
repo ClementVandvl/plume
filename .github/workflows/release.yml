@@ -101,6 +101,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
     name: ${{ matrix.label }}
 
+    # Read at job level so a step can ask whether signing is configured at all.
+    env:
+      HAS_APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -133,20 +137,47 @@ jobs:
 
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
-      - uses: tauri-apps/tauri-action@v0
-        id: tauri
+      # Two steps rather than one, because an env key cannot be omitted
+      # conditionally. Passing APPLE_CERTIFICATE unconditionally made the
+      # bundler try to import a certificate that was not there:
+      # "security import: failed to import keychain certificate".
+      - name: Empaqueter et signer
+        if: env.HAS_APPLE_CERTIFICATE != ''
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Signing stays off until the certificate secrets exist. Filling these
-          # in is the only change needed to ship a signed, notarised build.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Signs the update bundles. Distinct from code signing: this key is
-          # what the installed app checks before replacing itself.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          args: --target ${{ matrix.target }}
+          # Empty tag: build only, no release. That is what a platform trial run
+          # should do — a Windows check has no business opening a release.
+          tagName: ${{ needs.plan.outputs.tag }}
+          releaseName: Plume ${{ needs.plan.outputs.tag }}
+          releaseBody: |
+            Téléchargez le fichier correspondant à votre machine.
+
+            - **macOS** : `.dmg`
+            - **Windows** : `.exe` (installateur)
+            - **Linux** : `.AppImage` ou `.deb`
+          releaseDraft: true
+          prerelease: false
+          # Publishes latest.json beside the packages: the manifest the app
+          # polls. Without it, nothing can find an update.
+          includeUpdaterJson: true
+
+      - name: Empaqueter
+        if: env.HAS_APPLE_CERTIFICATE == ''
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Update signing is unrelated to code signing and stays on.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
@@ -184,6 +215,8 @@ jobs:
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.zip
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.sig
             !src-tauri/target/**/bundle/**/rw.*.dmg
           if-no-files-found: error
           retention-days: 14

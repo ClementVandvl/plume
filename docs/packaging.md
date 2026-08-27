@@ -72,9 +72,19 @@ and run the build again.
 
 ## Signing and notarisation
 
-Configuration is in place and **switched off**: the workflow already passes the
-signing environment variables, and they resolve to empty until the secrets
-exist. Nothing else changes when they do.
+Configuration is in place and **switched off**. The packaging step exists twice,
+selected by whether `APPLE_CERTIFICATE` holds anything: an environment key
+cannot be omitted conditionally, and passing an empty certificate makes the
+bundler try to import it anyway —
+
+```
+security: SecKeychainItemImport: One or more parameters passed to a function were not valid.
+failed codesign application: failed to run command security import
+```
+
+So adding the secrets is still the only change needed to ship signed, but an
+**empty or malformed** `APPLE_CERTIFICATE` secret now breaks the macOS build
+where no secret at all does not. Delete the secret rather than blanking it.
 
 Until then the build is ad-hoc signed, and macOS shows *"Plume est endommagé et
 ne peut pas être ouvert"* on first launch — Gatekeeper's message for a
