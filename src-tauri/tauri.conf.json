@@ -60,7 +60,7 @@
       "endpoints": [
         "https://github.com/ClementVandvl/plume/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlENjQxNzlEMzIyQzU3NUYKUldSZlZ5d3luUmRrbmNBMFFPWkpQRGJKYmJtYW9uZVRrbTRKNlIyZVNhWlVSc3JoSXNOZ3BLaDYK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERFQjU3NjEzRUE1QjkyNjYKUldSbWtsdnFFM2ExM25wam1vNjdWR1RvQXZzM3p5eDlxd3prdzFyTlNyUWRzTEJBSUR0SHB1TWYK",
       "windows": {
         "installMode": "passive"
       }
