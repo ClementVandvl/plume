@@ -444,8 +444,8 @@ export function CourseView({
               ))}
             </select>
             <span className="field__hint">
-              {pagePaths.length} page{pagePaths.length > 1 ? "s" : ""} à lire, trois en
-              parallèle.
+              {pagePaths.length} page{pagePaths.length > 1 ? "s" : ""} à lire. Le
+              parallélisme suit vos réglages.
             </span>
           </label>
 

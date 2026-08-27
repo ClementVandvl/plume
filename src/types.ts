@@ -193,6 +193,8 @@ export type Settings = {
   defaultModel: string;
   /** Look for a new version at start-up. Installing always needs a click. */
   checkUpdates: boolean;
+  /** Pages read at once; 0 = automatic, from the machine's memory. */
+  concurrentPages: number;
 };
 
 export const TRIGGER_LABEL: Record<Trigger["kind"], string> = {

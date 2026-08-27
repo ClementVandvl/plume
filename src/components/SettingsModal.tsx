@@ -46,7 +46,8 @@ export function SettingsModal({
   // Reading rules live on their own page now; this modal only owns the model.
   const dirty =
     draft.defaultModel !== settings.defaultModel ||
-    draft.checkUpdates !== settings.checkUpdates;
+    draft.checkUpdates !== settings.checkUpdates ||
+    draft.concurrentPages !== settings.concurrentPages;
 
   // The engine download reports coarse steps: it runs once, and what matters is
   // that it is progressing.
@@ -173,6 +174,26 @@ export function SettingsModal({
           </select>
           <span className="field__hint">
             Modifiable cours par cours au moment de la lecture.
+          </span>
+        </label>
+
+        <label className="field">
+          <span className="field__label">Pages lues en parallèle</span>
+          <select
+            className="input"
+            value={draft.concurrentPages}
+            onChange={(e) =>
+              setDraft({ ...draft, concurrentPages: Number(e.target.value) })
+            }
+          >
+            <option value={0}>Automatique — selon la mémoire de la machine</option>
+            <option value={1}>1 — machine modeste (8 Go)</option>
+            <option value={2}>2</option>
+            <option value={3}>3 — machine confortable (16 Go et plus)</option>
+          </select>
+          <span className="field__hint">
+            Chaque page lue lance son propre processus Claude, qui pèse plusieurs
+            centaines de Mo. Trop large, la machine sature et se fige.
           </span>
         </label>
 

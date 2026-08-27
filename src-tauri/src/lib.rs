@@ -5,6 +5,7 @@ mod figures;
 pub mod ir;
 mod latex;
 mod logbus;
+mod machine;
 pub mod photos;
 mod proc;
 mod recognizer;
@@ -322,10 +323,6 @@ fn log_client(level: String, scope: String, message: String, detail: Option<Stri
 
 const TRANSCRIPT_FILE: &str = "transcript.json";
 
-/// How many pages are read at once. Measured trade-off, not a guess: pages are
-/// independent, but the user's subscription is not.
-const CONCURRENT_PAGES: usize = 3;
-
 /// Import can take a while on a course of a dozen phone photos, so it reports
 /// rather than leaving a button spinning.
 #[derive(Serialize, Clone)]
@@ -595,13 +592,27 @@ async fn transcribe_document(
         let total = files.len();
         let job = runs::reading(&id);
         runs::begin(&job);
-        // Pages are independent, so they read concurrently. The cap is low on
-        // purpose: the subscription has rolling windows, and a wide burst buys
-        // little on a handful of pages while making exhaustion much easier.
-        let concurrency = CONCURRENT_PAGES.min(total);
-        logbus::info(
+        // Pages are independent, so they read concurrently — but each `claude`
+        // weighs hundreds of megabytes, and three of them froze an 8 GB
+        // machine. The width follows the memory unless the teacher chose one.
+        let chosen = settings::load().concurrent_pages;
+        let concurrency = if chosen >= 1 {
+            (chosen as usize).min(4)
+        } else {
+            machine::auto_concurrency()
+        }
+        .min(total);
+        logbus::detail(
             "claude",
             format!("Lecture de {total} page(s), {concurrency} en parallèle, modèle {model}"),
+            if chosen >= 1 {
+                "parallélisme fixé dans les réglages".to_string()
+            } else {
+                match machine::total_memory_gb() {
+                    Some(gb) => format!("automatique — {gb:.0} Go de mémoire détectés"),
+                    None => "automatique — mémoire inconnue".to_string(),
+                }
+            },
         );
 
         let next = AtomicUsize::new(0);

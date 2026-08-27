@@ -94,6 +94,10 @@ pub struct Settings {
     /// installing always waits for a click.
     #[serde(default = "yes")]
     pub check_updates: bool,
+    /// Pages read at once. `0` means automatic, from the machine's memory —
+    /// three `claude` processes at once froze an 8 GB laptop.
+    #[serde(default)]
+    pub concurrent_pages: u32,
 }
 
 fn default_model() -> String {
@@ -108,6 +112,7 @@ impl Default for Settings {
             reading_rules: String::new(),
             default_model: default_model(),
             check_updates: true,
+            concurrent_pages: 0,
         }
     }
 }
