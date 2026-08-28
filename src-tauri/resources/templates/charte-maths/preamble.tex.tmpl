@@ -20,6 +20,7 @@
 \usepackage{xcolor}
 \usepackage{tikz}
 \usepackage[most]{tcolorbox}
+\usepackage{etoolbox}   % \ifblank : un titre sans numéro manuscrit
 \usepackage{enumitem}
 \usepackage{titlesec}
 \usepackage{etoolbox}
@@ -72,32 +73,34 @@
   \endgroup}
 
 %============================================================================
-%  4. TITRE DE CHAPITRE   \chapitre{Titre}
+%  4. TITRE DE CHAPITRE   \chapitre{numéro}{Titre}
 %============================================================================
-\newcounter{mcchapitre}
-\newcommand{\chapitre}[1]{%
-  \par\refstepcounter{mcchapitre}%
-  \vspace{0.4\baselineskip}\noindent
+% Le numéro vient de la page, jamais d'un compteur : c'est le professeur qui
+% numérote ses chapitres, pas Plume. Sans numéro lu, on n'en invente pas.
+\newcommand{\chapitre}[2]{%
+  \par\vspace{0.4\baselineskip}\noindent
   \begin{tcolorbox}[hbox, enhanced, colback=white, colframe=mcChapitre,
       boxrule=0.9pt, sharp corners, left=10pt, right=10pt, top=6pt, bottom=6pt]
-    \large\bfseries\color{mcChapitre}\mcul{mcChapitre}{Chapitre~\themcchapitre~:}\ #1
+    \large\bfseries\color{mcChapitre}%
+    \mcul{mcChapitre}{Chapitre\ifblank{#1}{}{~#1}~:}\ #2
   \end{tcolorbox}
   \par\vspace{0.9\baselineskip}}
 
 %============================================================================
-%  5. PARTIES / SOUS-PARTIES  ->  \section  \subsection  \subsubsection
+%  5. PARTIES / SOUS-PARTIES  \partie{numéro}{Titre}, etc.
 %============================================================================
-\renewcommand{\thesection}{\Roman{section}}
-\renewcommand{\thesubsection}{\arabic{subsection}}
-\renewcommand{\thesubsubsection}{\alph{subsubsection}}
+% Les compteurs LaTeX sont écartés au profit du numéro lu sur la page. Les
+% commandes étoilées gardent la mise en forme et l'espacement sans numéroter.
+\titleformat{\section}      {\normalfont\large\bfseries}{}{0pt}{}
+\titleformat{\subsection}   {\normalfont\normalsize\bfseries}{}{0pt}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\itshape}{}{0pt}{}
 
-\newcommand{\mcFmtSection}[1]{\mcul{mcPartie}{\thesection\ -- #1}}
-\newcommand{\mcFmtSubsection}[1]{\mcul{mcSousPartie}{\thesubsection\ -- #1}}
-\newcommand{\mcFmtSubsubsection}[1]{\mcul{mcParagraphe}{\thesubsubsection) #1}}
-
-\titleformat{\section}      {\normalfont\large\bfseries}{}{0pt}{\mcFmtSection}
-\titleformat{\subsection}   {\normalfont\normalsize\bfseries}{}{0pt}{\mcFmtSubsection}
-\titleformat{\subsubsection}{\normalfont\normalsize\itshape}{}{0pt}{\mcFmtSubsubsection}
+\newcommand{\partie}[2]{%
+  \section*{\mcul{mcPartie}{\ifblank{#1}{#2}{#1 -- #2}}}}
+\newcommand{\souspartie}[2]{%
+  \subsection*{\mcul{mcSousPartie}{\ifblank{#1}{#2}{#1 -- #2}}}}
+\newcommand{\paragraphe}[2]{%
+  \subsubsection*{\mcul{mcParagraphe}{\ifblank{#1}{#2}{#1) #2}}}}
 
 \titlespacing*{\section}      {0pt}   {1.3\baselineskip}{0.7\baselineskip}
 \titlespacing*{\subsection}   {1cm}   {1.0\baselineskip}{0.5\baselineskip}

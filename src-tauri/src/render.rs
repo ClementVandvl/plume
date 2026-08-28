@@ -141,6 +141,18 @@ fn render_block(template: &Template, block: &Block) -> String {
                 .unwrap_or(body);
             format!("\\{}{{{}}}", mapping.name, heading)
         }
+        // Headings: the number read from the page, then the title. The
+        // template decides how to show them; an empty number shows none.
+        "numbered" => {
+            let heading = block
+                .title
+                .as_deref()
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .unwrap_or(body);
+            let number = block.number.as_deref().map(str::trim).unwrap_or("");
+            format!("\\{}{{{}}}{{{}}}", mapping.name, number, heading)
+        }
         "environment" => {
             // The recogniser sometimes echoes the environment's own name as a
             // title, which renders as "Exemple (Exemple)". The template already
@@ -222,6 +234,55 @@ mod tests {
     use super::*;
 
     /// The exact shape that reached the screen as a literal "&=".
+    fn heading(kind: &str, title: &str, number: Option<&str>) -> Block {
+        Block {
+            id: "p01-b01".into(),
+            kind: kind.into(),
+            title: Some(title.into()),
+            number: number.map(str::to_string),
+            latex: String::new(),
+            confidence: 1.0,
+            doubt: None,
+            audience: Vec::new(),
+            note: None,
+            reviewed: false,
+        }
+    }
+
+    fn bundled() -> Template {
+        serde_json::from_str(crate::templates::BUILTIN_MANIFEST).expect("valid manifest")
+    }
+
+    /// The number belongs to the page. A course photographed from the middle of
+    /// a notebook opens on "Chapitre 3" and must stay chapter 3.
+    #[test]
+    fn a_heading_carries_the_number_read_on_the_page() {
+        let template = bundled();
+        assert_eq!(
+            render_block(&template, &heading("chapter", "Vecteurs", Some("3"))),
+            "\\chapitre{3}{Vecteurs}"
+        );
+        assert_eq!(
+            render_block(&template, &heading("part", "Notion de vecteurs", Some("II"))),
+            "\\partie{II}{Notion de vecteurs}"
+        );
+    }
+
+    /// And an absent number is passed as absent, never replaced by a guess.
+    #[test]
+    fn an_unnumbered_heading_gets_no_invented_number() {
+        let template = bundled();
+        assert_eq!(
+            render_block(&template, &heading("chapter", "Vecteurs", None)),
+            "\\chapitre{}{Vecteurs}"
+        );
+        assert_eq!(
+            render_block(&template, &heading("subpart", "Définition", Some("  "))),
+            "\\souspartie{}{Définition}",
+            "blank is the same as absent"
+        );
+    }
+
     #[test]
     fn a_bare_alignment_tab_is_caught() {
         assert!(has_stray_alignment(

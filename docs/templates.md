@@ -74,9 +74,19 @@ Each IR block kind maps to one of four forms:
 | Mode | Output |
 |---|---|
 | `command` | `\name{content}` |
+| `numbered` | `\name{number}{title}` — headings |
 | `environment` | `\begin{name}[title] content \end{name}` |
 | `raw` | the block's LaTeX, unchanged |
 | `centered` | wrapped in `center` |
+
+`numbered` exists because **Plume numbers nothing itself**. A course
+photographed from the middle of a notebook opens on "Chapitre 3", and
+renumbering it to 1 would contradict every other document the class holds. The
+number read from the page is passed through as written — "3", "II", "1", "a" —
+and the template decides how to show it. An unnumbered heading is passed an
+empty first argument and shows no number: none is invented. The bundled macros
+use `\ifblank` for that, and the section counters were dropped in favour of the
+starred forms, which keep the formatting without numbering.
 
 A kind with no mapping falls back to raw output and loses its environment;
 `bundled_template_maps_every_block_kind` makes sure the bundled template never

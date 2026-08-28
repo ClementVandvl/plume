@@ -22,6 +22,7 @@ const block = (
   id,
   kind,
   title: null,
+  number: null,
   latex,
   confidence: 0.97,
   doubt: null,
@@ -38,8 +39,14 @@ const transcript = {
       number: 1,
       sessionId: null,
       blocks: [
-        block("b1", "chapter", "Géométrie dans le plan", { title: "Géométrie dans le plan" }),
-        block("b2", "part", "Vecteurs du plan", { title: "Vecteurs du plan" }),
+        block("b1", "chapter", "Géométrie dans le plan", {
+          title: "Géométrie dans le plan",
+          number: "3",
+        }),
+        block("b2", "part", "Vecteurs du plan", {
+          title: "Vecteurs du plan",
+          number: "II",
+        }),
         block(
           "b3",
           "text",

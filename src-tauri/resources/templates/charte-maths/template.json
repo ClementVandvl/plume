@@ -1,6 +1,6 @@
 {
   "id": "charte-maths",
-  "version": 5,
+  "version": 6,
   "name": "Charte cours de maths",
   "description": "Environnements à crochet coloré, titres soulignés, numérotation I / 1 / a.",
   "engine": "pdflatex",
@@ -176,20 +176,20 @@
   ],
   "blocks": {
     "chapter": {
-      "mode": "command",
+      "mode": "numbered",
       "name": "chapitre"
     },
     "part": {
-      "mode": "command",
-      "name": "section"
+      "mode": "numbered",
+      "name": "partie"
     },
     "subpart": {
-      "mode": "command",
-      "name": "subsection"
+      "mode": "numbered",
+      "name": "souspartie"
     },
     "paragraph": {
-      "mode": "command",
-      "name": "subsubsection"
+      "mode": "numbered",
+      "name": "paragraphe"
     },
     "definition": {
       "mode": "environment",

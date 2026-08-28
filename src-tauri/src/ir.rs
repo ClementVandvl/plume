@@ -45,6 +45,14 @@ pub struct Block {
     /// Optional environment title: `\begin{definition}[title]`.
     #[serde(default)]
     pub title: Option<String>,
+    /// For a heading: the number written on the page — "3", "II", "1", "a".
+    ///
+    /// Plume does not number anything itself. A course photographed from the
+    /// middle of a notebook opens on "Chapitre 3", and renumbering it to 1
+    /// would contradict every other document the class holds. Empty when the
+    /// page shows no number, in which case none is invented.
+    #[serde(default)]
+    pub number: Option<String>,
     /// LaTeX body — no `\begin{...}`, the renderer wraps it.
     pub latex: String,
     /// 0.0 to 1.0. Anything below `DOUBT_THRESHOLD` is surfaced for review.
@@ -103,6 +111,7 @@ pub fn block_schema() -> String {
   "properties": {{
     "kind": {{ "type": "string", "enum": [{kinds}] }},
     "title": {{ "type": ["string", "null"] }},
+    "number": {{ "type": ["string", "null"] }},
     "latex": {{ "type": "string" }},
     "confidence": {{ "type": "number", "minimum": 0, "maximum": 1 }},
     "doubt": {{ "type": ["string", "null"] }},
@@ -139,6 +148,7 @@ pub fn page_schema() -> String {
         "properties": {{
           "kind": {{ "type": "string", "enum": [{kinds}] }},
           "title": {{ "type": ["string", "null"] }},
+          "number": {{ "type": ["string", "null"] }},
           "latex": {{ "type": "string" }},
           "confidence": {{ "type": "number", "minimum": 0, "maximum": 1 }},
           "doubt": {{ "type": ["string", "null"] }},
@@ -165,6 +175,7 @@ mod tests {
         let raw = r#"{
             "kind": "definition",
             "title": null,
+            "number": null,
             "latex": "Un vecteur $\\overrightarrow{AB}$.",
             "confidence": 0.94,
             "doubt": null

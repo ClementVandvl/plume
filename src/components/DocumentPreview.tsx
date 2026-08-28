@@ -27,8 +27,6 @@ type Props = {
   onSelect: (blockId: string) => void;
 };
 
-const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
-const LETTERS = "abcdefghijklmnopqrstuvwxyz";
 
 /** LaTeX colour names used by the template, mapped to their semantic key. */
 const LATEX_COLOURS: Record<string, string> = {
@@ -95,32 +93,15 @@ export function DocumentPreview({
   // Headings are renumbered exactly as the template does, so what the teacher
   // reads here matches the PDF rather than the handwritten numbering.
   const numbered = useMemo(() => {
-    let chapter = 0;
-    let part = 0;
-    let subpart = 0;
-    let paragraph = 0;
+    // The number comes from the page, never from a counter here: Plume does
+    // not renumber, so a course that opens on "Chapitre 3" stays chapter 3 and
+    // an unnumbered heading shows no number at all.
     const out: { block: Block; page: number; number: string | null }[] = [];
 
     for (const page of transcript.pages) {
       for (const block of page.blocks) {
-        let number: string | null = null;
-        if (block.kind === "chapter") {
-          chapter += 1;
-          number = String(chapter);
-        } else if (block.kind === "part") {
-          part += 1;
-          subpart = 0;
-          paragraph = 0;
-          number = ROMAN[part - 1] ?? String(part);
-        } else if (block.kind === "subpart") {
-          subpart += 1;
-          paragraph = 0;
-          number = String(subpart);
-        } else if (block.kind === "paragraph") {
-          paragraph += 1;
-          number = LETTERS[paragraph - 1] ?? String(paragraph);
-        }
-        out.push({ block, page: page.number, number });
+        const written = block.number?.trim();
+        out.push({ block, page: page.number, number: written || null });
       }
     }
     return out;

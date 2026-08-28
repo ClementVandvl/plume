@@ -92,6 +92,14 @@ export type Block = {
   id: string;
   kind: string;
   title: string | null;
+  /**
+   * For a heading: the number written on the page — "3", "II", "1", "a".
+   *
+   * Plume numbers nothing itself. A course photographed from the middle of a
+   * notebook opens on "Chapitre 3", and renumbering it would contradict every
+   * other document the class holds. Null when the page shows none.
+   */
+  number: string | null;
   latex: string;
   confidence: number;
   doubt: string | null;

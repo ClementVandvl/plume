@@ -19,7 +19,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub const BUILTIN_ID: &str = "charte-maths";
-const BUILTIN_MANIFEST: &str = include_str!("../resources/templates/charte-maths/template.json");
+pub(crate) const BUILTIN_MANIFEST: &str = include_str!("../resources/templates/charte-maths/template.json");
 const BUILTIN_PREAMBLE: &str =
     include_str!("../resources/templates/charte-maths/preamble.tex.tmpl");
 
@@ -458,6 +458,10 @@ pub fn check(root: &Path, template: &Template) -> Result<(), String> {
             "command" => body.push_str(&format!(
                 "\\{}{{Texte de contrôle}}\n",
                 mapping.name
+            )),
+            "numbered" => body.push_str(&format!(
+                "\\{}{{1}}{{Texte de contrôle}}\n\\{}{{}}{{Sans numéro}}\n",
+                mapping.name, mapping.name
             )),
             _ => {}
         }

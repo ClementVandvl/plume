@@ -123,7 +123,7 @@ docs, and each one cost a debugging round:
 ### The instruction block
 
 The system prompt fixes the invariants: body-only `latex`, headings carry their
-text in `title` without handwritten numbering, diagrams become `tikzpicture` that
+text in `title` with its number kept apart in `number`, diagrams become `tikzpicture` that
 **redraw the mathematical object cleanly** rather than tracing the stroke, pen
 colour maps to the template's semantic colours, and confidence below `0.85`
 *requires* filling `doubt`.
