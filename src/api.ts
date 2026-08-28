@@ -1,18 +1,28 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   BuildResult,
+  DocumentSummary,
   Environment,
   PlumeDocument,
   Template,
   Transcript,
+  TrashedCourse,
   LogEntry,
   Block,
   Settings,
 } from "./types";
 
 export const checkEnvironment = () => invoke<Environment>("check_environment");
-export const listDocuments = () => invoke<PlumeDocument[]>("list_documents");
+export const listDocuments = () => invoke<DocumentSummary[]>("list_documents");
 export const listTemplates = () => invoke<Template[]>("list_templates");
+
+export const listTrash = () => invoke<TrashedCourse[]>("list_trash");
+export const restoreDocument = (folder: string) =>
+  invoke<PlumeDocument>("restore_document", { folder });
+export const purgeDocument = (folder: string) =>
+  invoke<void>("purge_document", { folder });
+
+export const openCoursePdf = (id: string) => invoke<void>("open_course_pdf", { id });
 
 export const createDocument = (title: string, templateId: string, sources: string[]) =>
   invoke<PlumeDocument>("create_document", { title, templateId, sources });

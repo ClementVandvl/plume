@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 export type ToolStatus = {
   key: string;
   label: string;
@@ -63,6 +65,27 @@ export type PlumeDocument = {
   updatedAt: number;
   pageCount: number;
   status: DocumentStatus;
+  /** Every dollar spent reading and correcting this course. */
+  costUsd: number;
+  /** File name of the last compiled PDF, when one exists. */
+  lastPdf?: string | null;
+};
+
+/** A course as the list returns it: the document plus its review arithmetic. */
+export type DocumentSummary = PlumeDocument & {
+  /** Blocks in the transcript; 0 when the course has not been read yet. */
+  blockCount: number;
+  /** Blocks below the doubt threshold and not yet confirmed. */
+  doubtfulCount: number;
+};
+
+/** A course sitting in the bin. */
+export type TrashedCourse = {
+  /** Folder name inside the bin — the restore/purge handle. */
+  folder: string;
+  title: string;
+  pageCount: number;
+  trashedAt: number;
 };
 
 export type Block = {
@@ -104,29 +127,29 @@ export const DOUBT_THRESHOLD = 0.85;
 
 /** Technical status -> label shown to the user. */
 export const STATUS_LABEL: Record<string, string> = {
-  draft: "Brouillon",
-  review: "À relire",
-  ready: "Prêt",
+  draft: t("status.draft"),
+  review: t("status.review"),
+  ready: t("status.ready"),
 };
 
 /** Block kind -> what the user calls it. */
 export const KIND_LABEL: Record<string, string> = {
-  chapter: "Chapitre",
-  part: "Partie",
-  subpart: "Sous-partie",
-  paragraph: "Paragraphe",
-  text: "Texte",
-  list: "Liste",
-  equation: "Équation",
-  definition: "Définition",
-  property: "Propriété",
-  theorem: "Théorème",
-  method: "Méthode",
-  example: "Exemple",
-  application: "Application",
-  remark: "Remarque",
-  proof: "Démonstration",
-  figure: "Schéma",
+  chapter: t("kind.chapter"),
+  part: t("kind.part"),
+  subpart: t("kind.subpart"),
+  paragraph: t("kind.paragraph"),
+  text: t("kind.text"),
+  list: t("kind.list"),
+  equation: t("kind.equation"),
+  definition: t("kind.definition"),
+  property: t("kind.property"),
+  theorem: t("kind.theorem"),
+  method: t("kind.method"),
+  example: t("kind.example"),
+  application: t("kind.application"),
+  remark: t("kind.remark"),
+  proof: t("kind.proof"),
+  figure: t("kind.figure"),
 };
 
 export type LogEntry = {
@@ -148,8 +171,8 @@ export type CorrectionProgress = {
 };
 
 export const AUDIENCE_LABEL: Record<string, string> = {
-  teacher: "Professeur",
-  student: "Élève",
+  teacher: t("audience.teacher"),
+  student: t("audience.student"),
 };
 
 export type Route =
@@ -157,14 +180,15 @@ export type Route =
   | { name: "courses" }
   | { name: "templates" }
   | { name: "rules" }
-  | { name: "course"; id: string };
+  | { name: "trash" }
+  | { name: "course"; id: string; step?: StepId };
 
-/** Steps of the recognition wizard, in order. */
+/** Steps of the recognition wizard, in order. Labels live in the dictionary. */
 export const STEPS = [
-  { id: "pages", label: "Pages" },
-  { id: "read", label: "Lecture" },
-  { id: "review", label: "Relecture" },
-  { id: "export", label: "Export" },
+  { id: "pages", labelKey: "steps.pages" },
+  { id: "read", labelKey: "steps.read" },
+  { id: "review", labelKey: "steps.review" },
+  { id: "export", labelKey: "steps.export" },
 ] as const;
 
 export type StepId = (typeof STEPS)[number]["id"];
@@ -203,6 +227,8 @@ export type Convention = {
   text: string;
 };
 
+export type UiTheme = "light" | "dark" | "system";
+
 export type Settings = {
   /** Marker conventions: a trigger and an effect. */
   rules: ReadingRule[];
@@ -213,26 +239,30 @@ export type Settings = {
   checkUpdates: boolean;
   /** Pages read at once; 0 = automatic, from the machine's memory. */
   concurrentPages: number;
+  /** `light` | `dark` | `system` — the interface theme. */
+  theme: string;
+  /** `simple` | `advanced` — what level of detail the window shows. */
+  uiMode: string;
 };
 
 export const TRIGGER_LABEL: Record<Trigger["kind"], string> = {
-  highlight: "Surligné",
-  marginBar: "Trait en marge",
-  underline: "Souligné à la main",
-  circled: "Entouré",
-  penColour: "Écrit à l'encre",
-  custom: "Autre marque",
+  highlight: t("trigger.highlight"),
+  marginBar: t("trigger.marginBar"),
+  underline: t("trigger.underline"),
+  circled: t("trigger.circled"),
+  penColour: t("trigger.penColour"),
+  custom: t("trigger.custom"),
 };
 
 export const EFFECT_LABEL: Record<Effect["kind"], string> = {
-  bold: "Mettre en gras",
-  italic: "Mettre en italique",
-  underline: "Souligner",
-  teacherOnly: "Réserver à la version professeur",
-  studentOnly: "Réserver à la version élève",
-  blockKind: "Forcer le type de bloc",
-  skip: "Ne pas transcrire",
-  custom: "Effet décrit à la main",
+  bold: t("effect.bold"),
+  italic: t("effect.italic"),
+  underline: t("effect.underline"),
+  teacherOnly: t("effect.teacherOnly"),
+  studentOnly: t("effect.studentOnly"),
+  blockKind: t("effect.blockKind"),
+  skip: t("effect.skip"),
+  custom: t("effect.custom"),
 };
 
 /** Emitted while photos are being imported and normalised. */

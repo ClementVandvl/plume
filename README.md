@@ -31,9 +31,16 @@ tous les cas.
 
 `npm run dev` ne sert qu'au travail sur la mise en page : hors de la fenêtre
 Tauri, aucune commande n'existe et l'application ne dépasse pas son écran
-d'accueil. C'est aussi la commande que Tauri appelle lui-même
+d'accueil — sauf à ouvrir `http://localhost:1420/?mock`, qui installe un faux
+backend en mémoire (voir `src/devMock.ts`) avec assez de données pour
+atteindre chaque écran. C'est aussi la commande que Tauri appelle lui-même
 (`beforeDevCommand`), donc elle doit rester le serveur Vite : la renommer en
 `tauri dev` ferait se relancer Tauri à l'infini.
+
+Tous les textes de l'interface vivent dans `src/i18n/fr.ts` — les composants
+ne portent aucune prose. Les couleurs, espacements et rayons vivent dans
+`src/styles/tokens.css`, en deux couches (primitives, puis sémantique) ; les
+thèmes clair et sombre ne touchent que la couche sémantique.
 
 ```bash
 npm run build                                  # tokens de style, tests, typecheck

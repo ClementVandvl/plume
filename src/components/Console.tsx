@@ -1,28 +1,39 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { clearLogs, logs as fetchLogs } from "../api";
+import { formatTime, t } from "../i18n";
 import { logError } from "../log";
 import type { LogEntry } from "../types";
+import { Icon } from "../ui/Icon";
 
-const time = new Intl.DateTimeFormat("fr-FR", {
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-});
+const SCOPE_KEYS = [
+  "app",
+  "claude",
+  "latex",
+  "workspace",
+  "render",
+  "template",
+  "interface",
+  "ir",
+] as const;
 
-const SCOPE_LABEL: Record<string, string> = {
-  app: "app",
-  claude: "claude",
-  latex: "latex",
-  workspace: "fichiers",
-  render: "rendu",
-  template: "modèle",
-};
+function scopeLabel(scope: string): string {
+  return (SCOPE_KEYS as readonly string[]).includes(scope)
+    ? t(`console.scope.${scope as (typeof SCOPE_KEYS)[number]}`)
+    : scope;
+}
+
+type Filter = "all" | "warn" | "error";
 
 type Props = { open: boolean; onClose: () => void };
 
+/**
+ * The technical journal — a dark drawer at the bottom, never open by default.
+ * Everything the simple mode hides ends up traceable here.
+ */
 export function Console({ open, onClose }: Props) {
   const [entries, setEntries] = useState<LogEntry[]>([]);
+  const [filter, setFilter] = useState<Filter>("all");
   const [showDebug, setShowDebug] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -32,7 +43,7 @@ export function Console({ open, onClose }: Props) {
     if (!open) return;
     fetchLogs()
       .then(setEntries)
-      .catch((cause) => logError("interface", "Historique du journal illisible", cause));
+      .catch((cause) => logError("interface", t("error.refresh"), cause));
   }, [open]);
 
   useEffect(() => {
@@ -50,44 +61,79 @@ export function Console({ open, onClose }: Props) {
 
   if (!open) return null;
 
-  const visible = entries.filter((e) => showDebug || e.level !== "debug");
+  const warnings = entries.filter((e) => e.level === "warn").length;
+  const errors = entries.filter((e) => e.level === "error").length;
+  const visible = entries
+    .filter((e) => showDebug || e.level !== "debug")
+    .filter((e) =>
+      filter === "all" ? true : filter === "warn" ? e.level === "warn" : e.level === "error",
+    );
 
   return (
     <aside className="console">
       <div className="console__bar">
-        <span className="console__title">Console</span>
-        <span className="console__count">{visible.length} lignes</span>
+        <span className="console__title">{t("console.title")}</span>
+        <span className="console__shortcut">{t("console.shortcut")}</span>
+        <span className="console__spacer" />
+        <button
+          type="button"
+          className={`console__chip ${filter === "all" ? "console__chip--on" : ""}`}
+          onClick={() => setFilter("all")}
+        >
+          {t("console.filter.all")}
+        </button>
+        <button
+          type="button"
+          className={`console__chip console__chip--warn ${filter === "warn" ? "console__chip--on" : ""}`}
+          onClick={() => setFilter(filter === "warn" ? "all" : "warn")}
+          disabled={warnings === 0}
+        >
+          {t("console.filter.warnings")} {warnings > 0 ? warnings : ""}
+        </button>
+        <button
+          type="button"
+          className={`console__chip console__chip--error ${filter === "error" ? "console__chip--on" : ""}`}
+          onClick={() => setFilter(filter === "error" ? "all" : "error")}
+          disabled={errors === 0}
+        >
+          {t("console.filter.errors")} {errors > 0 ? errors : ""}
+        </button>
         <label className="console__toggle">
           <input
             type="checkbox"
             checked={showDebug}
             onChange={(e) => setShowDebug(e.target.checked)}
           />
-          Détails techniques
+          {t("console.debug")}
         </label>
         <button
           type="button"
-          className="btn btn--ghost"
+          className="console__chip"
           onClick={() => {
-            clearLogs().catch((cause) => logError("interface", "Vidage du journal impossible", cause));
+            clearLogs().catch((cause) => logError("interface", t("error.refresh"), cause));
             setEntries([]);
           }}
         >
-          Vider
+          {t("console.clear")}
         </button>
-        <button type="button" className="btn btn--ghost" onClick={onClose}>
-          Fermer
+        <button
+          type="button"
+          className="console__close"
+          onClick={onClose}
+          aria-label={t("common.close")}
+        >
+          <Icon name="close" size={13} />
         </button>
       </div>
 
       <div className="console__body">
         {visible.length === 0 ? (
-          <p className="muted console__empty">Rien à signaler pour l'instant.</p>
+          <p className="console__empty">{t("console.empty")}</p>
         ) : (
           visible.map((entry, index) => (
             <div key={`${entry.at}-${index}`} className={`log log--${entry.level}`}>
-              <span className="log__time">{time.format(new Date(entry.at))}</span>
-              <span className="log__scope">{SCOPE_LABEL[entry.scope] ?? entry.scope}</span>
+              <span className="log__time">{formatTime(entry.at)}</span>
+              <span className="log__scope">{scopeLabel(entry.scope)}</span>
               <span className="log__message">
                 {entry.message}
                 {entry.detail && <span className="log__detail">{entry.detail}</span>}

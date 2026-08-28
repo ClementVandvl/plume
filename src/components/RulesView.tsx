@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { saveSettings } from "../api";
+import { t } from "../i18n";
 import { logError } from "../log";
 import { useConfirm } from "../confirm";
 import {
@@ -9,16 +10,17 @@ import {
   type ReadingRule,
   type Settings,
 } from "../types";
+import { Toggle } from "../ui/controls";
 import { ConventionPanel } from "./ConventionPanel";
 import { RulePanel } from "./RulePanel";
 
 /**
- * The registry of marker conventions.
+ * The registry of marker conventions — "Mes annotations".
  *
  * These are rules, not prose: "highlighted in orange means bold" has a trigger
  * and an effect, so it compiles to the same instruction every time and can be
- * switched off without rewriting a paragraph. Free text stays alongside for
- * what a registry cannot express.
+ * switched off without rewriting a paragraph. Each row reads as the sentence
+ * it will become. Free text stays alongside for what a registry cannot express.
  */
 
 const newRule = (): ReadingRule => ({
@@ -39,6 +41,19 @@ const newConvention = (): Convention => ({
 type Selection = { list: "rules" | "conventions"; id: string } | null;
 
 const firstLine = (text: string) => text.trim().split("\n")[0] || "—";
+
+/** "Surligné orange" — the trigger as the teacher would say it. */
+function triggerPhrase(rule: ReadingRule): string {
+  const base = TRIGGER_LABEL[rule.trigger.kind];
+  return rule.trigger.label ? `${base} ${rule.trigger.label}` : base;
+}
+
+function effectPhrase(rule: ReadingRule): string {
+  if (rule.effect.kind === "custom" && rule.effect.value) return rule.effect.value;
+  if (rule.effect.kind === "blockKind" && rule.effect.value)
+    return `${EFFECT_LABEL.blockKind} : ${rule.effect.value}`;
+  return EFFECT_LABEL[rule.effect.kind];
+}
 
 type Props = {
   settings: Settings;
@@ -85,12 +100,12 @@ export function RulesView({ settings, onSaved }: Props) {
   async function remove(list: "rules" | "conventions", id: string) {
     const isRule = list === "rules";
     const ok = await confirm({
-      title: isRule ? "Supprimer cette marque ?" : "Supprimer cette convention ?",
+      title: isRule ? t("annotations.delete.rule.title") : t("annotations.delete.convention.title"),
       message: isRule
-        ? "Elle ne sera plus appliquée à vos prochaines lectures."
-        : "Elle ne sera plus transmise au modèle lors de vos prochaines lectures.",
-      detail: "Pour la désactiver sans la perdre, décochez « Appliquer » à la place.",
-      confirmLabel: "Supprimer",
+        ? t("annotations.delete.rule.message")
+        : t("annotations.delete.convention.message"),
+      detail: t("annotations.delete.detail"),
+      confirmLabel: t("common.delete"),
       tone: "danger",
     });
     if (!ok) return;
@@ -125,7 +140,7 @@ export function RulesView({ settings, onSaved }: Props) {
       onSaved(draft);
     } catch (cause) {
       setError(String(cause));
-      logError("workspace", "Enregistrement des règles impossible", cause);
+      logError("workspace", t("error.refresh"), cause);
     } finally {
       setSaving(false);
     }
@@ -135,21 +150,20 @@ export function RulesView({ settings, onSaved }: Props) {
     <div className="stack">
       <header className="page-head">
         <div>
-          <h1 className="page-title">Règles de lecture</h1>
-          <p className="page-subtitle">
-            Ce que vos marques veulent dire. Appliquées à tous vos cours, à la
-            prochaine lecture.
-          </p>
+          <h1 className="page-title">{t("annotations.title")}</h1>
+          <p className="page-subtitle page-subtitle--wide">{t("annotations.subtitle")}</p>
         </div>
-        <div className="review__actions">
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={persist}
-            disabled={!dirty || saving}
-          >
-            {saving ? "Enregistrement…" : "Enregistrer"}
-          </button>
+        <div className="page-head__tools">
+          {dirty && (
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={persist}
+              disabled={saving}
+            >
+              {saving ? t("common.saving") : t("common.save")}
+            </button>
+          )}
         </div>
       </header>
 
@@ -159,127 +173,127 @@ export function RulesView({ settings, onSaved }: Props) {
         </p>
       )}
 
-      <div className={`split ${selected ? "split--open" : ""}`}>
-        <div className="split__main">
-          <section className="registry">
-            <header className="registry__head">
-              <div>
-                <h2 className="section-title">Marques</h2>
-                <p className="registry__hint">
-                  Quelque chose que vous tracez sur la feuille, et ce que ça veut dire.
-                </p>
+      <div className="annotations-grid">
+        <section className="listcard">
+          <header className="listcard__head">
+            <div className="listcard__lead">
+              <span className="listcard__heading">{t("annotations.marks.title")}</span>
+              <span className="listcard__hint">{t("annotations.marks.hint")}</span>
+            </div>
+          </header>
+
+          {draft.rules.length === 0 ? (
+            <p className="listcard__empty">{t("annotations.marks.empty")}</p>
+          ) : (
+            draft.rules.map((rule) => (
+              <div
+                key={rule.id}
+                className={`arule ${rule.enabled ? "" : "arule--off"} ${
+                  selected?.id === rule.id ? "arule--selected" : ""
+                }`}
+                onClick={() => setSelected({ list: "rules", id: rule.id })}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && setSelected({ list: "rules", id: rule.id })
+                }
+              >
+                <span
+                  className="arule__swatch"
+                  style={{ background: rule.trigger.colour || "transparent" }}
+                  aria-hidden="true"
+                />
+                <span className="arule__sentence">
+                  {t("annotations.sentence", {
+                    trigger: triggerPhrase(rule).toLowerCase(),
+                    effect: effectPhrase(rule).toLowerCase(),
+                  })}
+                </span>
+                <span onClick={(e) => e.stopPropagation()}>
+                  <Toggle
+                    checked={rule.enabled}
+                    onChange={(value) => update({ ...rule, enabled: value })}
+                    label={t("rulePanel.apply")}
+                  />
+                </span>
               </div>
-              <button type="button" className="btn btn--ghost" onClick={addRule}>
-                Ajouter une marque
-              </button>
-            </header>
+            ))
+          )}
 
-            {draft.rules.length === 0 ? (
-              <p className="registry__empty">
-                Aucune marque. Par exemple : surligné orange → gras, trait bleu en
-                marge → réservé au professeur.
-              </p>
-            ) : (
-              <ul className="rules">
-                {draft.rules.map((rule) => (
-                  <li key={rule.id}>
-                    <button
-                      type="button"
-                      className={`rule ${rule.enabled ? "" : "rule--off"} ${
-                        selected?.id === rule.id ? "rule--selected" : ""
-                      }`}
-                      onClick={() => setSelected({ list: "rules", id: rule.id })}
-                    >
-                      <span
-                        className="rule__swatch"
-                        style={{ background: rule.trigger.colour || "transparent" }}
-                        aria-hidden="true"
-                      />
-                      <span className="rule__trigger">
-                        {TRIGGER_LABEL[rule.trigger.kind]}
-                        {rule.trigger.label && (
-                          <span className="rule__colour"> {rule.trigger.label}</span>
-                        )}
-                      </span>
-                      <span className="rule__arrow" aria-hidden="true">
-                        →
-                      </span>
-                      <span className="rule__effect">
-                        {rule.effect.kind === "custom" && rule.effect.value
-                          ? rule.effect.value
-                          : rule.effect.kind === "blockKind" && rule.effect.value
-                            ? `${EFFECT_LABEL.blockKind} : ${rule.effect.value}`
-                            : EFFECT_LABEL[rule.effect.kind]}
-                      </span>
-                      {!rule.enabled && <span className="flag">désactivée</span>}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <button type="button" className="listcard__add" onClick={addRule}>
+            {t("annotations.marks.add")}
+          </button>
+        </section>
 
-          <section className="registry">
-            <header className="registry__head">
-              <div>
-                <h2 className="section-title">Conventions</h2>
-                <p className="registry__hint">
-                  Une consigne permanente, sans marque à repérer — la façon de dessiner
-                  les schémas, de nommer les points, d'abréger un intitulé.
-                </p>
+        <section className="listcard">
+          <header className="listcard__head">
+            <div className="listcard__lead">
+              <span className="listcard__heading">
+                {t("annotations.conventions.title")}
+              </span>
+              <span className="listcard__hint">{t("annotations.conventions.hint")}</span>
+            </div>
+          </header>
+
+          {draft.conventions.length === 0 ? (
+            <p className="listcard__empty">{t("annotations.conventions.empty")}</p>
+          ) : (
+            draft.conventions.map((convention) => (
+              <div
+                key={convention.id}
+                className={`arule ${convention.enabled ? "" : "arule--off"} ${
+                  selected?.id === convention.id ? "arule--selected" : ""
+                }`}
+                onClick={() => setSelected({ list: "conventions", id: convention.id })}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) =>
+                  e.key === "Enter" &&
+                  setSelected({ list: "conventions", id: convention.id })
+                }
+              >
+                <span className="arule__sentence">
+                  <strong>{convention.title.trim() || "—"}</strong>
+                  <span className="arule__text">{firstLine(convention.text)}</span>
+                </span>
+                <span onClick={(e) => e.stopPropagation()}>
+                  <Toggle
+                    checked={convention.enabled}
+                    onChange={(value) =>
+                      updateConvention({ ...convention, enabled: value })
+                    }
+                    label={t("conventionPanel.apply")}
+                  />
+                </span>
               </div>
-              <button type="button" className="btn btn--ghost" onClick={addConvention}>
-                Ajouter une convention
-              </button>
-            </header>
+            ))
+          )}
 
-            {draft.conventions.length === 0 ? (
-              <p className="registry__empty">
-                Aucune convention. Par exemple : jamais d'annotation par-dessus un
-                trait dans les schémas.
-              </p>
-            ) : (
-              <ul className="rules">
-                {draft.conventions.map((convention) => (
-                  <li key={convention.id}>
-                    <button
-                      type="button"
-                      className={`rule rule--convention ${
-                        convention.enabled ? "" : "rule--off"
-                      } ${selected?.id === convention.id ? "rule--selected" : ""}`}
-                      onClick={() => setSelected({ list: "conventions", id: convention.id })}
-                    >
-                      <span className="rule__trigger">
-                        {convention.title.trim() || "Sans titre"}
-                      </span>
-                      <span className="rule__effect">{firstLine(convention.text)}</span>
-                      {!convention.enabled && <span className="flag">désactivée</span>}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-
-        {selectedRule && (
-          <RulePanel
-            rule={selectedRule}
-            onChange={update}
-            onDelete={() => remove("rules", selectedRule.id)}
-            onClose={() => setSelected(null)}
-          />
-        )}
-
-        {selectedConvention && (
-          <ConventionPanel
-            convention={selectedConvention}
-            onChange={updateConvention}
-            onDelete={() => remove("conventions", selectedConvention.id)}
-            onClose={() => setSelected(null)}
-          />
-        )}
+          <button type="button" className="listcard__add" onClick={addConvention}>
+            {t("annotations.conventions.add")}
+          </button>
+        </section>
       </div>
+
+      {selectedRule && (
+        <RulePanel
+          rule={selectedRule}
+          onChange={update}
+          onDelete={() => remove("rules", selectedRule.id)}
+          onClose={() => setSelected(null)}
+          float
+        />
+      )}
+
+      {selectedConvention && (
+        <ConventionPanel
+          convention={selectedConvention}
+          onChange={updateConvention}
+          onDelete={() => remove("conventions", selectedConvention.id)}
+          onClose={() => setSelected(null)}
+          float
+        />
+      )}
     </div>
   );
 }

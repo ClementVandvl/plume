@@ -277,6 +277,16 @@ pub struct Document {
     /// recogniser's instructions. Empty until they define any.
     #[serde(default)]
     pub reading_rules: String,
+    /// Every dollar this course has cost across reads and corrections. The
+    /// events already reported it per run; persisting the total is what lets
+    /// the advanced mode answer "what has this course cost me so far".
+    #[serde(default)]
+    pub cost_usd: f64,
+    /// File name of the most recent successfully compiled PDF, relative to the
+    /// course folder — so "Ouvrir le PDF" works from the course list without
+    /// recompiling.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_pdf: Option<String>,
 }
 
 pub fn document_dir(id: &str) -> PathBuf {
@@ -444,6 +454,8 @@ pub fn create(
         page_count: copied,
         status: "draft".into(),
         reading_rules: String::new(),
+        cost_usd: 0.0,
+        last_pdf: None,
     };
 
     let manifest = serde_json::to_string_pretty(&document)
@@ -492,6 +504,114 @@ pub fn delete(id: &str) -> Result<PathBuf, String> {
         target.to_string_lossy().to_string(),
     );
     Ok(target)
+}
+
+/// One course sitting in the bin, described from its own manifest.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashedCourse {
+    /// Folder name inside `Corbeille/` — the handle for restore and purge. It
+    /// can differ from the document id when the same course was binned twice.
+    pub folder: String,
+    pub title: String,
+    pub page_count: usize,
+    /// When the folder landed in the bin, in ms since epoch.
+    pub trashed_at: u64,
+}
+
+/// A folder name that came back from the interface: it must stay a plain name,
+/// not a path, or "restore" becomes "move anything anywhere".
+fn bin_entry(folder: &str) -> Result<PathBuf, String> {
+    if folder.is_empty() || folder.contains(['/', '\\']) || folder == ".." {
+        return Err("Nom de dossier invalide.".into());
+    }
+    let path = bin_dir().join(folder);
+    if !path.is_dir() {
+        return Err("Ce cours n'est plus dans la corbeille.".into());
+    }
+    Ok(path)
+}
+
+/// Courses in the bin, most recently binned first. `Modeles` (binned templates)
+/// and anything without a readable manifest are skipped: the bin is also a
+/// folder the user can drop things into by hand.
+pub fn trashed() -> Vec<TrashedCourse> {
+    let Ok(entries) = fs::read_dir(bin_dir()) else {
+        return Vec::new();
+    };
+    let mut out: Vec<TrashedCourse> = entries
+        .flatten()
+        .filter(|entry| entry.path().is_dir())
+        .filter_map(|entry| {
+            let raw = fs::read_to_string(entry.path().join("document.json")).ok()?;
+            let document: Document = serde_json::from_str(&raw).ok()?;
+            let trashed_at = entry
+                .metadata()
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            Some(TrashedCourse {
+                folder: entry.file_name().to_string_lossy().to_string(),
+                title: document.title,
+                page_count: document.page_count,
+                trashed_at,
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| b.trashed_at.cmp(&a.trashed_at));
+    out
+}
+
+/// Moves a binned course back among the others.
+///
+/// The folder may carry a `-n` suffix from a double delete, and the original
+/// id may meanwhile be taken again: the course is restored under the first
+/// free name, and the manifest's id is realigned so `document_dir(id)` keeps
+/// pointing at the folder.
+pub fn restore(folder: &str) -> Result<Document, String> {
+    let source = bin_entry(folder)?;
+    let raw = fs::read_to_string(source.join("document.json"))
+        .map_err(|_| "Manifeste introuvable dans la corbeille.".to_string())?;
+    let mut document: Document =
+        serde_json::from_str(&raw).map_err(|e| format!("Manifeste illisible : {e}"))?;
+
+    let courses = ensure_courses_dir().map_err(|e| format!("Classeur inaccessible : {e}"))?;
+    let (target, id) = (0..)
+        .map(|n| {
+            let name = if n == 0 {
+                document.id.clone()
+            } else {
+                format!("{}-{n}", document.id)
+            };
+            (courses.join(&name), name)
+        })
+        .find(|(candidate, _)| !candidate.exists())
+        .ok_or("Nom libre introuvable dans le classeur.")?;
+
+    fs::rename(&source, &target).map_err(|e| format!("Restauration : {e}"))?;
+
+    if document.id != id {
+        document.id = id;
+    }
+    document.updated_at = now_ms();
+    save(&document)?;
+    logbus::detail(
+        "workspace",
+        format!("Cours « {} » restauré", document.title),
+        target.to_string_lossy().to_string(),
+    );
+    Ok(document)
+}
+
+/// Deletes a binned course from the disk, for good. The only hard delete in
+/// Plume, and it is only reachable from inside the bin, after a confirmation.
+pub fn purge(folder: &str) -> Result<(), String> {
+    let path = bin_entry(folder)?;
+    fs::remove_dir_all(&path).map_err(|e| format!("Suppression définitive : {e}"))?;
+    logbus::info("workspace", format!("Cours « {folder} » supprimé définitivement"));
+    Ok(())
 }
 
 /// Renames the course for display. The folder keeps its identifier, because

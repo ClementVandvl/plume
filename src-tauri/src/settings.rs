@@ -107,10 +107,27 @@ pub struct Settings {
     /// three `claude` processes at once froze an 8 GB laptop.
     #[serde(default)]
     pub concurrent_pages: u32,
+    /// `light` | `dark` | `system` — the interface theme. The document preview
+    /// stays on light paper whatever this says: one is a reading surface, the
+    /// other is chrome.
+    #[serde(default = "default_theme")]
+    pub theme: String,
+    /// `simple` | `advanced`. Advanced surfaces model, cost, parallelism and
+    /// the LaTeX underneath; simple keeps the everyday vocabulary only.
+    #[serde(default = "default_ui_mode")]
+    pub ui_mode: String,
 }
 
 fn default_model() -> String {
     "sonnet".to_string()
+}
+
+fn default_theme() -> String {
+    "system".to_string()
+}
+
+fn default_ui_mode() -> String {
+    "simple".to_string()
 }
 
 impl Default for Settings {
@@ -122,6 +139,8 @@ impl Default for Settings {
             default_model: default_model(),
             check_updates: true,
             concurrent_pages: 0,
+            theme: default_theme(),
+            ui_mode: default_ui_mode(),
         }
     }
 }

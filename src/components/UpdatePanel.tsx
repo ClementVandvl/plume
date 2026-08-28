@@ -3,7 +3,9 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { getVersion } from "@tauri-apps/api/app";
 import { updatesConfigured } from "../api";
+import { t } from "../i18n";
 import { logError, logInfo } from "../log";
+import { Toggle } from "../ui/controls";
 
 /**
  * Update checking and installing.
@@ -81,7 +83,7 @@ export function UpdatePanel({ auto, enabled, onToggleAuto }: Props) {
   }
 
   async function install(update: Update) {
-    setState({ kind: "installing", progress: "Téléchargement…" });
+    setState({ kind: "installing", progress: t("updates.downloading") });
     try {
       let downloaded = 0;
       let total = 0;
@@ -94,10 +96,12 @@ export function UpdatePanel({ auto, enabled, onToggleAuto }: Props) {
           const share = total ? Math.round((downloaded / total) * 100) : 0;
           setState({
             kind: "installing",
-            progress: total ? `Téléchargement… ${share} %` : "Téléchargement…",
+            progress: total
+              ? t("updates.downloadingAt", { percent: share })
+              : t("updates.downloading"),
           });
         } else if (event.event === "Finished") {
-          setState({ kind: "installing", progress: "Installation…" });
+          setState({ kind: "installing", progress: t("updates.installing") });
         }
       });
 
@@ -112,32 +116,37 @@ export function UpdatePanel({ auto, enabled, onToggleAuto }: Props) {
   const status = (() => {
     switch (state.kind) {
       case "unconfigured":
-        return "Les mises à jour ne sont pas configurées pour cette version.";
+        return t("updates.unconfigured");
       case "checking":
-        return "Recherche en cours…";
+        return t("updates.checking");
       case "current":
-        return "Plume est à jour.";
+        return t("updates.current");
       case "available":
-        return `Version ${state.update.version} disponible${
-          state.update.date ? ` — publiée le ${state.update.date.slice(0, 10)}` : ""
-        }.`;
+        return state.update.date
+          ? t("updates.availableAt", {
+              version: state.update.version,
+              date: state.update.date.slice(0, 10),
+            })
+          : t("updates.available", { version: state.update.version });
       case "installing":
         return state.progress;
       case "installed":
-        return "Mise à jour installée — elle s'appliquera au redémarrage.";
+        return t("updates.installed");
       default:
-        return "Dernière version connue de cette machine.";
+        return t("updates.idle");
     }
   })();
 
   return (
     <section className="stack stack--tight">
-      <h3 className="section-title">Mises à jour</h3>
+      <h3 className="section-title">{t("updates.title")}</h3>
 
       <div className="update">
         <div className="update__row">
           <div className="update__identity">
-            <span className="update__name">Plume {version || "…"}</span>
+            <span className="update__name">
+              {t("updates.appName", { version: version || "…" })}
+            </span>
             <span
               className={`update__status ${
                 state.kind === "available" || state.kind === "installed"
@@ -155,7 +164,7 @@ export function UpdatePanel({ auto, enabled, onToggleAuto }: Props) {
               className="btn btn--primary"
               onClick={() => install(state.update)}
             >
-              Installer {state.update.version}
+              {t("updates.install", { version: state.update.version })}
             </button>
           ) : state.kind === "installed" ? (
             <button
@@ -167,20 +176,20 @@ export function UpdatePanel({ auto, enabled, onToggleAuto }: Props) {
                 )
               }
             >
-              Redémarrer maintenant
+              {t("updates.restart")}
             </button>
           ) : state.kind === "installing" ? (
             <button type="button" className="btn btn--primary" disabled>
-              Installation…
+              {t("updates.installing")}
             </button>
           ) : state.kind === "unconfigured" ? null : (
             <button
               type="button"
-              className="btn btn--ghost"
+              className="btn btn--outline btn--sm"
               onClick={() => look()}
               disabled={state.kind === "checking"}
             >
-              {state.kind === "checking" ? "Recherche…" : "Rechercher"}
+              {state.kind === "checking" ? t("updates.checking") : t("updates.check")}
             </button>
           )}
         </div>
@@ -196,13 +205,9 @@ export function UpdatePanel({ auto, enabled, onToggleAuto }: Props) {
         )}
 
         {state.kind !== "unconfigured" && (
-          <label className="check update__auto">
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={(event) => onToggleAuto(event.target.checked)}
-            />
-            Rechercher automatiquement au démarrage
+          <label className="update__auto">
+            <Toggle checked={enabled} onChange={onToggleAuto} label={t("updates.auto")} />
+            {t("updates.auto")}
           </label>
         )}
       </div>

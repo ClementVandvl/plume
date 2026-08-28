@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { t } from "../i18n";
 import {
   EFFECT_LABEL,
   KIND_LABEL,
@@ -20,28 +22,39 @@ type Props = {
   onChange: (rule: ReadingRule) => void;
   onDelete: () => void;
   onClose: () => void;
+  /** Drawn over the page as a drawer, instead of embedded in a column. */
+  float?: boolean;
 };
 
-export function RulePanel({ rule, onChange, onDelete, onClose }: Props) {
+export function RulePanel({ rule, onChange, onDelete, onClose, float }: Props) {
+  // A drawer closes on Escape, like any transient surface.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const setTrigger = (patch: Partial<Trigger>) =>
     onChange({ ...rule, trigger: { ...rule.trigger, ...patch } });
   const setEffect = (patch: Partial<Effect>) =>
     onChange({ ...rule, effect: { ...rule.effect, ...patch } });
 
   return (
-    <aside className="panel-side">
+    <aside className={`panel-side ${float ? "panel-side--float" : ""}`}>
       <header className="panel-side__head">
         <div>
-          <span className="panel-side__kind">Règle de lecture</span>
+          <span className="panel-side__kind">{t("rulePanel.title")}</span>
           <span className="panel-side__meta">
-            {rule.enabled ? "active" : "désactivée"}
+            {rule.enabled ? t("rulePanel.active") : t("annotations.disabled")}
           </span>
         </div>
         <button
           type="button"
           className="icon-btn icon-btn--close"
           onClick={onClose}
-          aria-label="Fermer"
+          aria-label={t("common.close")}
         >
           ×
         </button>
@@ -54,14 +67,14 @@ export function RulePanel({ rule, onChange, onDelete, onClose }: Props) {
             checked={rule.enabled}
             onChange={(e) => onChange({ ...rule, enabled: e.target.checked })}
           />
-          Appliquer cette règle
+          {t("rulePanel.apply")}
         </label>
 
         <section className="stack stack--tight">
-          <h3 className="section-title">Quand je vois</h3>
+          <h3 className="section-title">{t("rulePanel.when")}</h3>
 
           <label className="field">
-            <span className="field__label">Marque</span>
+            <span className="field__label">{t("rulePanel.mark")}</span>
             <select
               className="input"
               value={rule.trigger.kind}
@@ -78,7 +91,7 @@ export function RulePanel({ rule, onChange, onDelete, onClose }: Props) {
           {COLOURED_TRIGGERS.has(rule.trigger.kind) ? (
             <>
               <label className="field">
-                <span className="field__label">Couleur</span>
+                <span className="field__label">{t("rulePanel.colour")}</span>
                 <span className="key__color">
                   <input
                     type="color"
@@ -95,38 +108,35 @@ export function RulePanel({ rule, onChange, onDelete, onClose }: Props) {
               </label>
 
               <label className="field">
-                <span className="field__label">Nom de la couleur</span>
+                <span className="field__label">{t("rulePanel.colourName")}</span>
                 <input
                   className="input"
                   value={rule.trigger.label}
                   onChange={(e) => setTrigger({ label: e.target.value })}
-                  placeholder="orange"
+                  placeholder={t("rulePanel.colourName.placeholder")}
                 />
-                <span className="field__hint">
-                  Le nom aide autant que le code : une photo rend rarement la
-                  couleur exacte.
-                </span>
+                <span className="field__hint">{t("rulePanel.colourName.hint")}</span>
               </label>
             </>
           ) : (
             <label className="field">
-              <span className="field__label">Décrivez la marque</span>
+              <span className="field__label">{t("rulePanel.describe")}</span>
               <textarea
                 className="input"
                 rows={3}
                 value={rule.trigger.label}
                 onChange={(e) => setTrigger({ label: e.target.value })}
-                placeholder="Une accolade tracée à gauche de plusieurs lignes."
+                placeholder={t("rulePanel.describe.placeholder")}
               />
             </label>
           )}
         </section>
 
         <section className="stack stack--tight">
-          <h3 className="section-title">Alors</h3>
+          <h3 className="section-title">{t("rulePanel.then")}</h3>
 
           <label className="field">
-            <span className="field__label">Effet</span>
+            <span className="field__label">{t("rulePanel.effect")}</span>
             <select
               className="input"
               value={rule.effect.kind}
@@ -142,7 +152,7 @@ export function RulePanel({ rule, onChange, onDelete, onClose }: Props) {
 
           {rule.effect.kind === "blockKind" && (
             <label className="field">
-              <span className="field__label">Type de bloc</span>
+              <span className="field__label">{t("rulePanel.blockKind")}</span>
               <select
                 className="input"
                 value={rule.effect.value || "definition"}
@@ -159,13 +169,13 @@ export function RulePanel({ rule, onChange, onDelete, onClose }: Props) {
 
           {rule.effect.kind === "custom" && (
             <label className="field">
-              <span className="field__label">Décrivez l'effet</span>
+              <span className="field__label">{t("rulePanel.customEffect")}</span>
               <textarea
                 className="input"
                 rows={3}
                 value={rule.effect.value}
                 onChange={(e) => setEffect({ value: e.target.value })}
-                placeholder="Transcrire ce passage en petites capitales."
+                placeholder={t("rulePanel.customEffect.placeholder")}
               />
             </label>
           )}
@@ -174,7 +184,7 @@ export function RulePanel({ rule, onChange, onDelete, onClose }: Props) {
 
       <footer className="panel-side__foot">
         <button type="button" className="btn btn--ghost" onClick={onDelete}>
-          Supprimer
+          {t("common.delete")}
         </button>
       </footer>
     </aside>

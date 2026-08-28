@@ -303,7 +303,7 @@ pub fn correct_block(
     block: &ir::Block,
     note: &str,
     model: &str,
-) -> Result<ir::Block, String> {
+) -> Result<(ir::Block, f64), String> {
     let current = serde_json::to_string_pretty(&serde_json::json!({
         "kind": block.kind,
         "title": block.title,
@@ -398,17 +398,17 @@ pub fn correct_block(
         corrected.audience = block.audience.clone();
     }
 
+    let cost_usd = envelope.get("total_cost_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
     logbus::detail(
         "claude",
         format!("Bloc {} corrigé en {:.0} s", block.id, started.elapsed().as_secs_f32()),
         format!(
-            "{:.3} $ · {} tours",
-            envelope.get("total_cost_usd").and_then(|v| v.as_f64()).unwrap_or(0.0),
+            "{cost_usd:.3} $ · {} tours",
             envelope.get("num_turns").and_then(|v| v.as_u64()).unwrap_or(0)
         ),
     );
 
-    Ok(corrected)
+    Ok((corrected, cost_usd))
 }
 
 #[cfg(test)]

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
-import { Modal } from "./components/Modal";
+import { t } from "./i18n";
+import { Icon } from "./ui/Icon";
 
 /**
  * Confirmation for anything that destroys work.
@@ -18,6 +19,8 @@ type Ask = {
   /** What exactly is lost or kept. Shown under the message. */
   detail?: string;
   confirmLabel: string;
+  /** "Garder le cours" beats "Annuler" when the stake is a deletion. */
+  cancelLabel?: string;
   tone?: Tone;
   /** Present for a rename-style dialog. */
   input?: { label: string; value: string; placeholder?: string };
@@ -70,47 +73,59 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
 
       {pending && (
-        <Modal
-          title={pending.title}
-          onClose={() => close(null)}
-          footer={
-            <>
-              <span />
-              <div className="modal__buttons">
-                <button type="button" className="btn btn--ghost" onClick={() => close(null)}>
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  className={`btn ${pending.tone === "danger" ? "btn--danger" : "btn--primary"}`}
-                  onClick={() => close(pending.input ? value : "")}
-                  disabled={pending.input ? value.trim().length === 0 : false}
-                >
-                  {pending.confirmLabel}
-                </button>
-              </div>
-            </>
-          }
-        >
-          <p className="confirm__message">{pending.message}</p>
-          {pending.detail && <p className="confirm__detail">{pending.detail}</p>}
+        <div className="backdrop" onMouseDown={() => close(null)}>
+          <div
+            className="confirm"
+            role="alertdialog"
+            aria-modal="true"
+            aria-label={pending.title}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="confirm__body">
+              {pending.tone === "danger" && (
+                <span className="confirm__badge">
+                  <Icon name="warning" size={19} />
+                </span>
+              )}
+              <div className="confirm__copy">
+                <h2 className="confirm__title">{pending.title}</h2>
+                <p className="confirm__message">{pending.message}</p>
+                {pending.detail && <p className="confirm__detail">{pending.detail}</p>}
 
-          {pending.input && (
-            <label className="field">
-              <span className="field__label">{pending.input.label}</span>
-              <input
-                className="input"
-                value={value}
-                placeholder={pending.input.placeholder}
-                onChange={(event) => setValue(event.target.value)}
-                autoFocus
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && value.trim()) close(value);
-                }}
-              />
-            </label>
-          )}
-        </Modal>
+                {pending.input && (
+                  <label className="field">
+                    <span className="field__label">{pending.input.label}</span>
+                    <input
+                      className="input"
+                      value={value}
+                      placeholder={pending.input.placeholder}
+                      onChange={(event) => setValue(event.target.value)}
+                      autoFocus
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && value.trim()) close(value);
+                        if (event.key === "Escape") close(null);
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <footer className="confirm__foot">
+              <button type="button" className="btn btn--outline" onClick={() => close(null)}>
+                {pending.cancelLabel ?? t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                className={`btn ${pending.tone === "danger" ? "btn--danger" : "btn--primary"}`}
+                onClick={() => close(pending.input ? value : "")}
+                disabled={pending.input ? value.trim().length === 0 : false}
+              >
+                {pending.confirmLabel}
+              </button>
+            </footer>
+          </div>
+        </div>
       )}
     </ConfirmContext.Provider>
   );

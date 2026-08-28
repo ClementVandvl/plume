@@ -37,9 +37,60 @@ async fn check_environment() -> env_check::Environment {
         .unwrap_or_else(|_| env_check::Environment { tools: Vec::new(), ready: false })
 }
 
+/// A course plus what its transcript says is left to do. Computed at list time
+/// rather than stored: the transcript is the single source of truth for review
+/// state, and a handful of JSON files is cheap to read.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DocumentSummary {
+    #[serde(flatten)]
+    document: workspace::Document,
+    /// Blocks in the transcript; 0 when the course has not been read yet.
+    block_count: usize,
+    /// Blocks below the doubt threshold and not yet confirmed by the teacher.
+    doubtful_count: usize,
+}
+
+fn summarise(document: workspace::Document) -> DocumentSummary {
+    let (block_count, doubtful_count) = read_transcript(&document.id)
+        .map(|transcript| {
+            let blocks: Vec<&ir::Block> =
+                transcript.pages.iter().flat_map(|p| p.blocks.iter()).collect();
+            let doubtful = blocks
+                .iter()
+                .filter(|b| b.confidence < ir::DOUBT_THRESHOLD && !b.reviewed)
+                .count();
+            (blocks.len(), doubtful)
+        })
+        .unwrap_or((0, 0));
+    DocumentSummary { document, block_count, doubtful_count }
+}
+
 #[tauri::command]
-fn list_documents() -> Vec<workspace::Document> {
-    workspace::list()
+fn list_documents() -> Vec<DocumentSummary> {
+    workspace::list().into_iter().map(summarise).collect()
+}
+
+#[tauri::command]
+fn list_trash() -> Vec<workspace::TrashedCourse> {
+    workspace::trashed()
+}
+
+#[tauri::command]
+fn restore_document(folder: String) -> Result<workspace::Document, String> {
+    workspace::restore(&folder)
+}
+
+#[tauri::command]
+fn purge_document(folder: String) -> Result<(), String> {
+    workspace::purge(&folder)
+}
+
+/// `macos` | `windows` | `linux` — the frontend draws its own window chrome
+/// and needs to know which side the buttons belong to.
+#[tauri::command]
+fn os_platform() -> String {
+    std::env::consts::OS.to_string()
 }
 
 #[tauri::command]
@@ -299,6 +350,23 @@ fn reveal_path(app: AppHandle, path: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Opens the last compiled PDF of a course, straight from the course list —
+/// the path is resolved here so the webview never manipulates file paths.
+#[tauri::command]
+fn open_course_pdf(app: AppHandle, id: String) -> Result<(), String> {
+    let document = workspace::load(&id)?;
+    let name = document
+        .last_pdf
+        .ok_or("Aucun PDF n'a encore été fabriqué pour ce cours.")?;
+    let path = workspace::document_dir(&id).join(name);
+    if !path.is_file() {
+        return Err("Le PDF n'est plus dans le dossier du cours. Refabriquez-le.".into());
+    }
+    app.opener()
+        .open_path(path.to_string_lossy().to_string(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 /// Opens an install page in the browser.
 ///
 /// Restricted to HTTPS: the webview must not be able to make the system open a
@@ -538,6 +606,7 @@ async fn apply_corrections(
 
         let mut failures = Vec::new();
         let mut stopped_early = false;
+        let mut spent = 0.0_f64;
         for (done, (page_index, block_index)) in pending.into_iter().enumerate() {
             if runs::is_cancelled(&job) {
                 stopped_early = true;
@@ -562,8 +631,9 @@ async fn apply_corrections(
                 &note,
                 &model,
             ) {
-                Ok(corrected) => {
+                Ok((corrected, cost)) => {
                     transcript.pages[page_index].blocks[block_index] = corrected;
+                    spent += cost;
                     let _ = app.emit(
                         "correction",
                         CorrectionProgress {
@@ -602,6 +672,15 @@ async fn apply_corrections(
         // Saved even on partial failure or cancellation: corrections that did
         // land must not be thrown away because a later one broke or was stopped.
         write_transcript(&id, &transcript)?;
+
+        // Corrections cost real quota too; the running total follows.
+        if spent > 0.0 {
+            if let Ok(mut document) = workspace::load(&id) {
+                document.cost_usd += spent;
+                document.updated_at = workspace::now_ms();
+                let _ = workspace::save(&document);
+            }
+        }
 
         let _ = app.emit(
             "correction",
@@ -802,6 +881,7 @@ async fn transcribe_document(
 
         let mut document = document;
         document.status = "review".into();
+        document.cost_usd += spent;
         document.updated_at = workspace::now_ms();
         workspace::save(&document)?;
 
@@ -869,11 +949,23 @@ async fn build_document(id: String, audience: String) -> Result<BuildResult, Str
         fs::write(&tex_path, tex).map_err(|e| format!("Écriture du .tex : {e}"))?;
 
         match latex::compile(&dir, &name) {
-            Ok(pdf) => Ok(BuildResult {
-                tex_path: tex_path.to_string_lossy().to_string(),
-                pdf_path: Some(pdf.to_string_lossy().to_string()),
-                error: None,
-            }),
+            Ok(pdf) => {
+                // A compiled PDF is what "ready" means to the course list, and
+                // remembering the file lets "Ouvrir le PDF" skip a rebuild.
+                let mut document = document;
+                document.status = "ready".into();
+                document.last_pdf = pdf
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string());
+                document.updated_at = workspace::now_ms();
+                let _ = workspace::save(&document);
+
+                Ok(BuildResult {
+                    tex_path: tex_path.to_string_lossy().to_string(),
+                    pdf_path: Some(pdf.to_string_lossy().to_string()),
+                    error: None,
+                })
+            }
             Err(error) => Ok(BuildResult {
                 tex_path: tex_path.to_string_lossy().to_string(),
                 pdf_path: None,
@@ -935,6 +1027,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             check_environment,
             list_documents,
+            list_trash,
+            restore_document,
+            purge_document,
+            os_platform,
             get_document,
             document_pages,
             document_page_paths,
@@ -970,6 +1066,7 @@ pub fn run() {
             workspace_path,
             reveal_workspace,
             reveal_path,
+            open_course_pdf,
             open_url,
             updates_configured,
             logs,

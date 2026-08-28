@@ -8,15 +8,18 @@ import {
   revealWorkspace,
   saveSettings,
 } from "../api";
+import { t } from "../i18n";
 import { logError } from "../log";
-import type { Environment, Settings, Template } from "../types";
+import { useAdvanced } from "../ui/mode";
+import type { Environment, Settings } from "../types";
+import { Icon } from "../ui/Icon";
+import { AdvancedRow, Toggle } from "../ui/controls";
 import { UpdatePanel } from "./UpdatePanel";
 import { Modal } from "./Modal";
 
 type Props = {
   environment: Environment | null;
   onEnvironmentChanged: () => void;
-  templates: Template[];
   workspace: string;
   settings: Settings;
   onSaved: (settings: Settings) => void;
@@ -24,41 +27,36 @@ type Props = {
 };
 
 const MODELS = [
-  { id: "sonnet", label: "Sonnet — rapide, recommandé" },
-  { id: "opus", label: "Opus — plus lent, plus fin" },
-  { id: "fable", label: "Fable" },
-];
+  { id: "sonnet", labelKey: "model.sonnet" },
+  { id: "opus", labelKey: "model.opus" },
+  { id: "fable", labelKey: "model.fable" },
+] as const;
+
+const THEMES = ["light", "dark", "system"] as const;
 
 export function SettingsModal({
   environment,
   onEnvironmentChanged,
-  templates,
   workspace,
   settings,
   onSaved,
   onClose,
 }: Props) {
-  const [draft, setDraft] = useState(settings);
+  const advanced = useAdvanced();
   const [installing, setInstalling] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(advanced);
 
-  // Reading rules live on their own page now; this modal only owns the model.
-  const dirty =
-    draft.defaultModel !== settings.defaultModel ||
-    draft.concurrentPages !== settings.concurrentPages;
-
-  // Saved on the spot: a checkbox that waits for a distant "Enregistrer" reads
-  // as broken. `settings` may have moved since the draft was taken, so the
-  // toggle builds on the live value, and persist() below never overwrites it.
-  async function toggleAuto(value: boolean) {
+  // Every control here saves on the spot: these are preferences, not a form,
+  // and a toggle that waits for a distant "Enregistrer" reads as broken.
+  async function persist(patch: Partial<Settings>) {
     try {
-      const next = { ...settings, checkUpdates: value };
+      const next = { ...settings, ...patch };
       await saveSettings(next);
       onSaved(next);
     } catch (cause) {
       setError(String(cause));
-      logError("workspace", "Enregistrement du réglage impossible", cause);
+      logError("workspace", t("error.refresh"), cause);
     }
   }
 
@@ -73,7 +71,7 @@ export function SettingsModal({
 
   // One handler for both prerequisites: they differ only in what they run.
   async function provision(tool: string) {
-    setInstalling("Préparation…");
+    setInstalling(t("settings.tool.installing"));
     setError(null);
     try {
       if (tool === "claude") await installClaude();
@@ -81,178 +79,209 @@ export function SettingsModal({
       onEnvironmentChanged();
     } catch (cause) {
       setError(String(cause));
-      logError(tool === "claude" ? "claude" : "latex", "Installation impossible", cause);
+      logError(tool === "claude" ? "claude" : "latex", t("error.refresh"), cause);
     } finally {
       setInstalling(null);
     }
   }
 
-  async function persist() {
-    setSaving(true);
-    setError(null);
-    try {
-      // checkUpdates saves on toggle; the draft's copy may be stale.
-      const next = { ...draft, checkUpdates: settings.checkUpdates };
-      await saveSettings(next);
-      onSaved(next);
-    } catch (cause) {
-      setError(String(cause));
-      logError("workspace", "Enregistrement des réglages impossible", cause);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
-    <Modal title="Réglages" onClose={onClose}>
+    <Modal
+      title={t("settings.title")}
+      subtitle={t("settings.subtitle")}
+      onClose={onClose}
+      footer={
+        <>
+          <span className="modal__note">
+            <UpdateFootnote />
+          </span>
+          <button type="button" className="btn btn--primary" onClick={onClose}>
+            {t("settings.done")}
+          </button>
+        </>
+      }
+    >
       <section className="stack stack--tight">
-        <h3 className="section-title">État du système</h3>
-        <ul className="tools">
+        <h3 className="section-title">{t("settings.needs.title")}</h3>
+        <div className="listcard">
           {(environment?.tools ?? []).map((tool) => (
-            <li key={tool.key} className="tool">
-              <span
-                className={`dot ${tool.found ? "dot--ok" : "dot--missing"}`}
-                aria-hidden="true"
-              />
-              <div className="tool__body">
-                <div className="tool__head">
-                  <span className="tool__label">{tool.label}</span>
-                  {tool.version && <code className="tool__version">{tool.version}</code>}
-                </div>
-                <p className="tool__role">{tool.role}</p>
-                {tool.found ? (
-                  <>
-                    <p className="tool__path" title={tool.path ?? ""}>
-                      {tool.path}
-                    </p>
-                    {tool.key === "claude" && (
-                      <button
-                        type="button"
-                        className="btn btn--link"
-                        onClick={() =>
-                          openClaudeLogin().catch((cause) =>
-                            logError("claude", "Ouverture du terminal impossible", cause),
-                          )
-                        }
-                      >
-                        Se connecter dans un terminal ↗
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <p className="tool__hint">{tool.hint}</p>
-                    {tool.installable ? (
-                      <button
-                        type="button"
-                        className="btn btn--primary tool__install"
-                        onClick={() => provision(tool.key)}
-                        disabled={installing !== null}
-                      >
-                        {installing ?? `Installer ${tool.label}`}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn btn--link"
-                        onClick={() =>
-                          openUrl(tool.installUrl).catch((cause) =>
-                            logError("interface", "Action impossible", cause),
-                          )
-                        }
-                      >
-                        Installer {tool.label} ↗
-                      </button>
-                    )}
-                  </>
+            <div
+              key={tool.key}
+              className={`toolrow ${tool.found ? "" : "toolrow--missing"}`}
+            >
+              {tool.found ? (
+                <span className="toolrow__ok">
+                  <Icon name="check" size={13} />
+                </span>
+              ) : (
+                <span className="toolrow__warn">
+                  <Icon name="warning" size={19} />
+                </span>
+              )}
+              <div className="toolrow__body">
+                <span className="toolrow__label">{tool.label}</span>
+                <span className={`toolrow__hint ${tool.found ? "" : "toolrow__hint--warn"}`}>
+                  {tool.found ? tool.role : (tool.hint ?? tool.role)}
+                </span>
+                {tool.found && tool.key === "claude" && (
+                  <button
+                    type="button"
+                    className="btn btn--link"
+                    onClick={() =>
+                      openClaudeLogin().catch((cause) =>
+                        logError("claude", t("error.refresh"), cause),
+                      )
+                    }
+                  >
+                    {t("settings.tool.login")}
+                  </button>
                 )}
               </div>
-            </li>
+              {tool.found ? (
+                <span className="toolrow__state">{t("settings.tool.ready")}</span>
+              ) : tool.installable ? (
+                <button
+                  type="button"
+                  className="btn btn--primary btn--sm"
+                  onClick={() => provision(tool.key)}
+                  disabled={installing !== null}
+                >
+                  {installing ?? t("settings.tool.install")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn--link"
+                  onClick={() =>
+                    openUrl(tool.installUrl).catch((cause) =>
+                      logError("interface", t("error.refresh"), cause),
+                    )
+                  }
+                >
+                  {t("settings.tool.installExternal", { name: tool.label })}
+                </button>
+              )}
+            </div>
           ))}
-        </ul>
+        </div>
       </section>
 
       <section className="stack stack--tight">
-        <h3 className="section-title">Lecture</h3>
-        <label className="field">
-          <span className="field__label">Modèle par défaut</span>
-          <select
-            className="input"
-            value={draft.defaultModel}
-            onChange={(e) => setDraft({ ...draft, defaultModel: e.target.value })}
-          >
-            {MODELS.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-          <span className="field__hint">
-            Modifiable cours par cours au moment de la lecture.
-          </span>
-        </label>
+        <h3 className="section-title">{t("settings.appearance.title")}</h3>
+        <div className="themes">
+          {THEMES.map((theme) => (
+            <button
+              key={theme}
+              type="button"
+              className={`theme ${settings.theme === theme ? "theme--on" : ""}`}
+              onClick={() => persist({ theme })}
+            >
+              <span className={`theme__swatch theme__swatch--${theme}`}>
+                <span className="theme__rail" />
+                <span className="theme__page" />
+              </span>
+              {t(`settings.theme.${theme}`)}
+            </button>
+          ))}
+        </div>
+      </section>
 
-        <label className="field">
-          <span className="field__label">Pages lues en parallèle</span>
-          <select
-            className="input"
-            value={draft.concurrentPages}
-            onChange={(e) =>
-              setDraft({ ...draft, concurrentPages: Number(e.target.value) })
-            }
-          >
-            <option value={0}>Automatique — selon la mémoire de la machine</option>
-            <option value={1}>1 — machine modeste (8 Go)</option>
-            <option value={2}>2</option>
-            <option value={3}>3 — machine confortable (16 Go et plus)</option>
-          </select>
-          <span className="field__hint">
-            Chaque page lue lance son propre processus Claude, qui pèse plusieurs
-            centaines de Mo. Trop large, la machine sature et se fige.
-          </span>
-        </label>
+      <section className="stack stack--tight">
+        <h3 className="section-title">{t("settings.general.title")}</h3>
 
-        {error && (
-          <p className="notice notice--error" role="alert">
-            {error}
-          </p>
-        )}
+        <div className="setting">
+          <div className="setting__copy">
+            <span className="setting__label">{t("settings.updates.title")}</span>
+            <span className="setting__hint">{t("settings.updates.hint")}</span>
+          </div>
+          <Toggle
+            checked={settings.checkUpdates}
+            onChange={(value) => persist({ checkUpdates: value })}
+            label={t("settings.updates.title")}
+          />
+        </div>
 
-        <div className="row-actions">
+        <div className="setting">
+          <div className="setting__copy">
+            <span className="setting__label">{t("settings.folder.title")}</span>
+            <span className="setting__hint setting__hint--path">{workspace || "…"}</span>
+          </div>
           <button
             type="button"
-            className="btn btn--primary"
-            onClick={persist}
-            disabled={!dirty || saving}
+            className="btn btn--outline btn--sm"
+            onClick={() =>
+              revealWorkspace().catch((cause) =>
+                logError("interface", t("error.refresh"), cause),
+              )
+            }
           >
-            {saving ? "Enregistrement…" : "Enregistrer"}
+            {t("common.openFolder")}
           </button>
         </div>
+
+        <AdvancedRow
+          text={t("settings.advanced.row")}
+          open={showAdvanced}
+          onToggle={() => setShowAdvanced((open) => !open)}
+        >
+          <div className="adv__body">
+            <label className="field">
+              <span className="field__label">{t("settings.model.label")}</span>
+              <select
+                className="input"
+                value={settings.defaultModel}
+                onChange={(e) => persist({ defaultModel: e.target.value })}
+              >
+                {MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {t(m.labelKey)}
+                  </option>
+                ))}
+              </select>
+              <span className="field__hint">{t("settings.model.hint")}</span>
+            </label>
+
+            <label className="field">
+              <span className="field__label">{t("settings.parallel.label")}</span>
+              <select
+                className="input"
+                value={settings.concurrentPages}
+                onChange={(e) => persist({ concurrentPages: Number(e.target.value) })}
+              >
+                <option value={0}>{t("settings.parallel.auto")}</option>
+                <option value={1}>{t("settings.parallel.one")}</option>
+                <option value={2}>2</option>
+                <option value={3}>{t("settings.parallel.three")}</option>
+              </select>
+              <span className="field__hint">{t("settings.parallel.hint")}</span>
+            </label>
+          </div>
+        </AdvancedRow>
       </section>
 
       <UpdatePanel
         auto={settings.checkUpdates}
         enabled={settings.checkUpdates}
-        onToggleAuto={toggleAuto}
+        onToggleAuto={(value) => persist({ checkUpdates: value })}
       />
 
-      <section className="stack stack--tight">
-        <h3 className="section-title">Classeur</h3>
-        <div className="folder">
-          <p className="folder__path">{workspace || "…"}</p>
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={() => revealWorkspace().catch((cause) => logError("interface", "Action impossible", cause))}
-          >
-            Ouvrir
-          </button>
-        </div>
-        <p className="field__hint">
-          {templates.length} modèle{templates.length > 1 ? "s" : ""} installé
-          {templates.length > 1 ? "s" : ""}.
+      {error && (
+        <p className="notice notice--error" role="alert">
+          {error}
         </p>
-      </section>
+      )}
     </Modal>
   );
+}
+
+/** "Version 0.4 · à jour" in the footer — quiet, no button. */
+function UpdateFootnote() {
+  const [version, setVersion] = useState("");
+  useEffect(() => {
+    import("@tauri-apps/api/app")
+      .then(({ getVersion }) => getVersion())
+      .then(setVersion)
+      .catch(() => {});
+  }, []);
+  return <>{version ? t("settings.version", { version }) : ""}</>;
 }

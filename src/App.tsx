@@ -6,8 +6,12 @@ import {
   getSettings,
   listDocuments,
   listTemplates,
+  listTrash,
+  saveSettings,
   workspacePath,
 } from "./api";
+import { t } from "./i18n";
+import { applyTheme, asTheme } from "./theme";
 import { Console } from "./components/Console";
 import { CourseView } from "./components/CourseView";
 import { CoursesView } from "./components/CoursesView";
@@ -17,16 +21,29 @@ import { RulesView } from "./components/RulesView";
 import { SettingsModal } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
 import { TemplatesView } from "./components/TemplatesView";
-import type { Environment, PlumeDocument, Route, Settings, Template } from "./types";
+import { TrashView } from "./components/TrashView";
+import { Titlebar, type UiMode } from "./ui/Titlebar";
+import { UiModeContext, asUiMode } from "./ui/mode";
+import type {
+  DocumentSummary,
+  Environment,
+  Route,
+  Settings,
+  Template,
+  TrashedCourse,
+} from "./types";
 import "./App.css";
 
 export default function App() {
   const [environment, setEnvironment] = useState<Environment | null>(null);
-  const [documents, setDocuments] = useState<PlumeDocument[]>([]);
+  const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [trash, setTrash] = useState<TrashedCourse[]>([]);
   const [workspace, setWorkspace] = useState("");
   const [route, setRoute] = useState<Route>({ name: "home" });
   const [modal, setModal] = useState<null | "create" | "settings">(null);
+  /** Photos dropped on the home screen, waiting for the wizard. */
+  const [seedPages, setSeedPages] = useState<string[]>([]);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>({
     rules: [],
@@ -34,27 +51,36 @@ export default function App() {
     defaultModel: "sonnet",
     checkUpdates: true,
     concurrentPages: 0,
+    theme: "system",
+    uiMode: "simple",
   });
 
   const refresh = useCallback(async () => {
-    const [env, docs, models, path, stored] = await Promise.all([
+    const [env, docs, models, path, stored, binned] = await Promise.all([
       checkEnvironment(),
       listDocuments(),
       listTemplates(),
       workspacePath(),
       getSettings(),
+      listTrash(),
     ]);
     setSettings(stored);
     setEnvironment(env);
     setDocuments(docs);
     setTemplates(models);
     setWorkspace(path);
+    setTrash(binned);
   }, []);
 
   useEffect(() => {
     installGlobalErrorReporting();
-    refresh().catch((cause) => logError("interface", "Chargement du classeur impossible", cause));
+    refresh().catch((cause) => logError("interface", t("error.load"), cause));
   }, [refresh]);
+
+  // The theme follows the settings; "system" hands control back to the OS.
+  useEffect(() => {
+    applyTheme(asTheme(settings.theme));
+  }, [settings.theme]);
 
   // Toggled from the native menu (Outils > Console, Cmd+Alt+C).
   useEffect(() => {
@@ -64,103 +90,158 @@ export default function App() {
     };
   }, []);
 
-  // A course is a deep view: it owns the window, sidebar included. Navigation
-  // chrome would only compete with the document being reviewed.
-  if (route.name === "course") {
-    return (
-      <div className="deep">
-        <CourseView
-          key={route.id}
-          documentId={route.id}
-          defaultModel={settings.defaultModel}
-          templates={templates}
-          onBack={() => setRoute({ name: "courses" })}
-          onChanged={() =>
-            refresh().catch((cause) =>
-              logError("interface", "Rafraîchissement impossible", cause),
-            )
-          }
-          onDeleted={() => {
-            setRoute({ name: "courses" });
-            refresh().catch((cause) =>
-              logError("interface", "Rafraîchissement impossible", cause),
-            );
-          }}
-        />
-        <Console open={consoleOpen} onClose={() => setConsoleOpen(false)} />
-      </div>
+  const mode = asUiMode(settings.uiMode);
+
+  // The mode is a window-level preference: applied on the spot, saved quietly.
+  function switchMode(next: UiMode) {
+    const updated = { ...settings, uiMode: next };
+    setSettings(updated);
+    saveSettings(updated).catch((cause) =>
+      logError("interface", t("error.refresh"), cause),
     );
   }
 
+  const onRefreshError = (cause: unknown) =>
+    logError("interface", t("error.refresh"), cause);
+
+  function openWizard(pages: string[] = []) {
+    setSeedPages(pages);
+    setModal("create");
+  }
+
+  const currentCourse =
+    route.name === "course" ? documents.find((d) => d.id === route.id) : undefined;
+
+  const titlebarContext =
+    route.name === "course"
+      ? currentCourse?.title
+      : route.name === "courses"
+        ? t("nav.courses")
+        : route.name === "templates"
+          ? t("nav.layout")
+          : route.name === "rules"
+            ? t("nav.annotations")
+            : route.name === "trash"
+              ? t("nav.trash")
+              : undefined;
+
+  // A course is a deep view: it owns the window below the title bar. Navigation
+  // chrome would only compete with the document being reviewed.
+  if (route.name === "course") {
+    return (
+      <UiModeContext.Provider value={mode}>
+        <div className="frame">
+          <Titlebar context={titlebarContext} mode={mode} onMode={switchMode} />
+          <div className={`deep ${consoleOpen ? "deep--console" : ""}`}>
+            <CourseView
+              key={route.id}
+              documentId={route.id}
+              initialStep={route.step}
+              defaultModel={settings.defaultModel}
+              concurrentPages={settings.concurrentPages}
+              templates={templates}
+              onBack={() => setRoute({ name: "courses" })}
+              onChanged={() => refresh().catch(onRefreshError)}
+              onDeleted={() => {
+                setRoute({ name: "courses" });
+                refresh().catch(onRefreshError);
+              }}
+            />
+            <Console open={consoleOpen} onClose={() => setConsoleOpen(false)} />
+          </div>
+        </div>
+      </UiModeContext.Provider>
+    );
+  }
+
+  // Before the first course there is nothing to navigate: the home view shows
+  // the welcome screen alone, full width, and the sidebar waits its turn.
+  const firstLaunch = documents.length === 0 && route.name === "home";
+
   return (
-    <div className={`shell ${consoleOpen ? "shell--console" : ""}`}>
-      <Sidebar
-        route={route}
-        onNavigate={setRoute}
-        onSettings={() => setModal("settings")}
-        onConsole={() => setConsoleOpen((open) => !open)}
-        courseCount={documents.length}
-        environmentReady={environment?.ready ?? true}
-      />
+    <UiModeContext.Provider value={mode}>
+      <div className="frame">
+        <Titlebar context={titlebarContext} mode={mode} onMode={switchMode} />
 
-      <main className="content">
-        {route.name === "home" && (
-          <HomeView
-            documents={documents}
+        <div className={`shell ${consoleOpen ? "shell--console" : ""} ${firstLaunch ? "shell--bare" : ""}`}>
+          {!firstLaunch && (
+            <Sidebar
+              route={route}
+              onNavigate={setRoute}
+              onSettings={() => setModal("settings")}
+              courseCount={documents.length}
+              trashCount={trash.length}
+              environmentReady={environment?.ready ?? true}
+            />
+          )}
+
+          <main className="content">
+            {route.name === "home" && (
+              <HomeView
+                documents={documents}
+                environment={environment}
+                onCreate={openWizard}
+                onNavigate={setRoute}
+                onSettings={() => setModal("settings")}
+              />
+            )}
+
+            {route.name === "courses" && (
+              <CoursesView
+                documents={documents}
+                onCreate={() => openWizard()}
+                onNavigate={setRoute}
+                onChanged={() => refresh().catch(onRefreshError)}
+              />
+            )}
+
+            {route.name === "rules" && (
+              <RulesView settings={settings} onSaved={setSettings} />
+            )}
+
+            {route.name === "templates" && (
+              <TemplatesView
+                templates={templates}
+                documents={documents}
+                onSaved={() => refresh().catch(onRefreshError)}
+              />
+            )}
+
+            {route.name === "trash" && (
+              <TrashView
+                trash={trash}
+                onChanged={() => refresh().catch(onRefreshError)}
+              />
+            )}
+          </main>
+
+          <Console open={consoleOpen} onClose={() => setConsoleOpen(false)} />
+        </div>
+
+        {modal === "create" && (
+          <CreateWizard
+            templates={templates}
+            initialPages={seedPages}
+            onCancel={() => setModal(null)}
+            onCreated={(created) => {
+              setModal(null);
+              setRoute({ name: "course", id: created.id });
+              refresh().catch(onRefreshError);
+            }}
+          />
+        )}
+
+        {modal === "settings" && (
+          <SettingsModal
             environment={environment}
-            onCreate={() => setModal("create")}
-            onNavigate={setRoute}
-            onSettings={() => setModal("settings")}
+            workspace={workspace}
+            settings={settings}
+            onSaved={setSettings}
+            onEnvironmentChanged={() => refresh().catch(onRefreshError)}
+            onClose={() => setModal(null)}
           />
         )}
-
-        {route.name === "courses" && (
-          <CoursesView
-            documents={documents}
-            onCreate={() => setModal("create")}
-            onNavigate={setRoute}
-          />
-        )}
-
-        {route.name === "rules" && (
-          <RulesView settings={settings} onSaved={setSettings} />
-        )}
-
-        {route.name === "templates" && (
-          <TemplatesView templates={templates} onSaved={() => refresh().catch((cause) => logError("interface", "Rafraîchissement impossible", cause))} />
-        )}
-
-      </main>
-
-      {modal === "create" && (
-        <CreateWizard
-          templates={templates}
-          onCancel={() => setModal(null)}
-          onCreated={(created) => {
-            setModal(null);
-            setRoute({ name: "course", id: created.id });
-            refresh().catch((cause) => logError("interface", "Rafraîchissement impossible", cause));
-          }}
-        />
-      )}
-
-      {modal === "settings" && (
-        <SettingsModal
-          environment={environment}
-          templates={templates}
-          workspace={workspace}
-          settings={settings}
-          onSaved={setSettings}
-          onEnvironmentChanged={() =>
-            refresh().catch((cause) =>
-              logError("interface", "Rafraîchissement impossible", cause),
-            )
-          }
-          onClose={() => setModal(null)}
-        />
-      )}
-
-      <Console open={consoleOpen} onClose={() => setConsoleOpen(false)} />
-    </div>
+      </div>
+    </UiModeContext.Provider>
   );
 }

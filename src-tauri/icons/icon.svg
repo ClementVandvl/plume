@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="1024" height="1024">
+  <!-- Plume — a red quill on cream paper. Source of every generated size:
+       `npm run tauri icon src-tauri/icons/icon.png` after rasterising this. -->
+  <defs>
+    <clipPath id="squircle">
+      <rect x="0" y="0" width="120" height="120" rx="26.4" ry="26.4"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#squircle)">
+    <rect x="0" y="0" width="120" height="120" fill="#FBF8F2"/>
+    <path d="M0 84 C30 74 58 78 120 62 L120 120 L0 120 Z" fill="#F3EEE3"/>
+    <path d="M95 22 c0 40 -27 62 -60 62 h-15 c0 -37 25 -62 60 -62 z"
+          fill="none" stroke="#A93226" stroke-width="5.5"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M20 100 L68 52" stroke="#A93226" stroke-width="5.5" stroke-linecap="round"/>
+  </g>
+</svg>

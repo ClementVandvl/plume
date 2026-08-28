@@ -5,6 +5,7 @@ import {
   latexToHtml,
   splitFigures,
 } from "../preview/latexToHtml";
+import { t } from "../i18n";
 import { Figure } from "./Figure";
 import { DOUBT_THRESHOLD, KIND_LABEL, type Block, type Template, type Transcript } from "../types";
 
@@ -192,22 +193,22 @@ export function DocumentPreview({
                 {Math.round(block.confidence * 100)} %
               </span>
               <span className="pblock__tag-page">p.{page}</span>
-              {block.note && <span className="pblock__tag-note">annoté</span>}
-              {teacherOnly && <span className="pblock__tag-note">version prof</span>}
-              {studentOnly && <span className="pblock__tag-note">version élève</span>}
-              {layout && <span className="pblock__tag-note">mise en page</span>}
+              {block.note && <span className="pblock__tag-note">{t("preview.tag.noted")}</span>}
+              {teacherOnly && <span className="pblock__tag-note">{t("preview.tag.teacher")}</span>}
+              {studentOnly && <span className="pblock__tag-note">{t("preview.tag.student")}</span>}
+              {layout && <span className="pblock__tag-note">{t("preview.tag.layout")}</span>}
             </span>
 
-            {teacherOnly && <span className="pblock__aside">prof</span>}
+            {teacherOnly && <span className="pblock__aside">{t("preview.aside.teacher")}</span>}
             {studentOnly && (
-              <span className="pblock__aside pblock__aside--student">élève</span>
+              <span className="pblock__aside pblock__aside--student">{t("preview.aside.student")}</span>
             )}
 
             <div className="pblock__body">
               {block.kind === "chapter" ? (
                 <h1 className="tex-chapter" style={{ color: colour, borderColor: colour }}>
                   {/* Only the label is underlined, as `\chapitre` does. */}
-                  <span className="tex-chapter__label">{`Chapitre ${number} :`}</span>{" "}
+                  <span className="tex-chapter__label">{t("preview.chapterLabel", { number: number ?? "" })}</span>{" "}
                   {block.title || block.latex}
                 </h1>
               ) : block.kind === "part" || block.kind === "subpart" || block.kind === "paragraph" ? (
@@ -234,16 +235,10 @@ export function DocumentPreview({
                     className={`tex-body ${block.kind === "proof" ? "tex-body--proof" : ""}`}
                   >
                     {layout && (
-                      <p className="tex-layout-note">
-                        Ce bloc contient sa propre mise en page. L'aperçu l'empile en
-                        une colonne — le PDF, lui, la respectera et peut déborder.
-                      </p>
+                      <p className="tex-layout-note">{t("preview.layout.note")}</p>
                     )}
                     {strayTab && (
-                      <p className="tex-layout-note">
-                        Ce bloc aligne sur un « &amp; » sans environnement d'alignement
-                        autour. Le PDF ne compilera pas — corrigez le bloc.
-                      </p>
+                      <p className="tex-layout-note">{t("preview.stray.note")}</p>
                     )}
                     {splitFigures(block.latex).map((segment, index) =>
                       segment.kind === "figure" ? (

@@ -9,59 +9,49 @@ import {
   writeTemplatePreamble,
 } from "../api";
 import { useConfirm } from "../confirm";
+import { t, tn } from "../i18n";
 import { logError, logInfo } from "../log";
+import { useAdvanced } from "../ui/mode";
 import { ConventionPanel } from "./ConventionPanel";
-import type { Convention, Template, TemplateKey } from "../types";
+import type { Convention, DocumentSummary, Template, TemplateKey } from "../types";
+import { KIND_LABEL } from "../types";
 
 /**
- * The template editor.
+ * The layout editor — "Ma mise en page".
  *
  * The bundled template is deliberately read-mostly. `seed` rewrites its
  * preamble whenever Plume ships a new version, so an edit made there would
  * vanish at some future update — silently, and months after the fact. Its key
  * values survive an upgrade and stay editable; changing its shape means
  * duplicating it first, which is offered right where the refusal happens.
+ *
+ * In simple mode the template is its visual settings; the LaTeX skeleton and
+ * the block mappings appear with the advanced mode.
  */
 
 /** Kept in step with `templates::BUILTIN_ID`. */
 const BUILTIN_ID = "charte-maths";
 
-const BLOCK_LABELS: Record<string, string> = {
-  chapter: "Chapitre",
-  part: "Partie",
-  subpart: "Sous-partie",
-  paragraph: "Paragraphe",
-  definition: "Définition",
-  property: "Propriété",
-  theorem: "Théorème",
-  method: "Méthode",
-  example: "Exemple",
-  application: "Application",
-  remark: "Remarque",
-  proof: "Démonstration",
-  equation: "Équation",
-  list: "Liste",
-  figure: "Figure",
-  text: "Texte",
-};
-
-const MODES: { id: string; label: string }[] = [
-  { id: "command", label: "Commande — \\nom{contenu}" },
-  { id: "environment", label: "Environnement — \\begin{nom}…" },
-  { id: "raw", label: "Brut — le LaTeX du bloc tel quel" },
-  { id: "centered", label: "Centré — dans un center" },
-];
+const MODES = [
+  { id: "command", labelKey: "layout.mode.command" },
+  { id: "environment", labelKey: "layout.mode.environment" },
+  { id: "raw", labelKey: "layout.mode.raw" },
+  { id: "centered", labelKey: "layout.mode.centered" },
+] as const;
 
 type Tab = "keys" | "rules" | "preamble" | "blocks";
 
 export function TemplatesView({
   templates,
+  documents,
   onSaved,
 }: {
   templates: Template[];
+  documents: DocumentSummary[];
   onSaved: () => void;
 }) {
   const confirm = useConfirm();
+  const advanced = useAdvanced();
   const [selectedId, setSelectedId] = useState(templates[0]?.id ?? "");
   const [draft, setDraft] = useState<Template | null>(null);
   const [tab, setTab] = useState<Tab>("keys");
@@ -75,8 +65,17 @@ export function TemplatesView({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
-  const selected = templates.find((t) => t.id === selectedId) ?? templates[0];
+  const selected = templates.find((tpl) => tpl.id === selectedId) ?? templates[0];
   const builtin = selected ? selected.id === BUILTIN_ID : false;
+  const usedBy = selected
+    ? documents.filter((doc) => doc.templateId === selected.id).length
+    : 0;
+
+  // The technical tabs only exist in advanced mode; falling back keeps the
+  // interface honest when the mode flips underneath an open tab.
+  useEffect(() => {
+    if (!advanced && (tab === "preamble" || tab === "blocks")) setTab("keys");
+  }, [advanced, tab]);
 
   useEffect(() => {
     setDraft(selected ? structuredClone(selected) : null);
@@ -155,7 +154,7 @@ export function TemplatesView({
       await work();
     } catch (cause) {
       setError(String(cause));
-      logError("template", "Action impossible sur le modèle", cause);
+      logError("template", t("error.refresh"), cause);
     } finally {
       setBusy(null);
     }
@@ -172,18 +171,21 @@ export function TemplatesView({
       }
       if (keysDirty) await saveTemplate(draft);
       onSaved();
-      setDone("Modèle enregistré.");
+      setDone(t("layout.saved"));
     });
   }
 
   async function duplicate() {
     if (!selected) return;
     const name = await confirm.promptFor({
-      title: "Dupliquer le modèle",
-      message: `Une copie indépendante de « ${selected.name} », que vous pourrez modifier entièrement.`,
-      detail: "L'original n'est pas touché.",
-      confirmLabel: "Dupliquer",
-      input: { label: "Nom du nouveau modèle", value: `${selected.name} (copie)` },
+      title: t("layout.duplicate.title"),
+      message: t("layout.duplicate.message", { name: selected.name }),
+      detail: t("layout.duplicate.detail"),
+      confirmLabel: t("common.duplicate"),
+      input: {
+        label: t("layout.duplicate.field"),
+        value: t("layout.duplicate.default", { name: selected.name }),
+      },
     });
     if (!name) return;
 
@@ -198,10 +200,10 @@ export function TemplatesView({
   async function remove() {
     if (!selected) return;
     const ok = await confirm.confirm({
-      title: `Supprimer « ${selected.name} » ?`,
-      message: "Les cours qui l'utilisent devront en choisir un autre.",
-      detail: "Le modèle part à la corbeille du classeur, il n'est pas effacé.",
-      confirmLabel: "Supprimer",
+      title: t("layout.delete.title", { name: selected.name }),
+      message: t("layout.delete.message"),
+      detail: t("layout.delete.detail"),
+      confirmLabel: t("common.delete"),
       tone: "danger",
     });
     if (!ok) return;
@@ -225,32 +227,44 @@ export function TemplatesView({
       if (keysDirty) await saveTemplate(draft);
       await checkTemplate(draft.id);
       onSaved();
-      setDone("Le modèle compile.");
+      setDone(t("layout.compiles"));
     });
   }
 
   if (!draft || !selected) {
-    return <p className="muted">Aucun modèle installé.</p>;
+    return <p className="muted">{t("layout.none")}</p>;
   }
+
+  const TABS: [Tab, string][] = advanced
+    ? [
+        ["keys", t("layout.tab.keys")],
+        ["rules", t("layout.tab.rules")],
+        ["preamble", t("layout.tab.preamble")],
+        ["blocks", t("layout.tab.blocks")],
+      ]
+    : [
+        ["keys", t("layout.tab.keys")],
+        ["rules", t("layout.tab.rules")],
+      ];
 
   return (
     <div className="stack">
       <header className="page-head">
         <div>
-          <h1 className="page-title">Modèles</h1>
+          <h1 className="page-title">{draft.name}</h1>
           <p className="page-subtitle">
-            Votre charte : les couleurs, le squelette LaTeX, et la façon dont chaque
-            type de bloc est écrit.
+            {builtin ? t("layout.subtitle.builtin") : draft.description}
+            {usedBy > 0 && <> · {tn("layout.usedBy", usedBy)}</>}
           </p>
         </div>
-        <div className="review__actions">
+        <div className="page-head__tools">
           <button
             type="button"
-            className="btn btn--ghost"
+            className="btn btn--outline"
             onClick={duplicate}
             disabled={busy !== null}
           >
-            {busy === "duplicate" ? "Duplication…" : "Dupliquer"}
+            {busy === "duplicate" ? t("layout.duplicating") : t("common.duplicate")}
           </button>
           <button
             type="button"
@@ -258,35 +272,30 @@ export function TemplatesView({
             onClick={save}
             disabled={!dirty || busy !== null}
           >
-            {busy === "save" ? "Enregistrement…" : "Enregistrer"}
+            {busy === "save" ? t("common.saving") : t("common.save")}
           </button>
         </div>
       </header>
 
       {templates.length > 1 && (
         <div className="chips">
-          {templates.map((t) => (
+          {templates.map((tpl) => (
             <button
-              key={t.id}
+              key={tpl.id}
               type="button"
-              className={`chip ${t.id === selectedId ? "chip--on" : ""}`}
-              onClick={() => setSelectedId(t.id)}
+              className={`chip ${tpl.id === selectedId ? "chip--on" : ""}`}
+              onClick={() => setSelectedId(tpl.id)}
             >
-              {t.name}
-              {t.id === BUILTIN_ID && <span className="chip__count">livré</span>}
+              {tpl.name}
+              {tpl.id === BUILTIN_ID && (
+                <span className="chip__count">{t("layout.builtinFlag")}</span>
+              )}
             </button>
           ))}
         </div>
       )}
 
-      {builtin && (
-        <p className="notice">
-          Modèle livré avec Plume. Ses couleurs et ses règles vous appartiennent :
-          vos modifications survivent aux mises à jour. Son squelette LaTeX, lui, est
-          remplacé à chaque nouvelle version — dupliquez-le pour en changer la
-          structure.
-        </p>
-      )}
+      {builtin && advanced && <p className="notice">{t("layout.builtin.notice")}</p>}
 
       {error && (
         <p className="notice notice--error" role="alert">
@@ -296,14 +305,7 @@ export function TemplatesView({
       {done && <p className="notice notice--ok">{done}</p>}
 
       <div className="tabs" role="tablist">
-        {(
-          [
-            ["keys", "Apparence"],
-            ["rules", "Règles"],
-            ["preamble", "Préambule"],
-            ["blocks", "Blocs"],
-          ] as [Tab, string][]
-        ).map(([id, label]) => (
+        {TABS.map(([id, label]) => (
           <button
             key={id}
             type="button"
@@ -319,31 +321,33 @@ export function TemplatesView({
 
       {tab === "keys" && (
         <>
-          <section className="stack stack--tight">
-            <h2 className="section-title">Identité</h2>
-            <div className="keys">
-              <label className="key">
-                <span className="key__label">Nom</span>
-                <input
-                  className="input"
-                  value={draft.name}
-                  disabled={builtin}
-                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                />
-                <code className="key__id">{draft.id}</code>
-              </label>
-              <label className="key">
-                <span className="key__label">Description</span>
-                <input
-                  className="input"
-                  value={draft.description}
-                  disabled={builtin}
-                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                />
-                <code className="key__id">{draft.engine}</code>
-              </label>
-            </div>
-          </section>
+          {advanced && (
+            <section className="stack stack--tight">
+              <h2 className="section-title">{t("layout.identity.title")}</h2>
+              <div className="keys">
+                <label className="key">
+                  <span className="key__label">{t("layout.identity.name")}</span>
+                  <input
+                    className="input"
+                    value={draft.name}
+                    disabled={builtin}
+                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  />
+                  <code className="key__id">{draft.id}</code>
+                </label>
+                <label className="key">
+                  <span className="key__label">{t("layout.identity.description")}</span>
+                  <input
+                    className="input"
+                    value={draft.description}
+                    disabled={builtin}
+                    onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                  />
+                  <code className="key__id">{draft.engine}</code>
+                </label>
+              </div>
+            </section>
+          )}
 
           {groups.map(([group, keys]) => (
             <section key={group} className="stack stack--tight">
@@ -353,63 +357,62 @@ export function TemplatesView({
                   <label key={key.key} className="key">
                     <span className="key__label">{key.label}</span>
                     <KeyInput keyDef={key} onChange={(value) => edit(key.key, value)} />
-                    <code className="key__id">{key.key}</code>
+                    {advanced && <code className="key__id">{key.key}</code>}
                   </label>
                 ))}
               </div>
             </section>
           ))}
+
+          {!advanced && (
+            <p className="field__hint">
+              {t("layout.advanced.row")} — {t("titlebar.mode.advanced")}
+            </p>
+          )}
         </>
       )}
 
       {tab === "rules" && (
-        <div className={`split ${openConvention ? "split--open" : ""}`}>
-          <div className="split__main">
-            <section className="registry">
-              <header className="registry__head">
-                <div>
-                  <h2 className="section-title">Règles de mise en forme</h2>
-                  <p className="registry__hint">
-                    Ce que ce modèle attend du LaTeX produit. Elles s'ajoutent aux
-                    règles de lecture et aux conventions générales, qui valent pour
-                    tous les modèles — celles-ci suivent la charte.
-                  </p>
-                </div>
-                <button type="button" className="btn btn--ghost" onClick={addConvention}>
-                  Ajouter une règle
-                </button>
-              </header>
+        <>
+          <section className="listcard">
+            <header className="listcard__head">
+              <div className="listcard__lead">
+                <span className="listcard__heading">{t("layout.rules.title")}</span>
+                <span className="listcard__hint">{t("layout.rules.hint")}</span>
+              </div>
+            </header>
 
-              {draft.conventions.length === 0 ? (
-                <p className="registry__empty">
-                  Aucune règle. Par exemple : aligner sur le signe égal les lignes de
-                  calcul qui commencent par « = ».
-                </p>
-              ) : (
-                <ul className="rules">
-                  {draft.conventions.map((convention) => (
-                    <li key={convention.id}>
-                      <button
-                        type="button"
-                        className={`rule rule--convention ${
-                          convention.enabled ? "" : "rule--off"
-                        } ${openConvention === convention.id ? "rule--selected" : ""}`}
-                        onClick={() => setOpenConvention(convention.id)}
-                      >
-                        <span className="rule__trigger">
-                          {convention.title.trim() || "Sans titre"}
-                        </span>
-                        <span className="rule__effect">
-                          {convention.text.trim().split("\n")[0] || "Sans consigne"}
-                        </span>
-                        {!convention.enabled && <span className="flag">désactivée</span>}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </div>
+            {draft.conventions.length === 0 ? (
+              <p className="listcard__empty">{t("layout.rules.empty")}</p>
+            ) : (
+              draft.conventions.map((convention) => (
+                <div
+                  key={convention.id}
+                  className={`arule ${convention.enabled ? "" : "arule--off"} ${
+                    openConvention === convention.id ? "arule--selected" : ""
+                  }`}
+                  onClick={() => setOpenConvention(convention.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && setOpenConvention(convention.id)}
+                >
+                  <span className="arule__sentence">
+                    <strong>{convention.title.trim() || "—"}</strong>
+                    <span className="arule__text">
+                      {convention.text.trim().split("\n")[0] || "—"}
+                    </span>
+                  </span>
+                  {!convention.enabled && (
+                    <span className="flag">{t("annotations.disabled")}</span>
+                  )}
+                </div>
+              ))
+            )}
+
+            <button type="button" className="listcard__add" onClick={addConvention}>
+              {t("layout.rules.add")}
+            </button>
+          </section>
 
           {openConvention !== null &&
             (() => {
@@ -434,24 +437,25 @@ export function TemplatesView({
                     setOpenConvention(null);
                   }}
                   onClose={() => setOpenConvention(null)}
+                  float
                 />
               );
             })()}
-        </div>
+        </>
       )}
 
       {tab === "preamble" && (
         <section className="stack stack--tight">
           <div className="section-head">
-            <h2 className="section-title">Squelette LaTeX</h2>
-            <div className="review__actions">
+            <h2 className="section-title">{t("layout.tab.preamble")}</h2>
+            <div className="page-head__tools">
               <button
                 type="button"
-                className="btn btn--ghost"
+                className="btn btn--outline btn--sm"
                 onClick={verify}
                 disabled={busy !== null}
               >
-                {busy === "check" ? "Compilation…" : "Vérifier"}
+                {busy === "check" ? t("layout.verifying") : t("layout.verify")}
               </button>
               <button
                 type="button"
@@ -462,14 +466,12 @@ export function TemplatesView({
                     .catch((cause) => setError(String(cause)))
                 }
               >
-                {rendered ? "Rafraîchir le rendu" : "Voir valeurs substituées"}
+                {rendered ? t("layout.preview.refresh") : t("layout.preview.substituted")}
               </button>
             </div>
           </div>
           <p className="field__hint">
-            Les <code>{"{{clé}}"}</code> sont remplacés par les valeurs de l'onglet
-            Apparence. « Vérifier » compile le modèle seul : une erreur se voit ici
-            plutôt qu'au moment d'exporter un cours.
+            {t("layout.preamble.hint", { syntax: "{{clé}}" })}
           </p>
           <textarea
             className="input code-area"
@@ -484,17 +486,14 @@ export function TemplatesView({
 
       {tab === "blocks" && (
         <section className="stack stack--tight">
-          <h2 className="section-title">Écriture des blocs</h2>
-          <p className="field__hint">
-            Comment chaque type de bloc reconnu est écrit en LaTeX. Un bloc sans
-            correspondance sort tel quel, sans son environnement.
-          </p>
+          <h2 className="section-title">{t("layout.blocks.title")}</h2>
+          <p className="field__hint">{t("layout.blocks.hint")}</p>
           <div className="keys">
             {Object.entries(draft.blocks)
-              .sort(([a], [b]) => (BLOCK_LABELS[a] ?? a).localeCompare(BLOCK_LABELS[b] ?? b))
+              .sort(([a], [b]) => (KIND_LABEL[a] ?? a).localeCompare(KIND_LABEL[b] ?? b))
               .map(([kind, mapping]) => (
                 <label key={kind} className="key">
-                  <span className="key__label">{BLOCK_LABELS[kind] ?? kind}</span>
+                  <span className="key__label">{KIND_LABEL[kind] ?? kind}</span>
                   <span className="key__pair">
                     <select
                       className="input"
@@ -504,7 +503,7 @@ export function TemplatesView({
                     >
                       {MODES.map((mode) => (
                         <option key={mode.id} value={mode.id}>
-                          {mode.label}
+                          {t(mode.labelKey)}
                         </option>
                       ))}
                     </select>
@@ -523,20 +522,18 @@ export function TemplatesView({
         </section>
       )}
 
-      {!builtin && (
+      {!builtin && advanced && (
         <section className="stack stack--tight">
-          <h2 className="section-title">Zone sensible</h2>
+          <h2 className="section-title">{t("layout.danger.title")}</h2>
           <div className="folder">
-            <p className="folder__path">
-              Supprimer « {draft.name} » — le modèle part à la corbeille du classeur.
-            </p>
+            <p className="folder__path">{t("layout.danger.text", { name: draft.name })}</p>
             <button
               type="button"
               className="btn btn--danger"
               onClick={remove}
               disabled={busy !== null}
             >
-              Supprimer
+              {t("common.delete")}
             </button>
           </div>
         </section>
@@ -571,20 +568,35 @@ function KeyInput({
   }
 
   if (keyDef.type.startsWith("choice:")) {
+    const options = keyDef.type.slice("choice:".length).split("|");
+    // Few options read better as a segmented control than a dropdown.
+    if (options.length <= 4) {
+      return (
+        <span className="seg seg--field">
+          {options.map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={`seg__opt ${keyDef.value === option ? "seg__opt--on" : ""}`}
+              onClick={() => onChange(option)}
+            >
+              {option}
+            </button>
+          ))}
+        </span>
+      );
+    }
     return (
       <select
         className="input"
         value={keyDef.value}
         onChange={(e) => onChange(e.target.value)}
       >
-        {keyDef.type
-          .slice("choice:".length)
-          .split("|")
-          .map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
       </select>
     );
   }

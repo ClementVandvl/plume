@@ -1,4 +1,6 @@
 import { useEffect, type ReactNode } from "react";
+import { t } from "../i18n";
+import { Icon } from "../ui/Icon";
 
 type Props = {
   title: string;
@@ -37,9 +39,9 @@ export function Modal({ title, subtitle, onClose, children, footer, wide }: Prop
             type="button"
             className="icon-btn icon-btn--close"
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={t("common.close")}
           >
-            ×
+            <Icon name="close" size={14} />
           </button>
         </header>
 

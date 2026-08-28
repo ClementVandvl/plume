@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { listen } from "@tauri-apps/api/event";
 import { createDocument } from "../api";
+import { t, tn } from "../i18n";
+import { isTauri } from "../platform";
 import { logError } from "../log";
 import type { ImportProgress, PlumeDocument, Template } from "../types";
+import { Icon } from "../ui/Icon";
 import { Modal } from "./Modal";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "heic", "heif", "webp", "tif", "tiff"];
@@ -13,42 +15,52 @@ const basename = (path: string) => path.split(/[\\/]/).pop() ?? path;
 const isImage = (path: string) =>
   IMAGE_EXTENSIONS.includes(path.split(".").pop()?.toLowerCase() ?? "");
 
-const STEPS = ["Le cours", "Les pages", "Vérification"];
+const STEP_KEYS = ["wizard.step.title", "wizard.step.pages", "wizard.step.check"] as const;
 
 type Props = {
   templates: Template[];
+  /** Photos dropped before the wizard opened — straight to step 2. */
+  initialPages?: string[];
   onCancel: () => void;
   onCreated: (document: PlumeDocument) => void;
 };
 
-export function CreateWizard({ templates, onCancel, onCreated }: Props) {
+export function CreateWizard({ templates, initialPages = [], onCancel, onCreated }: Props) {
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
-  const [pages, setPages] = useState<string[]>([]);
+  const [pages, setPages] = useState<string[]>(initialPages);
   const [dragging, setDragging] = useState(false);
+  /** Index of the row being reordered by pointer, null otherwise. */
+  const [held, setHeld] = useState<number | null>(null);
+  const listRef = useRef<HTMLOListElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imported, setImported] = useState<ImportProgress | null>(null);
 
-  const template = templates.find((t) => t.id === templateId);
+  const template = templates.find((tpl) => tpl.id === templateId);
 
   useEffect(() => {
+    if (!isTauri) return;
     // If the listener fails (webview without drag-and-drop), the file picker
     // still works: that is not a reason to bring the wizard down.
-    const unlisten = getCurrentWebview()
-      .onDragDropEvent((event) => {
-        if (event.payload.type === "over") setDragging(true);
-        else if (event.payload.type === "drop") {
-          setDragging(false);
-          addPages(event.payload.paths);
-        } else setDragging(false);
+    let stop: (() => void) | null = null;
+    import("@tauri-apps/api/webview")
+      .then(({ getCurrentWebview }) =>
+        getCurrentWebview().onDragDropEvent((event) => {
+          if (event.payload.type === "over") setDragging(true);
+          else if (event.payload.type === "drop") {
+            setDragging(false);
+            addPages(event.payload.paths);
+          } else setDragging(false);
+        }),
+      )
+      .then((off) => {
+        stop = off;
       })
       .catch(() => null);
-
-    return () => {
-      unlisten.then((stop) => stop?.()).catch(() => {});
-    };
+    return () => stop?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // A dozen phone photos take a few seconds each to rotate and resample.
@@ -63,11 +75,7 @@ export function CreateWizard({ templates, onCancel, onCreated }: Props) {
     const images = candidates.filter(isImage);
     const ignored = candidates.length - images.length;
     setPages((current) => [...current, ...images.filter((p) => !current.includes(p))]);
-    setError(
-      ignored > 0
-        ? `${ignored} fichier${ignored > 1 ? "s" : ""} ignoré${ignored > 1 ? "s" : ""} : seules les images sont acceptées.`
-        : null,
-    );
+    setError(ignored > 0 ? tn("wizard.ignored", ignored) : null);
   }
 
   async function pickPages() {
@@ -89,6 +97,55 @@ export function CreateWizard({ templates, onCancel, onCreated }: Props) {
     });
   }
 
+  /**
+   * Reordering by drag, on pointer events rather than HTML5 drag-and-drop:
+   * the webview's native file drop owns that machinery (and swallows internal
+   * drags on some platforms), while pointer events work everywhere. The rows
+   * reorder live under the cursor; ↑/↓ stay for the keyboard.
+   */
+  function grab(event: React.PointerEvent, index: number) {
+    event.preventDefault();
+    const list = listRef.current;
+    if (!list) return;
+
+    let from = index;
+    setHeld(index);
+
+    const onMove = (pointer: PointerEvent) => {
+      const rows = Array.from(list.children);
+      let to = 0;
+      rows.forEach((row, at) => {
+        const box = row.getBoundingClientRect();
+        if (pointer.clientY > box.top + box.height / 2) to = at + 1;
+      });
+      // Insertion index counts the dragged row itself when moving down.
+      if (to > from) to -= 1;
+      to = Math.min(to, rows.length - 1);
+      if (to !== from) {
+        // The updater runs when React flushes, after `from` has been advanced
+        // for the next move — so it must capture today's value, not read the
+        // mutable one.
+        const start = from;
+        const end = to;
+        setPages((current) => {
+          const next = [...current];
+          const [moved] = next.splice(start, 1);
+          next.splice(end, 0, moved);
+          return next;
+        });
+        from = to;
+        setHeld(to);
+      }
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setHeld(null);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
   async function create() {
     setBusy(true);
     setError(null);
@@ -96,7 +153,7 @@ export function CreateWizard({ templates, onCancel, onCreated }: Props) {
       onCreated(await createDocument(title, templateId, pages));
     } catch (cause) {
       setError(String(cause));
-      logError("workspace", "Création du cours impossible", cause);
+      logError("workspace", t("error.refresh"), cause);
       setBusy(false);
       setStep(2);
     }
@@ -106,29 +163,34 @@ export function CreateWizard({ templates, onCancel, onCreated }: Props) {
 
   return (
     <Modal
-      title="Nouveau cours"
-      subtitle={STEPS[step]}
+      title={t("wizard.title")}
+      subtitle={t("wizard.subtitle", {
+        step: step + 1,
+        total: STEP_KEYS.length,
+        name: t(STEP_KEYS[step]),
+      })}
       onClose={onCancel}
       wide
       footer={
         <>
-          <span className="muted">
-            Étape {step + 1} sur {STEPS.length}
+          <span className="modal__note">
+            {template &&
+              t("wizard.footer.template", { name: template.name })}
           </span>
           <div className="modal__buttons">
             {step > 0 && (
-              <button type="button" className="btn btn--ghost" onClick={() => setStep(step - 1)}>
-                Retour
+              <button type="button" className="btn btn--outline" onClick={() => setStep(step - 1)}>
+                {t("common.back")}
               </button>
             )}
-            {step < STEPS.length - 1 ? (
+            {step < STEP_KEYS.length - 1 ? (
               <button
                 type="button"
                 className="btn btn--primary"
                 onClick={() => setStep(step + 1)}
                 disabled={!canContinue}
               >
-                Continuer
+                {t("common.continue")}
               </button>
             ) : (
               <button
@@ -139,23 +201,26 @@ export function CreateWizard({ templates, onCancel, onCreated }: Props) {
               >
                 {busy
                   ? imported
-                    ? `Import ${imported.done} / ${imported.total}…`
-                    : "Création…"
-                  : "Créer le cours"}
+                    ? t("wizard.importing", { done: imported.done, total: imported.total })
+                    : t("wizard.creating")
+                  : t("wizard.create")}
               </button>
             )}
           </div>
         </>
       }
     >
-      <ol className="steps steps--compact">
-        {STEPS.map((label, index) => (
+      <ol className="wsteps">
+        {STEP_KEYS.map((key, index) => (
           <li
-            key={label}
-            className={`step ${index === step ? "step--current" : ""} ${index < step ? "step--done" : ""}`}
+            key={key}
+            className={`wstep ${index === step ? "wstep--current" : ""} ${index < step ? "wstep--done" : ""}`}
           >
-            <span className="step__dot">{index + 1}</span>
-            {label}
+            <span className="wstep__dot">
+              {index < step ? <Icon name="check" size={11} /> : index + 1}
+            </span>
+            {t(key)}
+            {index < STEP_KEYS.length - 1 && <span className="wstep__line" />}
           </li>
         ))}
       </ol>
@@ -163,105 +228,119 @@ export function CreateWizard({ templates, onCancel, onCreated }: Props) {
       {step === 0 && (
         <div className="stack stack--tight">
           <label className="field">
-            <span className="field__label">Titre du cours</span>
+            <span className="field__label">{t("wizard.title.label")}</span>
             <input
               className="input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Vecteurs"
+              placeholder={t("wizard.title.placeholder")}
               autoFocus
             />
           </label>
 
-          <div className="field">
-            <span className="field__label">Modèle</span>
-            <div className="picks">
-              {templates.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={`pick ${t.id === templateId ? "pick--on" : ""}`}
-                  onClick={() => setTemplateId(t.id)}
-                >
-                  <span className="pick__title">{t.name}</span>
-                  <span className="pick__meta">{t.description}</span>
-                  <span className="pick__meta">
-                    {t.keys.length} réglages · {t.engine}
-                  </span>
-                </button>
-              ))}
+          {templates.length > 1 && (
+            <div className="field">
+              <span className="field__label">{t("wizard.template.label")}</span>
+              <div className="picks">
+                {templates.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    className={`pick ${tpl.id === templateId ? "pick--on" : ""}`}
+                    onClick={() => setTemplateId(tpl.id)}
+                  >
+                    <span className="pick__title">{tpl.name}</span>
+                    <span className="pick__meta">{tpl.description}</span>
+                    <span className="pick__meta">
+                      {tn("wizard.template.meta", tpl.keys.length, { engine: tpl.engine })}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
       {step === 1 && (
         <div className="stack stack--tight">
-          <div
-            className={`dropzone ${dragging ? "dropzone--active" : ""}`}
+          <button
+            type="button"
+            className={`dropzone dropzone--accent ${dragging ? "dropzone--active" : ""}`}
             onClick={pickPages}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === "Enter" && pickPages()}
           >
-            <p className="dropzone__text">
-              Glissez vos photos ici, ou <span className="dropzone__link">parcourez</span>
-            </p>
-            <p className="dropzone__hint">L'ordre de la liste est celui des pages.</p>
-          </div>
+            <Icon name="upload" size={24} />
+            <span className="dropzone__title">{t("wizard.drop.title")}</span>
+            <span className="dropzone__text">
+              {t("wizard.drop.text", { browse: t("wizard.drop.browse") })}
+            </span>
+          </button>
 
           {pages.length > 0 && (
-            <ol className="pages">
-              {pages.map((path, index) => (
-                <li key={path} className="page">
-                  <span className="page__number">{index + 1}</span>
-                  <span className="page__name" title={path}>
-                    {basename(path)}
-                  </span>
-                  <span className="page__actions">
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      onClick={() => move(index, -1)}
-                      disabled={index === 0}
-                      aria-label="Monter"
+            <>
+              <span className="field__label">{tn("wizard.order.title", pages.length)}</span>
+              <ol className={`wpages ${held !== null ? "wpages--held" : ""}`} ref={listRef}>
+                {pages.map((path, index) => (
+                  <li
+                    key={path}
+                    className={`wpage ${held === index ? "wpage--held" : ""}`}
+                  >
+                    <span
+                      className="wpage__grip"
+                      onPointerDown={(event) => grab(event, index)}
+                      aria-hidden="true"
                     >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      onClick={() => move(index, 1)}
-                      disabled={index === pages.length - 1}
-                      aria-label="Descendre"
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      onClick={() => setPages((c) => c.filter((p) => p !== path))}
-                      aria-label="Retirer"
-                    >
-                      ×
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ol>
+                      <Icon name="grip" size={14} />
+                    </span>
+                    <span className="wpage__badge">{index + 1}</span>
+                    <span className="wpage__name" title={path}>
+                      {basename(path)}
+                    </span>
+                    <span className="wpage__actions">
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        onClick={() => move(index, -1)}
+                        disabled={index === 0}
+                        aria-label={t("wizard.order.move.up")}
+                      >
+                        <Icon name="arrow-up" size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        onClick={() => move(index, 1)}
+                        disabled={index === pages.length - 1}
+                        aria-label={t("wizard.order.move.down")}
+                      >
+                        <Icon name="arrow-down" size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        onClick={() => setPages((c) => c.filter((p) => p !== path))}
+                        aria-label={t("wizard.order.remove")}
+                      >
+                        <Icon name="close" size={13} />
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </>
           )}
         </div>
       )}
 
       {step === 2 && (
         <dl className="recap">
-          <dt>Titre</dt>
+          <dt>{t("wizard.recap.title")}</dt>
           <dd>{title}</dd>
-          <dt>Modèle</dt>
+          <dt>{t("wizard.recap.template")}</dt>
           <dd>{template?.name}</dd>
-          <dt>Pages</dt>
+          <dt>{t("wizard.recap.pages")}</dt>
           <dd>{pages.length}</dd>
-          <dt>Première page</dt>
+          <dt>{t("wizard.recap.first")}</dt>
           <dd>{basename(pages[0] ?? "—")}</dd>
         </dl>
       )}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { renderFigure } from "../api";
+import { t } from "../i18n";
 import { logError } from "../log";
 
 /**
@@ -39,8 +40,8 @@ export function Figure({ documentId, tikz }: { documentId: string; tikz: string 
   }
 
   if (!src) {
-    return <span className="tex-figure">Compilation du schéma…</span>;
+    return <span className="tex-figure">{t("figure.compiling")}</span>;
   }
 
-  return <img className="tex-figure-image" src={src} alt="Schéma du cours" />;
+  return <img className="tex-figure-image" src={src} alt={t("figure.alt")} />;
 }

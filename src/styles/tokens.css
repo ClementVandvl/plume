@@ -12,8 +12,9 @@
    than on the surface"): adjust layer 2.
 
    Theming: light by default, dark follows the system preference, and
-   `data-theme="light|dark"` on <html> forces either one — ready for a manual
-   switch in the settings.
+   `data-theme="light|dark"` on <html> forces either one — driven by the
+   Apparence setting. The document preview and the technical journal do not
+   theme: paper stays light, the journal stays dark, in both modes.
    =========================================================================== */
 
 /* ---------------------------------------------------------------------------
@@ -28,31 +29,47 @@
 
   --p-green-400: #4fb99f;
   --p-green-500: #117a65;
+  --p-green-600: #0e6354;
 
   --p-blue-400: #6ba3d6;
   --p-blue-500: #1f618d;
+  --p-blue-600: #1a4f75;
 
   --p-amber-400: #d9a441;
   --p-amber-500: #9c6f16;
+  --p-amber-600: #7a5711;
 
   /* --- Neutrals, slightly warm: this app is about paper. --- */
   --p-neutral-0: #ffffff;
+  --p-neutral-25: #fbfaf8;
   --p-neutral-50: #f7f6f4;
+  --p-neutral-60: #f4f2ed;
+  --p-neutral-75: #efede8;
   --p-neutral-100: #eceae6;
+  --p-neutral-150: #e1ddd5;
   --p-neutral-200: #e3e0da;
   --p-neutral-300: #cbc7bf;
   --p-neutral-400: #9b968d;
   --p-neutral-500: #6d6a64;
+  --p-neutral-600: #57544e;
   --p-neutral-700: #37352f;
+  --p-neutral-750: #35322d;
   --p-neutral-800: #232220;
+  --p-neutral-850: #1f1e1c;
   --p-neutral-900: #1b1a18;
   --p-neutral-950: #131211;
+
+  /* --- Cream, the paper of the app icon and of document skeletons. --- */
+  --p-cream-100: #fbf8f2;
+  --p-cream-200: #f1eee7;
 
   /* --- Type families --- */
   --p-font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
     Roboto, system-ui, sans-serif;
   --p-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
     monospace;
+  --p-font-serif: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia,
+    "Times New Roman", serif;
 
   /* --- Type scale --- */
   --p-text-2xs: 11px;
@@ -88,10 +105,13 @@
   --p-radius-sm: 6px;
   --p-radius-md: 8px;
   --p-radius-lg: 10px;
+  --p-radius-xl: 14px;
   --p-radius-full: 999px;
 
   /* --- Elevation --- */
   --p-shadow-card: 0 1px 2px rgb(26 26 26 / 6%), 0 8px 24px rgb(26 26 26 / 4%);
+  --p-shadow-raised: 0 1px 2px rgb(26 26 26 / 6%);
+  --p-shadow-modal: 0 24px 60px rgb(26 26 26 / 28%);
   --p-shadow-none: none;
 
   /* --- Borders --- */
@@ -111,6 +131,7 @@
   /* Applied typography */
   --font-ui: var(--p-font-system);
   --font-code: var(--p-font-mono);
+  --font-paper: var(--p-font-serif);
 
   --font-size-caption: var(--p-text-2xs);
   --font-size-label: var(--p-text-xs);
@@ -150,19 +171,46 @@
   --radius-subtle: var(--p-radius-sm);
   --radius-control: var(--p-radius-md);
   --radius-panel: var(--p-radius-lg);
+  --radius-window: var(--p-radius-xl);
   --radius-pill: var(--p-radius-full);
   --border-width: var(--p-border-width);
 
   /* Layout */
-  --sidebar-width: 216px;
+  --sidebar-width: 228px;
+  --titlebar-height: 44px;
   --console-height: 38vh;
+  --panel-width: 396px;
   /* Every interactive control lines up on this height. */
   --control-height: 38px;
+  --control-height-sm: 32px;
 
   /* Motion */
   --duration-fast: var(--p-duration-fast);
   --duration-slow: var(--p-duration-slow);
   --easing: var(--p-ease);
+
+  /* The technical journal: always dark, whatever the theme. It is a terminal,
+     and reading logs on paper-white is how lines get missed. */
+  --color-console-bg: var(--p-neutral-900);
+  --color-console-surface: var(--p-neutral-800);
+  --color-console-chip: var(--p-neutral-700);
+  --color-console-border: var(--p-neutral-750);
+  --color-console-text: var(--p-neutral-100);
+  --color-console-muted: var(--p-neutral-400);
+  --color-console-success: var(--p-green-400);
+  --color-console-warning: var(--p-amber-400);
+  --color-console-error: var(--p-red-400);
+  --color-console-info: var(--p-blue-400);
+
+  /* The document preview: always paper. One is a reading surface, not chrome. */
+  --color-paper: var(--p-neutral-0);
+  --color-paper-ground: var(--p-cream-200);
+  --color-paper-text: var(--p-neutral-900);
+
+  /* Page skeletons — the little fake documents standing in for thumbnails. */
+  --color-skeleton: var(--p-cream-200);
+  --color-skeleton-line: var(--p-neutral-150);
+  --color-skeleton-line-strong: var(--p-neutral-300);
 }
 
 /* ---------------------------------------------------------------------------
@@ -177,12 +225,23 @@
   --color-bg: var(--p-neutral-50);
   --color-surface: var(--p-neutral-0);
   --color-surface-hover: var(--p-neutral-50);
+  --color-inset: var(--p-neutral-25);
   --color-border: var(--p-neutral-200);
   --color-border-strong: var(--p-neutral-300);
 
+  /* Window chrome */
+  --color-titlebar: var(--p-neutral-75);
+  --color-titlebar-border: var(--p-neutral-150);
+  --color-sidebar: var(--p-neutral-75);
+  --color-sidebar-border: var(--p-neutral-150);
+  --color-subbar: var(--p-neutral-60);
+  --color-chip-ground: var(--p-cream-200);
+
   /* Text */
   --color-text: var(--p-neutral-950);
+  --color-text-secondary: var(--p-neutral-600);
   --color-text-muted: var(--p-neutral-500);
+  --color-text-faint: var(--p-neutral-400);
   --color-text-inverted: var(--p-neutral-0);
 
   /* Intents */
@@ -193,8 +252,30 @@
   --color-info: var(--p-blue-500);
   --color-warning: var(--p-amber-500);
 
+  /* Soft intent surfaces — banners, pills, highlighted rows. */
+  --color-soft-accent: color-mix(in srgb, var(--p-red-500) 6%, var(--p-neutral-0));
+  --color-soft-accent-border: color-mix(in srgb, var(--p-red-500) 28%, var(--p-neutral-0));
+  --color-soft-success: color-mix(in srgb, var(--p-green-500) 10%, var(--p-neutral-0));
+  --color-soft-success-border: color-mix(in srgb, var(--p-green-500) 26%, var(--p-neutral-0));
+  --color-soft-warning: color-mix(in srgb, var(--p-amber-400) 16%, var(--p-neutral-0));
+  --color-soft-warning-border: color-mix(in srgb, var(--p-amber-500) 32%, var(--p-neutral-0));
+  --color-soft-info: color-mix(in srgb, var(--p-blue-500) 9%, var(--p-neutral-0));
+  --color-soft-info-border: color-mix(in srgb, var(--p-blue-500) 28%, var(--p-neutral-0));
+
+  /* Text on soft surfaces — darker than the intent, for contrast. */
+  --color-strong-accent: var(--p-red-600);
+  --color-strong-success: var(--p-green-600);
+  --color-strong-warning: var(--p-amber-600);
+  --color-strong-info: var(--p-blue-600);
+
+  /* Selection — the dark pill of active filters. */
+  --color-select: var(--p-neutral-900);
+  --color-select-on: var(--p-neutral-0);
+
   /* Elevation */
   --shadow-panel: var(--p-shadow-card);
+  --shadow-raised: var(--p-shadow-raised);
+  --shadow-modal: var(--p-shadow-modal);
 }
 
 /* ---------------------------------------------------------------------------
@@ -208,11 +289,21 @@
     --color-bg: var(--p-neutral-900);
     --color-surface: var(--p-neutral-800);
     --color-surface-hover: var(--p-neutral-700);
+    --color-inset: var(--p-neutral-850);
     --color-border: var(--p-neutral-700);
     --color-border-strong: var(--p-neutral-500);
 
+    --color-titlebar: var(--p-neutral-800);
+    --color-titlebar-border: var(--p-neutral-750);
+    --color-sidebar: var(--p-neutral-800);
+    --color-sidebar-border: var(--p-neutral-750);
+    --color-subbar: var(--p-neutral-850);
+    --color-chip-ground: var(--p-neutral-700);
+
     --color-text: var(--p-neutral-100);
+    --color-text-secondary: var(--p-neutral-300);
     --color-text-muted: var(--p-neutral-400);
+    --color-text-faint: var(--p-neutral-500);
     --color-text-inverted: var(--p-neutral-950);
 
     --color-accent: var(--p-red-400);
@@ -222,7 +313,26 @@
     --color-info: var(--p-blue-400);
     --color-warning: var(--p-amber-400);
 
+    --color-soft-accent: color-mix(in srgb, var(--p-red-400) 12%, var(--p-neutral-800));
+    --color-soft-accent-border: color-mix(in srgb, var(--p-red-400) 36%, var(--p-neutral-800));
+    --color-soft-success: color-mix(in srgb, var(--p-green-400) 12%, var(--p-neutral-800));
+    --color-soft-success-border: color-mix(in srgb, var(--p-green-400) 32%, var(--p-neutral-800));
+    --color-soft-warning: color-mix(in srgb, var(--p-amber-400) 12%, var(--p-neutral-800));
+    --color-soft-warning-border: color-mix(in srgb, var(--p-amber-400) 34%, var(--p-neutral-800));
+    --color-soft-info: color-mix(in srgb, var(--p-blue-400) 12%, var(--p-neutral-800));
+    --color-soft-info-border: color-mix(in srgb, var(--p-blue-400) 32%, var(--p-neutral-800));
+
+    --color-strong-accent: var(--p-red-400);
+    --color-strong-success: var(--p-green-400);
+    --color-strong-warning: var(--p-amber-400);
+    --color-strong-info: var(--p-blue-400);
+
+    --color-select: var(--p-neutral-100);
+    --color-select-on: var(--p-neutral-900);
+
     --shadow-panel: var(--p-shadow-none);
+    --shadow-raised: var(--p-shadow-none);
+    --shadow-modal: var(--p-shadow-modal);
   }
 }
 
@@ -232,11 +342,21 @@
   --color-bg: var(--p-neutral-900);
   --color-surface: var(--p-neutral-800);
   --color-surface-hover: var(--p-neutral-700);
+  --color-inset: var(--p-neutral-850);
   --color-border: var(--p-neutral-700);
   --color-border-strong: var(--p-neutral-500);
 
+  --color-titlebar: var(--p-neutral-800);
+  --color-titlebar-border: var(--p-neutral-750);
+  --color-sidebar: var(--p-neutral-800);
+  --color-sidebar-border: var(--p-neutral-750);
+  --color-subbar: var(--p-neutral-850);
+  --color-chip-ground: var(--p-neutral-700);
+
   --color-text: var(--p-neutral-100);
+  --color-text-secondary: var(--p-neutral-300);
   --color-text-muted: var(--p-neutral-400);
+  --color-text-faint: var(--p-neutral-500);
   --color-text-inverted: var(--p-neutral-950);
 
   --color-accent: var(--p-red-400);
@@ -246,5 +366,24 @@
   --color-info: var(--p-blue-400);
   --color-warning: var(--p-amber-400);
 
+  --color-soft-accent: color-mix(in srgb, var(--p-red-400) 12%, var(--p-neutral-800));
+  --color-soft-accent-border: color-mix(in srgb, var(--p-red-400) 36%, var(--p-neutral-800));
+  --color-soft-success: color-mix(in srgb, var(--p-green-400) 12%, var(--p-neutral-800));
+  --color-soft-success-border: color-mix(in srgb, var(--p-green-400) 32%, var(--p-neutral-800));
+  --color-soft-warning: color-mix(in srgb, var(--p-amber-400) 12%, var(--p-neutral-800));
+  --color-soft-warning-border: color-mix(in srgb, var(--p-amber-400) 34%, var(--p-neutral-800));
+  --color-soft-info: color-mix(in srgb, var(--p-blue-400) 12%, var(--p-neutral-800));
+  --color-soft-info-border: color-mix(in srgb, var(--p-blue-400) 32%, var(--p-neutral-800));
+
+  --color-strong-accent: var(--p-red-400);
+  --color-strong-success: var(--p-green-400);
+  --color-strong-warning: var(--p-amber-400);
+  --color-strong-info: var(--p-blue-400);
+
+  --color-select: var(--p-neutral-100);
+  --color-select-on: var(--p-neutral-900);
+
   --shadow-panel: var(--p-shadow-none);
+  --shadow-raised: var(--p-shadow-none);
+  --shadow-modal: var(--p-shadow-modal);
 }
