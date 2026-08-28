@@ -72,6 +72,15 @@ pub struct Convention {
     pub title: String,
     /// The instruction itself, in the teacher's words, passed through verbatim.
     pub text: String,
+    /// For an entry Plume ships: its wording as delivered.
+    ///
+    /// It is how an upgrade tells "never touched" from "reworded by the
+    /// teacher". Without it, `seed` had to assume every installed entry was
+    /// theirs and kept it — so a corrected instruction never reached a machine
+    /// that already had the old one, while the version number moved on and
+    /// nothing ever tried again. Empty for anything the teacher wrote.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub shipped: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -137,6 +146,7 @@ pub fn load() -> Settings {
             enabled: true,
             title: "Conventions générales".to_string(),
             text: settings.reading_rules.trim().to_string(),
+            shipped: String::new(),
         });
         settings.reading_rules.clear();
     }
@@ -333,6 +343,7 @@ mod tests {
             enabled,
             title: title.into(),
             text: text.into(),
+            shipped: String::new(),
         }
     }
 

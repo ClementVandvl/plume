@@ -117,14 +117,20 @@ to the middle of the block. KaTeX ignores that option and would typeset it as a
 literal "[t]", so `forKatex` strips it **for the preview only**; the exported
 LaTeX keeps it.
 
-Unlike the preamble, conventions on the bundled template **are** editable: `seed`
-keeps what is installed and only appends bundled entries whose id is new. What
-survives an upgrade is what may be edited — that is the whole rule.
+Unlike the preamble, conventions on the bundled template **are** editable, and an
+upgrade tells an edit from an untouched entry rather than guessing. Each shipped
+convention records its wording as delivered, in `shipped`:
 
-It cuts both ways, and the cost is real: **a reworded bundled convention never
-reaches a workbook that already has that id.** Their copy wins, whether or not
-they ever touched it. Fixing this properly means recording whether an entry was
-actually edited, rather than assuming it was.
+- `text == shipped` — the teacher never touched it, so a corrected instruction
+  replaces it.
+- `text != shipped` — they reworded it; theirs wins and survives.
+- `enabled` is theirs either way, and entries they wrote (with generated ids) are
+  never touched.
+
+The field exists because assuming every installed entry was the teacher's
+stranded a workbook on a superseded instruction while its version number moved
+on, so nothing ever looked again. Corrections therefore ride on the version
+bump, like every other change to the bundled template.
 
 ## Deleting
 

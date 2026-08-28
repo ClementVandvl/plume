@@ -89,12 +89,46 @@ pub fn dir(root: &Path) -> PathBuf {
 /// The upgrade replaces the *structure* (block mappings, key definitions,
 /// preamble) and preserves the *user's values* for every key that still exists,
 /// so a colour they changed survives.
+/// Merges the bundled conventions into what is installed.
+///
+/// A convention the teacher reworded is theirs and survives. One still carrying
+/// Plume's own wording is Plume's to correct: keeping it strands a machine on an
+/// instruction known to be wrong.
+fn reconcile(
+    installed: &[crate::settings::Convention],
+    bundled: &[crate::settings::Convention],
+) -> Vec<crate::settings::Convention> {
+    let mut merged = installed.to_vec();
+
+    for delivered in bundled {
+        match merged.iter_mut().find(|c| c.id == delivered.id) {
+            Some(existing) => {
+                if existing.text == existing.shipped {
+                    existing.text = delivered.text.clone();
+                    existing.title = delivered.title.clone();
+                }
+                // Either way the delivered wording moves on, so the next upgrade
+                // compares against what shipped this time.
+                existing.shipped = delivered.text.clone();
+            }
+            None => merged.push(delivered.clone()),
+        }
+    }
+    merged
+}
+
 pub fn seed(root: &Path) -> io::Result<()> {
     let target = dir(root).join(BUILTIN_ID);
     let manifest_path = target.join("template.json");
 
-    let bundled: Template = serde_json::from_str(BUILTIN_MANIFEST)
+    let mut bundled: Template = serde_json::from_str(BUILTIN_MANIFEST)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+
+    // Remember the wording as delivered, so a later upgrade can tell an entry
+    // the teacher reworded from one they never touched.
+    for convention in &mut bundled.conventions {
+        convention.shipped = convention.text.clone();
+    }
 
     let installed: Option<Template> = fs::read_to_string(&manifest_path)
         .ok()
@@ -120,17 +154,7 @@ pub fn seed(root: &Path) -> io::Result<()> {
                 }
             }
 
-            // Conventions are the teacher's to edit, so what is installed wins
-            // and only genuinely new bundled entries are added. Editing one and
-            // finding it reworded by an update would be the same silent loss
-            // the preamble guard exists to prevent.
-            let mut conventions = installed.conventions.clone();
-            for bundled_convention in &bundled.conventions {
-                if !conventions.iter().any(|c| c.id == bundled_convention.id) {
-                    conventions.push(bundled_convention.clone());
-                }
-            }
-            upgraded.conventions = conventions;
+            upgraded.conventions = reconcile(&installed.conventions, &bundled.conventions);
 
             fs::create_dir_all(&target)?;
             fs::write(
@@ -154,7 +178,11 @@ pub fn seed(root: &Path) -> io::Result<()> {
     }
 
     fs::create_dir_all(&target)?;
-    fs::write(&manifest_path, BUILTIN_MANIFEST)?;
+    fs::write(
+        &manifest_path,
+        serde_json::to_string_pretty(&bundled)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?,
+    )?;
     fs::write(target.join("preamble.tex.tmpl"), BUILTIN_PREAMBLE)?;
     logbus::detail("template", "Modèle livré installé", target.to_string_lossy().to_string());
     Ok(())
@@ -318,7 +346,7 @@ pub fn delete(root: &Path, id: &str) -> Result<(), String> {
 
     // Kept rather than erased, like a deleted course: a template is hours of
     // work and the teacher may have meant the other one.
-    let bin = crate::workspace::bin_dir().join("Modeles");
+    let bin = root.join("Corbeille").join("Modeles");
     fs::create_dir_all(&bin).map_err(|e| format!("Corbeille inaccessible : {e}"))?;
 
     let mut target = bin.join(id);
@@ -556,6 +584,7 @@ mod tests {
             enabled: true,
             title: "La mienne".into(),
             text: "À conserver.".into(),
+            shipped: String::new(),
         });
         installed.version = 1;
         fs::write(
@@ -570,6 +599,39 @@ mod tests {
         let aligned = after.conventions.iter().find(|c| c.id == "align-equals").unwrap();
         assert_eq!(aligned.text, "Ma formulation à moi.", "an edit must survive");
         assert!(after.conventions.iter().any(|c| c.id == "mine"), "additions must survive");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// The other direction, and the reason `shipped` exists: an instruction the
+    /// teacher never touched is Plume's to correct. This machine sat on a
+    /// version-5 manifest carrying the version-4 wording — the vague one that
+    /// produced bare alignment tabs — with nothing left to try again.
+    #[test]
+    fn an_upgrade_corrects_wording_the_teacher_never_touched() {
+        let root = scratch("reword");
+
+        // Roll the workbook back to an older delivery of the same rule.
+        let mut installed = load(&root, BUILTIN_ID).unwrap();
+        let old = "Ancienne formulation, trop vague.".to_string();
+        installed.conventions[0].text = old.clone();
+        installed.conventions[0].shipped = old.clone();
+        installed.conventions[0].enabled = false;
+        installed.version = 1;
+        fs::write(
+            dir(&root).join(BUILTIN_ID).join("template.json"),
+            serde_json::to_string_pretty(&installed).unwrap(),
+        )
+        .unwrap();
+
+        seed(&root).expect("upgrade");
+
+        let after = load(&root, BUILTIN_ID).unwrap();
+        let rule = after.conventions.iter().find(|c| c.id == "align-equals").unwrap();
+        assert_ne!(rule.text, old, "an untouched instruction must be corrected");
+        assert!(rule.text.contains("\\begin{aligned}"));
+        assert_eq!(rule.shipped, rule.text, "the new wording becomes the reference");
+        assert!(!rule.enabled, "their on/off choice is theirs either way");
 
         let _ = fs::remove_dir_all(&root);
     }
@@ -651,10 +713,9 @@ mod tests {
 
         assert!(load(&root, &copy.id).is_none());
         assert!(
-            crate::workspace::bin_dir().join("Modeles").join(&copy.id).exists(),
+            root.join("Corbeille").join("Modeles").join(&copy.id).exists(),
             "a deleted template must be recoverable"
         );
-        let _ = fs::remove_dir_all(crate::workspace::bin_dir().join("Modeles").join(&copy.id));
         let _ = fs::remove_dir_all(&root);
     }
 
