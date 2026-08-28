@@ -102,8 +102,16 @@ alignment points, rather than emitted as separate display equations:
 \end{aligned}$
 ```
 
-Without it, the continuation becomes `\[ = -8x^2 + 2x \]` and is flung to the
-centre of the page, far from the line it continues. The `[t]` keeps the block on
+The instruction names the delimiters explicitly. Left vaguer, the model emits
+bare alignment tabs — `A = \frac{3}{5} &= \frac{9}{15} \\ &= ...` with no
+environment at all. That is a LaTeX error, *and* the preview showed it as a
+literal "&=" beside a fraction mangled down to "5", which is exactly what
+reached the screen once. `render::has_stray_alignment` and its preview twin now
+flag such a block during review, in both places, rather than letting it reach an
+export that cannot compile.
+
+Without the rule, the continuation becomes `\[ = -8x^2 + 2x \]` and is flung to
+the centre of the page, far from the line it continues. The `[t]` keeps the block on
 the baseline of the text that introduces it — drop it and the list number floats
 to the middle of the block. KaTeX ignores that option and would typeset it as a
 literal "[t]", so `forKatex` strips it **for the preview only**; the exported
@@ -112,6 +120,11 @@ LaTeX keeps it.
 Unlike the preamble, conventions on the bundled template **are** editable: `seed`
 keeps what is installed and only appends bundled entries whose id is new. What
 survives an upgrade is what may be edited — that is the whole rule.
+
+It cuts both ways, and the cost is real: **a reworded bundled convention never
+reaches a workbook that already has that id.** Their copy wins, whether or not
+they ever touched it. Fixing this properly means recording whether an entry was
+actually edited, rather than assuming it was.
 
 ## Deleting
 

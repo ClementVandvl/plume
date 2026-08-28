@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { latexToHtml } from "./latexToHtml";
+import { hasStrayAlignment, latexToHtml } from "./latexToHtml";
 import blocks from "./__fixtures__/blocks.json";
 
 /**
@@ -127,5 +127,23 @@ describe("latexToHtml", () => {
 
   it("keeps common text symbols readable", () => {
     expect(latexToHtml("un vecteur \\ldots")).toContain("…");
+  });
+});
+
+describe("hasStrayAlignment", () => {
+  it("catches an alignment tab with no environment around it", () => {
+    expect(
+      hasStrayAlignment("A = \\frac{3}{5} &= \\frac{9}{15} \\\\ &= \\frac{16}{15}"),
+    ).toBe(true);
+    expect(hasStrayAlignment("$A &= 1 \\\\ &= 2$")).toBe(true);
+  });
+
+  it("accepts a tab inside its environment", () => {
+    expect(hasStrayAlignment("$\\begin{aligned}[t] A &= 1 \\\\ &= 2 \\end{aligned}$")).toBe(
+      false,
+    );
+    expect(hasStrayAlignment("\\begin{align*} A &= 1 \\end{align*}")).toBe(false);
+    expect(hasStrayAlignment("\\begin{pmatrix} a & b \\end{pmatrix}")).toBe(false);
+    expect(hasStrayAlignment("Pierre \\& Marie Curie")).toBe(false);
   });
 });

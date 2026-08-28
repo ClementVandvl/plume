@@ -1,6 +1,6 @@
 {
   "id": "charte-maths",
-  "version": 4,
+  "version": 5,
   "name": "Charte cours de maths",
   "description": "Environnements à crochet coloré, titres soulignés, numérotation I / 1 / a.",
   "engine": "pdflatex",
@@ -245,7 +245,7 @@
       "id": "align-equals",
       "enabled": true,
       "title": "Calculs alignés sur le signe égal",
-      "text": "Quand un calcul se poursuit sur plusieurs lignes et qu'une ligne commence par « = », ne produis pas une équation séparée par ligne : regroupe-les dans un seul environnement aligned, chaque ligne alignée sur son signe égal avec &=. Le calcul reste ainsi à la marge du texte qui le précède au lieu d'être centré au milieu de la page. N'applique cela qu'à un enchaînement de lignes de calcul : une formule isolée garde sa forme habituelle."
+      "text": "Un calcul qui se poursuit sur plusieurs lignes s'écrit en un seul bloc aligné, jamais en équations séparées. Produis exactement cette forme, délimiteurs compris :\n$\\begin{aligned}[t]\nA &= \\frac{3}{5} + \\frac{7}{15} \\\\\n&= \\frac{16}{15}\n\\end{aligned}$\nChaque ligne s'aligne sur son signe égal grâce au &. Le & n'a de sens qu'à l'intérieur d'un tel environnement : ailleurs, c'est une erreur LaTeX qui empêche la compilation du PDF. Le calcul reste ainsi à la marge du texte qui l'introduit au lieu d'être centré au milieu de la page. N'applique cela qu'à un enchaînement de lignes de calcul : une formule isolée garde sa forme habituelle."
     }
   ]
 }

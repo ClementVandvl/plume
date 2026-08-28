@@ -460,6 +460,36 @@ mod tests {
         root
     }
 
+    /// The bundled instruction shows the model a literal example. If that
+    /// example were itself malformed, every page would inherit the mistake — so
+    /// it is held to the same check the renderer applies to real blocks.
+    #[test]
+    fn the_shipped_example_is_valid_latex_alignment() {
+        let bundled: Template = serde_json::from_str(BUILTIN_MANIFEST).expect("valid manifest");
+        let rule = bundled
+            .conventions
+            .iter()
+            .find(|c| c.id == "align-equals")
+            .expect("the alignment rule ships with the template");
+
+        assert!(
+            rule.text.contains("\\begin{aligned}"),
+            "the instruction must show the exact environment"
+        );
+        // Only the example, not the prose around it: the instruction explains
+        // what `&` means, so the word appears in running text as well.
+        let start = rule.text.find("$\\begin{aligned}").expect("the example is shown");
+        let end = rule.text.find("\\end{aligned}$").expect("the example is closed")
+            + "\\end{aligned}$".len();
+        let example = &rule.text[start..end];
+
+        assert!(
+            !crate::render::has_stray_alignment(example),
+            "the example handed to the model must not itself misplace a tab"
+        );
+        assert!(example.contains("&="), "it must show the alignment point");
+    }
+
     #[test]
     fn slugs_fold_accents_rather_than_dropping_them() {
         assert_eq!(slug("Modèle élève"), "modele-eleve");

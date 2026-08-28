@@ -29,6 +29,69 @@ const LAYOUT_COMMANDS: &[&str] = &[
     "\\vspace",
 ];
 
+/// Environments where `&` is an alignment tab rather than a mistake.
+const ALIGNING: &[&str] = &[
+    "align", "align*", "aligned", "alignat", "alignat*", "gather", "gather*",
+    "gathered", "split", "cases", "array", "matrix", "pmatrix", "bmatrix",
+    "vmatrix", "Vmatrix", "smallmatrix", "tabular", "tabularx", "flalign",
+    "flalign*", "multline", "multline*", "eqnarray", "eqnarray*",
+];
+
+/// Reads the environment name if `text` opens with `prefix`.
+fn env_after(text: &str, prefix: &str) -> Option<&'static str> {
+    let rest = text.strip_prefix(prefix)?;
+    let name = rest.split('}').next()?;
+    ALIGNING.iter().copied().find(|known| *known == name)
+}
+
+/// An `&` outside any environment that gives it a meaning.
+///
+/// The model reaches for alignment tabs on its own when a calculation runs over
+/// several lines. Emitted bare they are a LaTeX error — "Misplaced alignment tab
+/// character &" — and the preview showed them as literal text next to a mangled
+/// fraction. The block is not rewritten, because it belongs to the teacher, but
+/// they are told which one to look at.
+pub(crate) fn has_stray_alignment(latex: &str) -> bool {
+    let mut depth = 0usize;
+    let mut escaped = false;
+
+    for (index, character) in latex.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match character {
+            '\\' => {
+                let rest = &latex[index..];
+                if env_after(rest, "\\begin{").is_some() {
+                    depth += 1;
+                } else if env_after(rest, "\\end{").is_some() {
+                    depth = depth.saturating_sub(1);
+                } else {
+                    // `\&` and every other escape: the next character is literal.
+                    escaped = true;
+                }
+            }
+            '&' if depth == 0 => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
+fn warn_about_alignment(block: &Block) {
+    if has_stray_alignment(&block.latex) {
+        crate::logbus::warn(
+            "render",
+            format!(
+                "Le bloc {} aligne sur un « & » hors d'un environnement d'alignement — \
+                 le PDF ne compilera pas. Corrigez-le en relecture.",
+                block.id
+            ),
+        );
+    }
+}
+
 fn warn_about_layout(block: &Block) {
     let found: Vec<&str> = LAYOUT_COMMANDS
         .iter()
@@ -135,6 +198,7 @@ pub fn render_document(
                 wrote_chapter = true;
             }
             warn_about_layout(block);
+            warn_about_alignment(block);
             out.push_str(&render_block(template, block));
             out.push_str("\n\n");
         }
@@ -151,4 +215,35 @@ pub fn render_document(
 
     out.push_str("\\end{document}\n");
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The exact shape that reached the screen as a literal "&=".
+    #[test]
+    fn a_bare_alignment_tab_is_caught() {
+        assert!(has_stray_alignment(
+            r"A = \frac{3}{5} + \frac{7}{15} &= \frac{9}{15} \\ &= \frac{16}{15}"
+        ));
+        assert!(has_stray_alignment(r"$A &= 1 \\ &= 2$"), "dollars alone do not help");
+    }
+
+    #[test]
+    fn a_tab_inside_its_environment_is_fine() {
+        assert!(!has_stray_alignment(r"$\begin{aligned}[t] A &= 1 \\ &= 2 \end{aligned}$"));
+        assert!(!has_stray_alignment(r"\begin{align*} A &= 1 \\ &= 2 \end{align*}"));
+        assert!(!has_stray_alignment(r"\begin{cases} a & x > 0 \\ b & x < 0 \end{cases}"));
+        // Nested: the inner environment must not close the outer one early.
+        assert!(!has_stray_alignment(
+            r"\begin{align*} \begin{cases} a & b \end{cases} &= c \end{align*}"
+        ));
+    }
+
+    #[test]
+    fn an_escaped_ampersand_is_not_an_alignment_tab() {
+        assert!(!has_stray_alignment(r"Pierre \& Marie Curie"));
+        assert!(!has_stray_alignment("Rien à signaler ici."));
+    }
 }

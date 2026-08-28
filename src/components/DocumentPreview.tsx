@@ -1,5 +1,10 @@
 import { useMemo } from "react";
-import { hasLayout, latexToHtml, splitFigures } from "../preview/latexToHtml";
+import {
+  hasLayout,
+  hasStrayAlignment,
+  latexToHtml,
+  splitFigures,
+} from "../preview/latexToHtml";
 import { Figure } from "./Figure";
 import { DOUBT_THRESHOLD, KIND_LABEL, type Block, type Template, type Transcript } from "../types";
 
@@ -161,6 +166,10 @@ export function DocumentPreview({
         // The preview is a single column; a block doing its own layout will not
         // look the same in the PDF, and saying so beats a silent difference.
         const layout = hasLayout(block.latex);
+        // An alignment tab with no environment around it is a LaTeX error, so
+        // the export would fail outright. Saying so here is the only chance to
+        // fix it before that.
+        const strayTab = hasStrayAlignment(block.latex);
 
         return (
           <div
@@ -169,7 +178,7 @@ export function DocumentPreview({
               block.note ? "pblock--noted" : ""
             } ${teacherOnly ? "pblock--teacher" : ""} ${
               studentOnly ? "pblock--student" : ""
-            } ${layout ? "pblock--layout" : ""} ${
+            } ${layout || strayTab ? "pblock--layout" : ""} ${
               selectedId === block.id ? "pblock--selected" : ""
             }`}
             onClick={() => onSelect(block.id)}
@@ -228,6 +237,12 @@ export function DocumentPreview({
                       <p className="tex-layout-note">
                         Ce bloc contient sa propre mise en page. L'aperçu l'empile en
                         une colonne — le PDF, lui, la respectera et peut déborder.
+                      </p>
+                    )}
+                    {strayTab && (
+                      <p className="tex-layout-note">
+                        Ce bloc aligne sur un « &amp; » sans environnement d'alignement
+                        autour. Le PDF ne compilera pas — corrigez le bloc.
                       </p>
                     )}
                     {splitFigures(block.latex).map((segment, index) =>

@@ -224,6 +224,16 @@ export function latexToHtml(latex: string, colours: Record<string, string> = {})
   text = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, body) => keep(math(body, true)));
   text = text.replace(/\$([^$]+)\$/g, (_, body) => keep(math(body, false)));
 
+  // A maths environment written on its own, outside any `$` or `\[`. The model
+  // emits these for a multi-line calculation, and without this they fell through
+  // to the prose branch: the alignment tabs showed up as a literal "&=" and
+  // `\frac{3}{5}` was eaten down to "5". Run after the delimiters above, so only
+  // genuinely top-level environments are left to match.
+  text = text.replace(
+    /\\begin\{(align\*?|alignat\*?|gather\*?|gathered|aligned|equation\*?|multline\*?|flalign\*?|split|cases)\}[\s\S]*?\\end\{\1\}/g,
+    (whole) => keep(math(whole, true)),
+  );
+
   // 2. Escape whatever is left: it is the author's prose.
   let html = escapeHtml(text);
 
@@ -268,6 +278,29 @@ export const hasFigure = (latex: string) => /\\begin\{tikzpicture\}/.test(latex)
  * The preview stacks content in one column, so a block using them will not look
  * the same in the PDF — which is exactly worth saying out loud.
  */
+/** Environments where `&` is an alignment tab rather than a mistake. */
+const ALIGNING =
+  "align\\*?|aligned|alignat\\*?|gather\\*?|gathered|split|cases|array|" +
+  "[pbvV]?matrix|smallmatrix|tabularx?|flalign\\*?|multline\\*?|eqnarray\\*?";
+
+/**
+ * An `&` outside any environment that gives it a meaning.
+ *
+ * Mirrors `render::has_stray_alignment`. The model reaches for alignment tabs on
+ * its own when a calculation runs over several lines; emitted bare they are a
+ * LaTeX error and the preview shows them as literal text. Flagged rather than
+ * repaired: the block belongs to the teacher, and the correction pass is where
+ * it gets fixed.
+ */
+export const hasStrayAlignment = (latex: string) =>
+  latex
+    .replace(/\\&/g, "")
+    .replace(
+      new RegExp(`\\\\begin\\{(${ALIGNING})\\}[\\s\\S]*?\\\\end\\{\\1\\}`, "g"),
+      "",
+    )
+    .includes("&");
+
 export const hasLayout = (latex: string) =>
   /\\begin\{(minipage|multicols|tabular)\}|\\rule\{|\\hfill|\\newpage/.test(latex);
 
