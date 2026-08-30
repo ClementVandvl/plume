@@ -44,6 +44,8 @@ export const fr = {
   "nav.settings.missing": "Prérequis manquant",
 
   // ------------------------------------------------------------------ status
+  "boot.title": "Plume prépare votre classeur",
+  "boot.hint": "Lecture de vos cours et de votre mise en page…",
   "status.draft": "Pas encore lu",
   "status.review": "À vérifier",
   "status.ready": "PDF prêt",

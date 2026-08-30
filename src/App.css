@@ -153,6 +153,51 @@ body {
   border-radius: var(--radius-subtle);
 }
 
+/* ---------- Boot ---------- */
+/* Held until the workbook has answered once: an empty list and an unread one
+   look identical, and the welcome screen flashing at someone with forty
+   courses tells them they have none. */
+.booting {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 0;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+}
+
+.booting > svg {
+  color: var(--color-accent);
+  animation: boot-breathe 2s ease-in-out infinite;
+}
+
+.booting__title {
+  margin: var(--space-sm) 0 0;
+  color: var(--color-text);
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-medium);
+}
+
+.booting__hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+@keyframes boot-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translateY(2px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
 /* ---------- Shell ---------- */
 .shell {
   flex: 1;

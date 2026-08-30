@@ -11,6 +11,14 @@ type Props = {
   context?: string;
   mode: UiMode;
   onMode: (mode: UiMode) => void;
+  /**
+   * Hides the Simple/Advancé switch.
+   *
+   * Set while the settings are still being read: the switch writes the whole
+   * settings object back, so touching it before the stored one has arrived
+   * would save the defaults over it.
+   */
+  bare?: boolean;
 };
 
 /**
@@ -21,7 +29,7 @@ type Props = {
  * buttons on the right. The Simple/Advancé switch lives here because it is a
  * window-level mode, not a page control: it follows you everywhere.
  */
-export function Titlebar({ context, mode, onMode }: Props) {
+export function Titlebar({ context, mode, onMode, bare = false }: Props) {
   const [platform, setPlatform] = useState<Platform>("browser");
 
   useEffect(() => {
@@ -53,22 +61,24 @@ export function Titlebar({ context, mode, onMode }: Props) {
       </div>
 
       <div className="titlebar__side">
-        <div className="seg" role="group" aria-label={t("common.advanced")}>
-          <button
-            type="button"
-            className={`seg__opt ${mode === "simple" ? "seg__opt--on" : ""}`}
-            onClick={() => onMode("simple")}
-          >
-            {t("titlebar.mode.simple")}
-          </button>
-          <button
-            type="button"
-            className={`seg__opt ${mode === "advanced" ? "seg__opt--on seg__opt--dark" : ""}`}
-            onClick={() => onMode("advanced")}
-          >
-            {t("titlebar.mode.advanced")}
-          </button>
-        </div>
+        {!bare && (
+          <div className="seg" role="group" aria-label={t("common.advanced")}>
+            <button
+              type="button"
+              className={`seg__opt ${mode === "simple" ? "seg__opt--on" : ""}`}
+              onClick={() => onMode("simple")}
+            >
+              {t("titlebar.mode.simple")}
+            </button>
+            <button
+              type="button"
+              className={`seg__opt ${mode === "advanced" ? "seg__opt--on seg__opt--dark" : ""}`}
+              onClick={() => onMode("advanced")}
+            >
+              {t("titlebar.mode.advanced")}
+            </button>
+          </div>
+        )}
 
         {(platform === "windows" || platform === "linux") && (
           <div className="titlebar__controls">

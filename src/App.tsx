@@ -23,6 +23,7 @@ import { SettingsModal } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
 import { TemplatesView } from "./components/TemplatesView";
 import { TrashView } from "./components/TrashView";
+import { Icon } from "./ui/Icon";
 import { Titlebar, type UiMode } from "./ui/Titlebar";
 import { UiModeContext, asUiMode } from "./ui/mode";
 import type {
@@ -46,6 +47,14 @@ export default function App() {
   /** Photos dropped on the home screen, waiting for the wizard. */
   const [seedPages, setSeedPages] = useState<string[]>([]);
   const [consoleOpen, setConsoleOpen] = useState(false);
+  /**
+   * False until the workbook has been read once.
+   *
+   * Without it the empty course list is indistinguishable from a workbook with
+   * no courses, and the welcome screen flashed for the second or two the disk
+   * took to answer — telling a teacher with forty courses that they had none.
+   */
+  const [loaded, setLoaded] = useState(false);
   const [settings, setSettings] = useState<Settings>({
     rules: [],
     conventions: [],
@@ -75,7 +84,11 @@ export default function App() {
 
   useEffect(() => {
     installGlobalErrorReporting();
-    refresh().catch((cause) => logError("interface", t("error.load"), cause));
+    refresh()
+      .catch((cause) => logError("interface", t("error.load"), cause))
+      // Loaded either way: a failure has its own message, and holding the
+      // screen on "preparing" forever would say nothing at all.
+      .finally(() => setLoaded(true));
   }, [refresh]);
 
   // The theme follows the settings; "system" hands control back to the OS.
@@ -153,6 +166,23 @@ export default function App() {
               }}
             />
             <Console open={consoleOpen} onClose={() => setConsoleOpen(false)} />
+          </div>
+        </div>
+      </UiModeContext.Provider>
+    );
+  }
+
+  // The title bar stays: with the native decorations off, its buttons are the
+  // only way to move or close the window while the disk is being read.
+  if (!loaded) {
+    return (
+      <UiModeContext.Provider value={mode}>
+        <div className="frame">
+          <Titlebar mode={mode} onMode={switchMode} bare />
+          <div className="booting">
+            <Icon name="feather" size={30} />
+            <p className="booting__title">{t("boot.title")}</p>
+            <p className="booting__hint">{t("boot.hint")}</p>
           </div>
         </div>
       </UiModeContext.Provider>
