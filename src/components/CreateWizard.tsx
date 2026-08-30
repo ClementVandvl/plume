@@ -7,6 +7,7 @@ import { isTauri } from "../platform";
 import { logError } from "../log";
 import type { ImportProgress, PlumeDocument, Template } from "../types";
 import { Icon } from "../ui/Icon";
+import { moved, useDragOrder } from "../ui/dragOrder";
 import { Modal } from "./Modal";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "heic", "heif", "webp", "tif", "tiff"];
@@ -31,8 +32,6 @@ export function CreateWizard({ templates, initialPages = [], onCancel, onCreated
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
   const [pages, setPages] = useState<string[]>(initialPages);
   const [dragging, setDragging] = useState(false);
-  /** Index of the row being reordered by pointer, null otherwise. */
-  const [held, setHeld] = useState<number | null>(null);
   const listRef = useRef<HTMLOListElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +86,11 @@ export function CreateWizard({ templates, initialPages = [], onCancel, onCreated
     else if (typeof picked === "string") addPages([picked]);
   }
 
+  // Shared with the course view, which reorders the same photographs later.
+  const { held, grab } = useDragOrder(listRef, (from, to) =>
+    setPages((current) => moved(current, from, to)),
+  );
+
   function move(index: number, delta: number) {
     setPages((current) => {
       const next = [...current];
@@ -95,55 +99,6 @@ export function CreateWizard({ templates, initialPages = [], onCancel, onCreated
       [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
-  }
-
-  /**
-   * Reordering by drag, on pointer events rather than HTML5 drag-and-drop:
-   * the webview's native file drop owns that machinery (and swallows internal
-   * drags on some platforms), while pointer events work everywhere. The rows
-   * reorder live under the cursor; ↑/↓ stay for the keyboard.
-   */
-  function grab(event: React.PointerEvent, index: number) {
-    event.preventDefault();
-    const list = listRef.current;
-    if (!list) return;
-
-    let from = index;
-    setHeld(index);
-
-    const onMove = (pointer: PointerEvent) => {
-      const rows = Array.from(list.children);
-      let to = 0;
-      rows.forEach((row, at) => {
-        const box = row.getBoundingClientRect();
-        if (pointer.clientY > box.top + box.height / 2) to = at + 1;
-      });
-      // Insertion index counts the dragged row itself when moving down.
-      if (to > from) to -= 1;
-      to = Math.min(to, rows.length - 1);
-      if (to !== from) {
-        // The updater runs when React flushes, after `from` has been advanced
-        // for the next move — so it must capture today's value, not read the
-        // mutable one.
-        const start = from;
-        const end = to;
-        setPages((current) => {
-          const next = [...current];
-          const [moved] = next.splice(start, 1);
-          next.splice(end, 0, moved);
-          return next;
-        });
-        from = to;
-        setHeld(to);
-      }
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      setHeld(null);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
   }
 
   async function create() {

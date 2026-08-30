@@ -661,6 +661,70 @@ pub fn add_pages(
 ///
 /// The caller is responsible for the transcript: page numbers and block ids
 /// encode the position, so they have to move with the files.
+/// A requested order must be a permutation of the pages that exist.
+///
+/// Checked before a single file moves: a half-applied reorder would leave the
+/// pages under temporary names, and the course unreadable.
+fn check_order(order: &[usize], count: usize) -> Result<(), String> {
+    if order.len() != count {
+        return Err("L'ordre demandé ne couvre pas toutes les pages.".into());
+    }
+    let mut seen = vec![false; count];
+    for &number in order {
+        if number == 0 || number > count {
+            return Err("Cette page n'existe pas.".into());
+        }
+        if std::mem::replace(&mut seen[number - 1], true) {
+            return Err("Une page est demandée deux fois.".into());
+        }
+    }
+    Ok(())
+}
+
+/// Rewrites the page order. `order` lists the current page numbers, in the
+/// sequence they should end up in: `[2, 1, 3]` promotes page 2 to first.
+///
+/// The photographs decide the order of the course, and a teacher who drops a
+/// batch in the wrong order should not have to delete and re-import it.
+pub fn reorder_pages(id: &str, order: &[usize]) -> Result<Document, String> {
+    let names = page_files(id);
+
+    check_order(order, names.len())?;
+
+    let pages = document_dir(id).join("pages");
+    let extension_of = |name: &str| {
+        Path::new(name)
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_else(|| "jpg".into())
+    };
+
+    // Two passes through a temporary name, as for removal: a direct rename
+    // would overwrite a file that has not moved yet.
+    for (position, &number) in order.iter().enumerate() {
+        let name = &names[number - 1];
+        fs::rename(
+            pages.join(name),
+            pages.join(format!("tmp-{:02}.{}", position + 1, extension_of(name))),
+        )
+        .map_err(|e| format!("Réordonnancement des pages : {e}"))?;
+    }
+    for (position, &number) in order.iter().enumerate() {
+        let extension = extension_of(&names[number - 1]);
+        fs::rename(
+            pages.join(format!("tmp-{:02}.{extension}", position + 1)),
+            pages.join(format!("{:02}.{extension}", position + 1)),
+        )
+        .map_err(|e| format!("Réordonnancement des pages : {e}"))?;
+    }
+
+    let mut document = load(id)?;
+    document.updated_at = now_ms();
+    save(&document)?;
+    logbus::info("workspace", format!("Pages réordonnées — {} page(s)", order.len()));
+    Ok(document)
+}
+
 pub fn remove_page(id: &str, number: usize) -> Result<Document, String> {
     let names = page_files(id);
     if number == 0 || number > names.len() {
@@ -751,6 +815,16 @@ mod tests {
             }
             assert_eq!(run % 2, 0, "odd trailing run of quotes in {quoted}");
         }
+    }
+
+    #[test]
+    fn an_order_must_be_a_permutation_of_the_pages() {
+        assert!(check_order(&[2, 1, 3], 3).is_ok());
+        assert!(check_order(&[1, 2, 3], 3).is_ok());
+        assert!(check_order(&[1, 2], 3).is_err(), "a page left out");
+        assert!(check_order(&[1, 2, 3, 4], 3).is_err(), "a page that does not exist");
+        assert!(check_order(&[1, 1, 3], 3).is_err(), "the same page twice");
+        assert!(check_order(&[0, 1, 2], 3).is_err(), "pages are numbered from one");
     }
 
     #[test]

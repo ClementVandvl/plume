@@ -2704,6 +2704,20 @@ textarea.code-area {
   color: var(--color-text-secondary);
 }
 
+.thumb--movable {
+  cursor: grab;
+  touch-action: none;
+}
+
+/* The dragged thumbnail follows the cursor's row rather than lifting out of
+   the grid: the neighbours reflow live, so the grid always shows the result. */
+.thumb--held {
+  cursor: grabbing;
+  opacity: 0.55;
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 /* ---------- Read step ---------- */
 .readstep {
   display: grid;

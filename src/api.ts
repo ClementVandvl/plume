@@ -83,6 +83,9 @@ export const writeTemplatePreamble = (id: string, text: string) =>
 
 export const checkTemplate = (id: string) => invoke<void>("check_template", { id });
 
+export const reorderPages = (id: string, order: number[]) =>
+  invoke<PlumeDocument>("reorder_pages", { id, order });
+
 /** Ids of the courses being read right now. */
 export const readingDocuments = () => invoke<string[]>("reading_documents");
 

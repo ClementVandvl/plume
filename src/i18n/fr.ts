@@ -133,6 +133,8 @@ export const fr = {
   // ----------------------------------------------------------- course/photos
   "pages.title.one": "{count} page dans ce cours",
   "pages.title.other": "{count} pages dans ce cours",
+  "pages.reorder.hint":
+    "Glissez une vignette pour changer l'ordre des pages.",
   "pages.add": "+ Ajouter des photos",
   "pages.page": "Page {number}",
   "pages.remove.title": "Retirer la page {number} ?",

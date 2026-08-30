@@ -158,6 +158,45 @@ fn remove_page(id: String, number: usize) -> Result<workspace::Document, String>
     Ok(document)
 }
 
+/// Moves the transcript to follow a new page order.
+///
+/// A partially read course has fewer transcript pages than photographs, so the
+/// pages that exist are matched by number rather than by position.
+fn reorder_transcript(transcript: &mut ir::Transcript, order: &[usize]) {
+    let mut moved = Vec::with_capacity(transcript.pages.len());
+    for (position, &number) in order.iter().enumerate() {
+        if let Some(mut page) = transcript.pages.iter().find(|p| p.number == number).cloned() {
+            page.number = position + 1;
+            for (index, block) in page.blocks.iter_mut().enumerate() {
+                block.id = format!("p{:02}-b{:02}", page.number, index + 1);
+            }
+            moved.push(page);
+        }
+    }
+    moved.sort_by_key(|page| page.number);
+    transcript.pages = moved;
+}
+
+/// Reorders the pages and moves the transcript with them.
+///
+/// Page numbers and block ids encode position, so moving the photographs alone
+/// would leave every block pointing at the wrong page.
+#[tauri::command]
+fn reorder_pages(id: String, order: Vec<usize>) -> Result<workspace::Document, String> {
+    let document = workspace::reorder_pages(&id, &order)?;
+
+    if let Ok(mut transcript) = read_transcript(&id) {
+        reorder_transcript(&mut transcript, &order);
+        write_transcript(&id, &transcript)?;
+        logbus::info(
+            "workspace",
+            format!("Transcription réordonnée — {} page(s)", transcript.pages.len()),
+        );
+    }
+
+    Ok(document)
+}
+
 /// Absolute paths to the page images, for the webview to display as thumbnails.
 #[tauri::command]
 fn document_page_paths(id: String) -> Vec<String> {
@@ -1062,6 +1101,7 @@ pub fn run() {
             rename_document,
             add_pages,
             remove_page,
+            reorder_pages,
             set_reading_rules,
             get_settings,
             save_settings,
@@ -1100,4 +1140,68 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn page(number: usize, blocks: usize) -> ir::Page {
+        ir::Page {
+            number,
+            session_id: None,
+            blocks: (1..=blocks)
+                .map(|index| ir::Block {
+                    id: format!("p{number:02}-b{index:02}"),
+                    kind: "text".into(),
+                    title: None,
+                    number: None,
+                    latex: format!("page {number} bloc {index}"),
+                    confidence: 1.0,
+                    doubt: None,
+                    audience: Vec::new(),
+                    note: None,
+                    reviewed: false,
+                })
+                .collect(),
+        }
+    }
+
+    /// Block ids encode the page, so moving photographs without moving the
+    /// transcript would leave every block pointing at the wrong one.
+    #[test]
+    fn reordering_moves_the_transcript_and_its_block_ids() {
+        let mut transcript = ir::Transcript {
+            version: 1,
+            pages: vec![page(1, 2), page(2, 1), page(3, 2)],
+        };
+
+        // The third photograph becomes the first.
+        reorder_transcript(&mut transcript, &[3, 1, 2]);
+
+        let numbers: Vec<usize> = transcript.pages.iter().map(|p| p.number).collect();
+        assert_eq!(numbers, vec![1, 2, 3]);
+        assert_eq!(transcript.pages[0].blocks[0].latex, "page 3 bloc 1");
+        assert_eq!(transcript.pages[0].blocks[0].id, "p01-b01");
+        assert_eq!(transcript.pages[1].blocks[0].latex, "page 1 bloc 1");
+        assert_eq!(transcript.pages[2].blocks[0].latex, "page 2 bloc 1");
+        assert_eq!(transcript.pages[2].blocks[0].id, "p03-b01");
+    }
+
+    /// A course read only in part has fewer transcript pages than photographs.
+    #[test]
+    fn a_partial_transcript_follows_the_pages_it_has() {
+        let mut transcript = ir::Transcript {
+            version: 1,
+            pages: vec![page(1, 1), page(3, 1)],
+        };
+
+        reorder_transcript(&mut transcript, &[3, 2, 1]);
+
+        assert_eq!(transcript.pages.len(), 2, "no page is invented");
+        assert_eq!(transcript.pages[0].number, 1);
+        assert_eq!(transcript.pages[0].blocks[0].latex, "page 3 bloc 1");
+        assert_eq!(transcript.pages[1].number, 3);
+        assert_eq!(transcript.pages[1].blocks[0].latex, "page 1 bloc 1");
+    }
 }

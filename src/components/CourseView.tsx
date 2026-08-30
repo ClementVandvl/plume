@@ -9,6 +9,7 @@ import {
   cancelCorrections,
   cancelTranscription,
   readingDocuments,
+  reorderPages,
   deleteDocument,
   removePage,
   renameDocument,
@@ -35,12 +36,14 @@ import {
   type Template,
   type PageStateEvent,
   type HeartbeatEvent,
+  type ImportProgress,
   type ScanInfo,
 } from "../types";
 import { logError, logInfo } from "../log";
 import { useConfirm } from "../confirm";
 import { useAdvanced } from "../ui/mode";
 import { Icon } from "../ui/Icon";
+import { moved, useDragOrder } from "../ui/dragOrder";
 import { AdvancedRow, Meter, OverflowMenu } from "../ui/controls";
 import { BlockPanel } from "./BlockPanel";
 import { DocumentPreview } from "./DocumentPreview";
@@ -111,6 +114,36 @@ export function CourseView({
   // comes back to it has to pick it up rather than offer to start another.
   const startedHere = useRef(false);
 
+  // Importing a photograph converts, rotates and downsizes it — seconds each on
+  // a phone-sized picture. Without a count the teacher waits at a still screen.
+  const [importing, setImporting] = useState<ImportProgress | null>(null);
+
+  /**
+   * The order shown while a thumbnail is being dragged.
+   *
+   * Null the rest of the time, so the pages come straight from disk. The drag
+   * reorders locally and only the drop is persisted: renaming files on every
+   * intermediate position would be a lot of work to undo.
+   */
+  const [ordering, setOrdering] = useState<string[] | null>(null);
+  const pendingOrder = useRef<string[] | null>(null);
+  const thumbsRef = useRef<HTMLDivElement>(null);
+  const { held, grab } = useDragOrder(
+    thumbsRef,
+    (from, to) =>
+      setOrdering((current) => {
+        const next = moved(current ?? pagePaths, from, to);
+        pendingOrder.current = next;
+        return next;
+      }),
+    {
+      axis: "grid",
+      onSettle: () => {
+        void persistOrder();
+      },
+    },
+  );
+
   useEffect(() => {
     refresh()
       .then((existing) => {
@@ -180,6 +213,13 @@ export function CourseView({
   }, [documentId]);
 
   useEffect(() => {
+    const stop = listen<ImportProgress>("import", (event) => setImporting(event.payload));
+    return () => {
+      stop.then((off) => off()).catch(() => {});
+    };
+  }, []);
+
+  useEffect(() => {
     const stop = listen<CorrectionProgress>("correction", (event) => {
       if (event.payload.documentId === documentId) setCorrecting(event.payload);
     });
@@ -200,6 +240,15 @@ export function CourseView({
   const studentOnly = blocks.filter(
     (b) => b.audience.length > 0 && !b.audience.includes("teacher"),
   );
+
+  // "À vérifier" is the useful filter only while something is flagged. Landing
+  // on it empty — or being left staring at it after clearing the last doubt —
+  // shows a blank page where the course should be.
+  useEffect(() => {
+    if (step === "review" && filter === "doubt" && blocks.length > 0 && doubtful.length === 0) {
+      setFilter("all");
+    }
+  }, [step, filter, blocks.length, doubtful.length]);
 
   // The review list in reading order, narrowed by the active filter — the
   // sequence ↑/↓ walks through.
@@ -337,6 +386,7 @@ export function CourseView({
     const sources = Array.isArray(picked) ? picked : picked ? [picked] : [];
     if (sources.length === 0) return;
 
+    setImporting({ done: 0, total: sources.length });
     try {
       await addPages(documentId, sources);
       await refresh();
@@ -344,6 +394,27 @@ export function CourseView({
     } catch (cause) {
       setError(String(cause));
       logError("workspace", "Ajout de pages impossible", cause);
+    } finally {
+      setImporting(null);
+    }
+  }
+
+  /** Writes the dropped order, then lets the pages come from disk again. */
+  async function persistOrder() {
+    const next = pendingOrder.current;
+    pendingOrder.current = null;
+    if (!next) return;
+
+    const order = next.map((path) => pagePaths.indexOf(path) + 1);
+    try {
+      await reorderPages(documentId, order);
+      await refresh();
+      onChanged();
+    } catch (cause) {
+      setError(String(cause));
+      logError("workspace", "Réordonnancement impossible", cause);
+    } finally {
+      setOrdering(null);
     }
   }
 
@@ -568,14 +639,50 @@ export function CourseView({
                 <h2 className="section-title--plain">
                   {tn("pages.title", pagePaths.length)}
                 </h2>
-                <button type="button" className="btn btn--outline btn--sm" onClick={pickAndAdd}>
-                  {t("pages.add")}
+                <button
+                  type="button"
+                  className="btn btn--outline btn--sm"
+                  onClick={pickAndAdd}
+                  disabled={importing !== null}
+                >
+                  {importing
+                    ? t("wizard.importing", {
+                        done: importing.done,
+                        total: importing.total,
+                      })
+                    : t("pages.add")}
                 </button>
               </div>
-              <div className="thumbs">
-                {pagePaths.map((path, index) => (
-                  <figure key={path} className="thumb">
-                    <img src={convertFileSrc(path)} alt={t("pages.page", { number: index + 1 })} loading="lazy" />
+              {importing && (
+                <Meter
+                  share={importing.total > 0 ? importing.done / importing.total : 0}
+                  tone="accent"
+                />
+              )}
+              {pagePaths.length > 1 && (
+                <p className="field__hint">{t("pages.reorder.hint")}</p>
+              )}
+              <div className="thumbs" ref={thumbsRef}>
+                {(ordering ?? pagePaths).map((path, index) => (
+                  <figure
+                    key={path}
+                    className={`thumb thumb--movable ${held === index ? "thumb--held" : ""}`}
+                    onPointerDown={(event) => {
+                      // The remove button is inside the thumbnail; a drag must
+                      // not start when the pointer went down on it.
+                      if ((event.target as HTMLElement).closest(".thumb__remove")) return;
+                      grab(event, index);
+                    }}
+                  >
+                    <img
+                      // The files are renamed in place, so the URL of a page
+                      // outlives its content: without a version the webview
+                      // would show the cached image after a reorder.
+                      src={`${convertFileSrc(path)}?v=${document?.updatedAt ?? 0}`}
+                      alt={t("pages.page", { number: index + 1 })}
+                      loading="lazy"
+                      draggable={false}
+                    />
                     <button
                       type="button"
                       className="thumb__remove"
