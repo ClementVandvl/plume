@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -8,6 +8,7 @@ import {
   buildDocument,
   cancelCorrections,
   cancelTranscription,
+  readingDocuments,
   deleteDocument,
   removePage,
   renameDocument,
@@ -105,6 +106,11 @@ export function CourseView({
     return existing;
   }, [documentId]);
 
+  // True only while THIS screen is awaiting its own reading. A reading started
+  // here and then left behind carries on in the backend, and the screen that
+  // comes back to it has to pick it up rather than offer to start another.
+  const startedHere = useRef(false);
+
   useEffect(() => {
     refresh()
       .then((existing) => {
@@ -114,9 +120,34 @@ export function CourseView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh]);
 
+  // Reopened mid-reading: show the reading step, not the "read the pages"
+  // button. The timeline fills itself from the events that keep arriving.
+  useEffect(() => {
+    readingDocuments()
+      .then((ids) => {
+        if (!ids.includes(documentId)) return;
+        setRunning(true);
+        setStep("read");
+      })
+      .catch(() => {});
+  }, [documentId]);
+
   useEffect(() => {
     const stop = listen<TranscriptionProgress>("transcription", (event) => {
-      if (event.payload.documentId === documentId) setProgress(event.payload);
+      if (event.payload.documentId !== documentId) return;
+      setProgress(event.payload);
+
+      // A reading this screen did not start finishes here instead: nobody else
+      // is awaiting it, so without this the transcript would sit on disk while
+      // the screen kept showing a reading in progress.
+      const over = event.payload.phase === "done" || event.payload.phase === "cancelled";
+      if (over && !startedHere.current) {
+        setRunning(false);
+        refresh()
+          .then(() => setStep("review"))
+          .catch((cause) => setError(String(cause)));
+        onChanged();
+      }
     });
     return () => {
       stop.then((off) => off()).catch(() => {});
@@ -242,6 +273,7 @@ export function CourseView({
     }
 
     setStep("read");
+    startedHere.current = true;
     setRunning(true);
     setError(null);
     setBuild(null);
@@ -256,6 +288,7 @@ export function CourseView({
       setError(String(cause));
       logError("claude", String(cause));
     } finally {
+      startedHere.current = false;
       setRunning(false);
     }
   }

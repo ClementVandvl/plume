@@ -55,6 +55,22 @@ export function StatusPill({ status }: { status: DocumentStatus }) {
   );
 }
 
+/**
+ * Shown in place of the status while a course is being read.
+ *
+ * A reading takes minutes and continues after the screen that started it is
+ * closed. Without this, a course in full flight looked exactly like one sitting
+ * idle, and the only honest reading of that was "it stopped".
+ */
+export function ReadingPill() {
+  return (
+    <span className="status-pill status-pill--reading">
+      <span className="status-pill__pulse" />
+      {t("status.reading")}
+    </span>
+  );
+}
+
 // ------------------------------------------------------------- overflow menu
 export type MenuEntry = {
   label: string;

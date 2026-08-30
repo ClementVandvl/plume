@@ -518,6 +518,12 @@ fn load_transcript(id: String) -> Option<ir::Transcript> {
 ///
 /// The teacher's hand always wins: nothing here calls the model, and the block
 /// is marked reviewed so it stops being flagged.
+/// Which courses are being read right now.
+#[tauri::command]
+fn reading_documents() -> Vec<String> {
+    runs::active_readings()
+}
+
 #[tauri::command]
 fn save_block(id: String, block: ir::Block) -> Result<(), String> {
     let mut transcript = read_transcript(&id)?;
@@ -749,6 +755,11 @@ async fn transcribe_document(
             },
         );
 
+        // Timed end to end: the gap between the last page's banner and the
+        // review screen appearing was reported as almost a minute, and guessing
+        // where it goes from the code alone was not possible.
+        let started = std::time::Instant::now();
+
         let next = AtomicUsize::new(0);
         let done = AtomicUsize::new(0);
         let spent = Mutex::new(0.0f64);
@@ -844,6 +855,7 @@ async fn transcribe_document(
 
         let cancelled = runs::is_cancelled(&job);
         runs::finish(&job);
+        let pages_read = started.elapsed();
 
         // Pages already read are kept even when cancelled: they cost real
         // quota, and each page stands on its own.
@@ -877,6 +889,18 @@ async fn transcribe_document(
             "workspace",
             "Transcription enregistrée",
             dir.join(TRANSCRIPT_FILE).to_string_lossy().to_string(),
+        );
+        logbus::detail(
+            "claude",
+            format!(
+                "Lecture terminée en {:.1} s",
+                started.elapsed().as_secs_f64()
+            ),
+            format!(
+                "{:.1} s de lecture des pages, {:.1} s d'écriture",
+                pages_read.as_secs_f64(),
+                (started.elapsed() - pages_read).as_secs_f64()
+            ),
         );
 
         let mut document = document;
@@ -1059,6 +1083,7 @@ pub fn run() {
             cancel_transcription,
             cancel_corrections,
             save_block,
+            reading_documents,
             set_block_note,
             apply_corrections,
             transcribe_document,

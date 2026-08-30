@@ -47,6 +47,7 @@ export const fr = {
   "status.draft": "Pas encore lu",
   "status.review": "À vérifier",
   "status.ready": "PDF prêt",
+  "status.reading": "Lecture en cours",
 
   // ------------------------------------------------------------------- steps
   "steps.pages": "Photos",
@@ -106,6 +107,7 @@ export const fr = {
   "courses.state.empty": "Aucune photo pour l'instant",
   "courses.action.review": "Continuer la relecture",
   "courses.action.reread": "Relire",
+  "courses.action.watch": "Voir la lecture",
   "courses.action.openPdf": "Ouvrir le PDF",
   "courses.action.read": "Lire les pages",
   "courses.action.addPages": "Ajouter des photos",
@@ -164,7 +166,7 @@ export const fr = {
   "read.progress": "Page {done} sur {total}",
   "read.stop": "Arrêter la lecture",
   "read.reassurance":
-    "Vous pouvez changer d'écran : la lecture continue et cette page vous attendra.",
+    "Vous pouvez changer d'écran : la lecture continue, et le cours est marqué « lecture en cours » dans vos listes.",
   "read.list.title": "Page par page",
   "read.state.done.one": "Lue — {count} passage trouvé",
   "read.state.done.other": "Lue — {count} passages trouvés",

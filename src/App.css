@@ -723,6 +723,33 @@ textarea.input {
   background: currentcolor;
 }
 
+/* A course being read: the pulse says work is happening even when the numbers
+   have not moved for a minute. */
+.status-pill--reading {
+  color: var(--color-info);
+  background: color-mix(in srgb, var(--color-info) 12%, transparent);
+}
+
+.status-pill__pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: currentcolor;
+  animation: pill-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pill-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(0.65);
+  }
+}
+
 .status-pill--review {
   background: var(--color-soft-warning);
   color: var(--color-strong-warning);
@@ -1370,6 +1397,9 @@ textarea.input {
   display: flex;
   flex-direction: column;
   gap: var(--space-2xs);
+  /* A pill is as wide as its words; stretched across the column it reads as a
+     progress bar, which is exactly what it is not. */
+  align-items: flex-start;
 }
 
 .ctable__phrase {

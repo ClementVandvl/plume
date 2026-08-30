@@ -15,6 +15,7 @@ import { applyTheme, asTheme } from "./theme";
 import { Console } from "./components/Console";
 import { CourseView } from "./components/CourseView";
 import { CoursesView } from "./components/CoursesView";
+import { useActiveReadings } from "./ui/reading";
 import { CreateWizard } from "./components/CreateWizard";
 import { HomeView } from "./components/HomeView";
 import { RulesView } from "./components/RulesView";
@@ -101,6 +102,10 @@ export default function App() {
     );
   }
 
+  // A reading outlives the screen that started it; every list showing courses
+  // needs to say which ones are working.
+  const reading = useActiveReadings();
+
   const onRefreshError = (cause: unknown) =>
     logError("interface", t("error.refresh"), cause);
 
@@ -179,6 +184,7 @@ export default function App() {
             {route.name === "home" && (
               <HomeView
                 documents={documents}
+                reading={reading}
                 environment={environment}
                 onCreate={openWizard}
                 onNavigate={setRoute}
@@ -189,6 +195,7 @@ export default function App() {
             {route.name === "courses" && (
               <CoursesView
                 documents={documents}
+                reading={reading}
                 onCreate={() => openWizard()}
                 onNavigate={setRoute}
                 onChanged={() => refresh().catch(onRefreshError)}

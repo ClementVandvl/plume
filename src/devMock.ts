@@ -270,6 +270,9 @@ const logs = [
 const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   check_environment: () => environment,
   list_documents: () => documents,
+  // One course pretends to be reading, so the activity indicator is visible
+  // while working on the layout.
+  reading_documents: () => [documents[1]?.id].filter(Boolean),
   list_templates: () => [template],
   list_trash: () => trash,
   restore_document: () => documents[0],

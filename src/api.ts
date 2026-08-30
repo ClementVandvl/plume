@@ -83,6 +83,9 @@ export const writeTemplatePreamble = (id: string, text: string) =>
 
 export const checkTemplate = (id: string) => invoke<void>("check_template", { id });
 
+/** Ids of the courses being read right now. */
+export const readingDocuments = () => invoke<string[]>("reading_documents");
+
 export const renderFigure = (id: string, tikz: string) =>
   invoke<string>("render_figure", { id, tikz });
 

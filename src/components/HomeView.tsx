@@ -3,7 +3,7 @@ import { formatRelative, t, tn } from "../i18n";
 import { isTauri } from "../platform";
 import type { DocumentSummary, Environment, Route } from "../types";
 import { Icon } from "../ui/Icon";
-import { Meter, PageSkeleton, StatusPill } from "../ui/controls";
+import { Meter, PageSkeleton, ReadingPill, StatusPill } from "../ui/controls";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "heic", "heif", "webp", "tif", "tiff"];
 const isImage = (path: string) =>
@@ -15,6 +15,8 @@ type Props = {
   /** Opens the wizard, optionally pre-filled with dropped photos. */
   onCreate: (pages?: string[]) => void;
   onNavigate: (route: Route) => void;
+  /** Courses being read right now. */
+  reading: Set<string>;
   onSettings: () => void;
 };
 
@@ -31,7 +33,14 @@ function withStrong(message: string, emphasis: string): ReactNode {
   );
 }
 
-export function HomeView({ documents, environment, onCreate, onNavigate, onSettings }: Props) {
+export function HomeView({
+  documents,
+  environment,
+  reading,
+  onCreate,
+  onNavigate,
+  onSettings,
+}: Props) {
   const [dragging, setDragging] = useState(false);
 
   // Dropping photos anywhere on this screen starts a course with them.
@@ -194,6 +203,7 @@ export function HomeView({ documents, environment, onCreate, onNavigate, onSetti
               <CourseCard
                 key={doc.id}
                 document={doc}
+                reading={reading.has(doc.id)}
                 onOpen={() => onNavigate({ name: "course", id: doc.id })}
               />
             ))}
@@ -207,9 +217,11 @@ export function HomeView({ documents, environment, onCreate, onNavigate, onSetti
 /** One course tile: title, status pill, a line of facts, its progress. */
 function CourseCard({
   document,
+  reading,
   onOpen,
 }: {
   document: DocumentSummary;
+  reading: boolean;
   onOpen: () => void;
 }) {
   const reviewed = document.blockCount - document.doubtfulCount;
@@ -238,7 +250,7 @@ function CourseCard({
     <button type="button" className="card" onClick={onOpen}>
       <span className="card__head">
         <span className="card__title">{document.title}</span>
-        <StatusPill status={document.status} />
+        {reading ? <ReadingPill /> : <StatusPill status={document.status} />}
       </span>
       <span className="card__meta">{facts}</span>
       <Meter share={share} tone={tone} />

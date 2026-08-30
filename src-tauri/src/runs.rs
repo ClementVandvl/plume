@@ -48,6 +48,19 @@ pub fn finish(id: &str) {
     });
 }
 
+/// Documents currently being read.
+///
+/// The interface needs this on its own: a reading outlives the screen that
+/// started it, so a course view opened afresh — or a dashboard card — has no
+/// other way to know that work is in flight.
+pub fn active_readings() -> Vec<String> {
+    with(|runs| {
+        runs.keys()
+            .filter_map(|key| key.strip_prefix("read:").map(str::to_string))
+            .collect()
+    })
+}
+
 pub fn is_cancelled(id: &str) -> bool {
     with(|runs| runs.get(id).map(|run| run.cancelled).unwrap_or(false))
 }
@@ -116,6 +129,23 @@ mod tests {
         assert!(is_cancelled("doc"));
         finish("doc");
         assert!(!is_cancelled("doc"), "a finished run leaves no state behind");
+    }
+
+    #[test]
+    fn active_readings_names_the_documents_being_read() {
+        begin(&reading("cours-a"));
+        begin(&correcting("cours-b"));
+
+        let active = active_readings();
+        assert!(active.contains(&"cours-a".to_string()));
+        assert!(
+            !active.contains(&"cours-b".to_string()),
+            "a correction is not a reading"
+        );
+
+        finish(&reading("cours-a"));
+        assert!(!active_readings().contains(&"cours-a".to_string()));
+        finish(&correcting("cours-b"));
     }
 
     #[test]

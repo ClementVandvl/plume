@@ -5,10 +5,12 @@ import { formatRelative, t, tn } from "../i18n";
 import { logError } from "../log";
 import type { DocumentStatus, DocumentSummary, Route, StepId } from "../types";
 import { Icon } from "../ui/Icon";
-import { Meter, OverflowMenu, PageSkeleton } from "../ui/controls";
+import { Meter, OverflowMenu, PageSkeleton, ReadingPill } from "../ui/controls";
 
 type Props = {
   documents: DocumentSummary[];
+  /** Courses being read right now. */
+  reading: Set<string>;
   onCreate: () => void;
   onNavigate: (route: Route) => void;
   onChanged: () => void;
@@ -53,7 +55,13 @@ function nextStep(doc: DocumentSummary): {
   };
 }
 
-export function CoursesView({ documents, onCreate, onNavigate, onChanged }: Props) {
+export function CoursesView({
+  documents,
+  reading,
+  onCreate,
+  onNavigate,
+  onChanged,
+}: Props) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<DocumentStatus | null>(null);
   const { confirm, promptFor } = useConfirm();
@@ -213,24 +221,39 @@ export function CoursesView({ documents, onCreate, onNavigate, onChanged }: Prop
                   </span>
                 </div>
                 <div className="ctable__state">
-                  <span
-                    className={`ctable__phrase ${doc.status === "ready" && doc.doubtfulCount === 0 ? "ctable__phrase--ok" : ""}`}
-                  >
-                    {next.phrase}
-                  </span>
-                  <Meter share={share} tone={tone} />
+                  {reading.has(doc.id) ? (
+                    <ReadingPill />
+                  ) : (
+                    <>
+                      <span
+                        className={`ctable__phrase ${doc.status === "ready" && doc.doubtfulCount === 0 ? "ctable__phrase--ok" : ""}`}
+                      >
+                        {next.phrase}
+                      </span>
+                      <Meter share={share} tone={tone} />
+                    </>
+                  )}
                 </div>
                 <button
                   type="button"
                   className={`btn ${doc.id === urgent?.id ? "btn--primary" : "btn--outline"} btn--sm`}
                   onClick={(e) => {
                     e.stopPropagation();
+                    // Offering to read a course already being read would start
+                    // a second reading over the first, and bill for it. Going
+                    // to watch it is the only useful thing left to do.
+                    if (reading.has(doc.id)) {
+                      onNavigate({ name: "course", id: doc.id });
+                      return;
+                    }
                     act(doc);
                   }}
                 >
-                  {doc.id === urgent?.id || doc.doubtfulCount === 0
-                    ? next.action
-                    : t("courses.action.reread")}
+                  {reading.has(doc.id)
+                    ? t("courses.action.watch")
+                    : doc.id === urgent?.id || doc.doubtfulCount === 0
+                      ? next.action
+                      : t("courses.action.reread")}
                 </button>
                 <div onClick={(e) => e.stopPropagation()}>
                   <OverflowMenu
