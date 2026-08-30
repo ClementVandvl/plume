@@ -54,6 +54,14 @@ const transcript = {
           // An annotated passage, so the correction panel has something to run on.
           { note: "Reprends la fin : il manque « non confondus »." },
         ),
+        // A worked example whose statement and answer share one passage — the
+        // case the split exists for.
+        block(
+          "b3b",
+          "example",
+          "Soient $\\vec{u}$ et $\\vec{v}$ deux vecteurs.\n\nAlors :\n\n$\\vec{u} + \\vec{v} = \\vec{w}$",
+          { title: "Somme de deux vecteurs" },
+        ),
         block(
           "b4",
           "definition",
@@ -297,6 +305,7 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   log_client: () => undefined,
   save_block: () => undefined,
   set_block_note: () => undefined,
+  split_block: () => transcript,
   set_reading_rules: () => undefined,
   updates_configured: () => false,
   os_platform: () => "macos",

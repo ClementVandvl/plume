@@ -18,6 +18,7 @@ import {
   loadTranscript,
   revealPath,
   saveBlock,
+  splitBlock,
   setBlockNote,
   setReadingRules,
   transcribeDocument,
@@ -507,6 +508,28 @@ export function CourseView({
   async function persist(block: Block) {
     await saveBlock(documentId, block);
     setTranscript(await loadTranscript(documentId));
+  }
+
+  /**
+   * Splits the open passage, then follows its second half.
+   *
+   * The ids after the cut all shift by one, so keeping the old selection would
+   * open whatever landed on that id. The new half is where the teacher is
+   * heading anyway — it is the one that needs an audience.
+   */
+  async function split(blockId: string, head: string, tail: string) {
+    try {
+      const updated = await splitBlock(documentId, blockId, head, tail);
+      setTranscript(updated);
+      const page = updated.pages.find((p) => p.blocks.some((b) => b.id === blockId));
+      const at = page?.blocks.findIndex((b) => b.id === blockId) ?? -1;
+      const created = at >= 0 ? page?.blocks[at + 1]?.id : undefined;
+      if (created) setOpenBlock(created);
+      onChanged();
+    } catch (cause) {
+      setError(String(cause));
+      logError("workspace", "Scission impossible", cause);
+    }
   }
 
   async function annotate(blockId: string, note: string | null) {
@@ -1056,6 +1079,7 @@ export function CourseView({
                     onNext={() => stepTo(1)}
                     onSave={persist}
                     onNote={(note) => annotate(selected.block.id, note)}
+                    onSplit={(head, tail) => split(selected.block.id, head, tail)}
                   />
                 )}
               </div>

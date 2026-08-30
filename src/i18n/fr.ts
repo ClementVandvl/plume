@@ -245,6 +245,13 @@ export const fr = {
   "panel.audience.student": "Version élève",
   "panel.kind.label": "Type de passage",
   "panel.title.label": "Titre (facultatif)",
+  "split.action": "Scinder le passage",
+  "split.why":
+    "Pour traiter séparément les deux moitiés — garder une correction pour vous, par exemple.",
+  "split.hint": "Choisissez où couper. Le passage devient deux passages.",
+  "split.here": "Couper ici",
+  "split.tooShort":
+    "Ce passage est d'un seul tenant : il n'a pas de coupure évidente. Ajoutez une ligne vide dans son LaTeX à l'endroit voulu, puis réessayez.",
   "panel.latex.title": "Modifier le code LaTeX",
   "panel.latex.label": "Contenu LaTeX",
   "panel.confirm": "✓ C'est correct",

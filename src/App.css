@@ -3461,6 +3461,68 @@ textarea.code-area {
   background: var(--color-inset);
 }
 
+.panel-side__tool {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  align-items: flex-start;
+  padding: var(--space-sm) 0;
+  border-top: var(--border-width) solid var(--color-border);
+}
+
+/* ---------- Splitting a passage ---------- */
+.split-choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+/* The pieces are shown typeset, on paper, because the teacher is deciding
+   about their course and not about markup. */
+.split-choice__piece {
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-paper);
+  color: var(--color-paper-text);
+  border-radius: var(--radius-subtle);
+  font-size: var(--font-size-sm);
+  overflow-x: auto;
+}
+
+.split-choice__cut {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: var(--space-2xs) 0;
+  background: none;
+  border: 0;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: var(--font-size-label);
+  cursor: pointer;
+}
+
+/* A dashed rule across the row: the cut is a place, not a button. */
+.split-choice__cut::before,
+.split-choice__cut::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed var(--color-border-strong);
+}
+
+.split-choice__cut:hover::before,
+.split-choice__cut:hover::after {
+  border-top-color: var(--color-accent);
+}
+
+.split-choice__label {
+  flex: none;
+}
+
 .panel-side__buttons {
   display: flex;
   gap: var(--space-xs);

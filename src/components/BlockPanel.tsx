@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { t } from "../i18n";
 import { useAdvanced } from "../ui/mode";
+import { SplitPanel } from "./SplitPanel";
 import { Icon } from "../ui/Icon";
 import { AdvancedRow } from "../ui/controls";
 import { DOUBT_THRESHOLD, KIND_LABEL, type Block } from "../types";
@@ -18,6 +19,8 @@ type Props = {
   onNext: () => void;
   onSave: (block: Block) => Promise<void>;
   onNote: (note: string | null) => Promise<void>;
+  /** Replaces this passage with two. */
+  onSplit: (head: string, tail: string) => Promise<void>;
 };
 
 /** Canned starts for the note — the frequent reasons a passage is wrong. */
@@ -44,6 +47,7 @@ export function BlockPanel({
   onNext,
   onSave,
   onNote,
+  onSplit,
 }: Props) {
   const advanced = useAdvanced();
   const [draft, setDraft] = useState(block);
@@ -51,12 +55,14 @@ export function BlockPanel({
   const [saving, setSaving] = useState(false);
   const [photoLarge, setPhotoLarge] = useState(false);
   const [latexOpen, setLatexOpen] = useState(advanced);
+  const [splitting, setSplitting] = useState(false);
 
   // A correction replaces the block wholesale, so the local draft follows
   // rather than keep showing the version being corrected.
   useEffect(() => {
     setDraft(block);
     setNote(block.note ?? "");
+    setSplitting(false);
   }, [block]);
 
   const flagged = block.confidence < DOUBT_THRESHOLD && !block.reviewed;
@@ -243,6 +249,29 @@ export function BlockPanel({
             ))}
           </div>
         </div>
+
+        <div className="panel-side__tool">
+          <button
+            type="button"
+            className="btn btn--outline btn--sm"
+            onClick={() => setSplitting((current) => !current)}
+            disabled={saving}
+          >
+            {splitting ? t("common.cancel") : t("split.action")}
+          </button>
+          <span className="field__hint">{t("split.why")}</span>
+        </div>
+
+        {splitting && (
+          <SplitPanel
+            latex={block.latex}
+            onCancel={() => setSplitting(false)}
+            onSplit={async (head, tail) => {
+              await onSplit(head, tail);
+              setSplitting(false);
+            }}
+          />
+        )}
 
         <AdvancedRow
           text={t("panel.latex.title")}

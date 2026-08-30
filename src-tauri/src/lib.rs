@@ -584,6 +584,72 @@ fn save_block(id: String, block: ir::Block) -> Result<(), String> {
     write_transcript(&id, &transcript)
 }
 
+/// Replaces one block with two, keeping everything else about it.
+///
+/// The two bodies come from the interface rather than an offset into the
+/// original: a character index means different things in JavaScript and in
+/// Rust, and an accent in the wrong place would cut a word in half.
+///
+/// Returns the id of the new second block.
+fn split_in_transcript(
+    transcript: &mut ir::Transcript,
+    block_id: &str,
+    head: &str,
+    tail: &str,
+) -> Result<String, String> {
+    if head.trim().is_empty() || tail.trim().is_empty() {
+        return Err("Une des deux moitiés serait vide.".into());
+    }
+
+    let page = transcript
+        .pages
+        .iter_mut()
+        .find(|page| page.blocks.iter().any(|block| block.id == block_id))
+        .ok_or("Bloc introuvable.")?;
+    let at = page
+        .blocks
+        .iter()
+        .position(|block| block.id == block_id)
+        .ok_or("Bloc introuvable.")?;
+
+    // The second half inherits what describes the passage — its kind, who it is
+    // for, how sure the model was — but not what identifies this one instance:
+    // a title, a handwritten number and a pending instruction all belong to the
+    // half that keeps them.
+    let mut second = page.blocks[at].clone();
+    second.latex = tail.trim().to_string();
+    second.title = None;
+    second.number = None;
+    second.note = None;
+
+    page.blocks[at].latex = head.trim().to_string();
+    page.blocks.insert(at + 1, second);
+
+    // Ids encode the position, so the whole page is renumbered.
+    let number = page.number;
+    for (index, block) in page.blocks.iter_mut().enumerate() {
+        block.id = format!("p{:02}-b{:02}", number, index + 1);
+    }
+    Ok(page.blocks[at + 1].id.clone())
+}
+
+/// Splits one passage in two, so its halves can be treated separately.
+///
+/// A worked example whose statement and answer were read as one block cannot
+/// be given to the students without its answer; split, the second half can be
+/// marked teacher-only on its own.
+#[tauri::command]
+fn split_block(id: String, block_id: String, head: String, tail: String) -> Result<ir::Transcript, String> {
+    let mut transcript = read_transcript(&id)?;
+    let created = split_in_transcript(&mut transcript, &block_id, &head, &tail)?;
+    write_transcript(&id, &transcript)?;
+    logbus::info(
+        "workspace",
+        format!("Passage {block_id} scindé — nouveau bloc {created}"),
+    );
+    Ok(transcript)
+}
+
 /// Attaches or clears the teacher's instruction for one block.
 #[tauri::command]
 fn set_block_note(id: String, block_id: String, note: Option<String>) -> Result<(), String> {
@@ -1138,6 +1204,7 @@ pub fn run() {
             cancel_transcription,
             cancel_corrections,
             save_block,
+            split_block,
             reading_documents,
             set_block_note,
             apply_corrections,
@@ -1180,6 +1247,54 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    /// A worked example read as one block: split, the answer can be kept for
+    /// the teacher's copy while the statement goes to everyone.
+    #[test]
+    fn splitting_keeps_what_describes_the_passage_and_drops_what_names_it() {
+        let mut transcript = ir::Transcript { version: 1, pages: vec![page(1, 3)] };
+        transcript.pages[0].blocks[1].kind = "example".into();
+        transcript.pages[0].blocks[1].title = Some("Chasles".into());
+        transcript.pages[0].blocks[1].number = Some("2".into());
+        transcript.pages[0].blocks[1].note = Some("à revoir".into());
+        transcript.pages[0].blocks[1].audience = vec!["student".into()];
+        transcript.pages[0].blocks[1].confidence = 0.42;
+        transcript.pages[0].blocks[1].latex = "Énoncé.\n\nCorrection.".into();
+
+        let created =
+            split_in_transcript(&mut transcript, "p01-b02", "Énoncé.", "Correction.").unwrap();
+
+        let blocks = &transcript.pages[0].blocks;
+        assert_eq!(blocks.len(), 4, "one block became two");
+        assert_eq!(created, "p01-b03");
+
+        assert_eq!(blocks[1].latex, "Énoncé.");
+        assert_eq!(blocks[2].latex, "Correction.");
+
+        // What describes the passage is inherited.
+        assert_eq!(blocks[2].kind, "example");
+        assert_eq!(blocks[2].audience, vec!["student".to_string()]);
+        assert_eq!(blocks[2].confidence, 0.42);
+
+        // What names this one instance is not.
+        assert_eq!(blocks[1].title.as_deref(), Some("Chasles"));
+        assert_eq!(blocks[2].title, None);
+        assert_eq!(blocks[2].number, None);
+        assert_eq!(blocks[2].note, None);
+
+        // Ids follow the new positions, including the untouched blocks after.
+        let ids: Vec<&str> = blocks.iter().map(|b| b.id.as_str()).collect();
+        assert_eq!(ids, vec!["p01-b01", "p01-b02", "p01-b03", "p01-b04"]);
+    }
+
+    #[test]
+    fn splitting_refuses_to_produce_an_empty_half() {
+        let mut transcript = ir::Transcript { version: 1, pages: vec![page(1, 1)] };
+        assert!(split_in_transcript(&mut transcript, "p01-b01", "  ", "reste").is_err());
+        assert!(split_in_transcript(&mut transcript, "p01-b01", "début", "\n \n").is_err());
+        assert!(split_in_transcript(&mut transcript, "p09-b01", "a", "b").is_err());
+        assert_eq!(transcript.pages[0].blocks.len(), 1, "nothing moved");
     }
 
     /// Block ids encode the page, so moving photographs without moving the

@@ -83,6 +83,10 @@ export const writeTemplatePreamble = (id: string, text: string) =>
 
 export const checkTemplate = (id: string) => invoke<void>("check_template", { id });
 
+/** Replaces one passage with two. Returns the whole transcript. */
+export const splitBlock = (id: string, blockId: string, head: string, tail: string) =>
+  invoke<Transcript>("split_block", { id, blockId, head, tail });
+
 export const reorderPages = (id: string, order: number[]) =>
   invoke<PlumeDocument>("reorder_pages", { id, order });
 
