@@ -718,7 +718,9 @@ textarea.input {
 /* ---------- Meter ---------- */
 .meter {
   display: block;
-  flex: 1;
+  /* Basis auto, not 0: inside a column the basis becomes the height, and
+     `flex: 1` collapsed the bar to nothing. In a row it still fills. */
+  flex: 1 1 auto;
   height: 7px;
   border-radius: var(--radius-pill);
   background: var(--color-chip-ground);
@@ -730,6 +732,32 @@ textarea.input {
   height: 100%;
   border-radius: var(--radius-pill);
   transition: width var(--duration-slow) var(--easing);
+}
+
+.meter--live {
+  position: relative;
+}
+
+.meter--live::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 20%,
+    color-mix(in srgb, var(--color-accent) 55%, transparent) 50%,
+    transparent 80%
+  );
+  animation: meter-sweep 1.6s linear infinite;
+}
+
+@keyframes meter-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 
 .meter__fill--ok {
@@ -2698,6 +2726,15 @@ textarea.code-area {
   font-size: var(--font-size-label);
   color: var(--color-text-muted);
   line-height: var(--line-height-body);
+}
+
+/* The plain count, beside the phrase: a bar alone never says how many are
+   left, and "3 / 7" is the answer at a glance. */
+.panelcard__count {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .thumbs {

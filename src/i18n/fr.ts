@@ -219,6 +219,11 @@ export const fr = {
     "Corrections annulées — {done} sur {total} appliquées, conservées.",
   "review.correct.failed": "{block} : {message}",
   "review.correct.progress": "Passage {done} sur {total} corrigé.",
+  "review.correct.running": "Plume reprend vos passages",
+  "review.correct.finished": "Correction terminée",
+  "review.correct.stopped": "Correction interrompue",
+  "review.correct.at": "Passage {done} sur {total} — {name}",
+  "review.correct.name": "{kind}, page {page}",
 
   "panel.position": "Passage {index} sur {total}",
   "panel.meta": "{kind} · page {page}",

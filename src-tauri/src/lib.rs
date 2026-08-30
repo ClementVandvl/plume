@@ -666,6 +666,21 @@ async fn apply_corrections(
                 .cloned()
                 .unwrap_or_default();
 
+            // Announced before the work, not only after it: correcting one
+            // passage takes about as long as reading a page, and nothing was
+            // emitted until the first one landed.
+            let _ = app.emit(
+                "correction",
+                CorrectionProgress {
+                    document_id: id.clone(),
+                    phase: "start".into(),
+                    block_id: block.id.clone(),
+                    done,
+                    total,
+                    message: None,
+                },
+            );
+
             match recognizer::correct_block(
                 &job,
                 &dir,

@@ -171,7 +171,8 @@ export type LogEntry = {
 /** Emitted while annotated blocks are being re-run. */
 export type CorrectionProgress = {
   documentId: string;
-  phase: "block" | "done" | "failed" | "cancelled";
+  /** `start` opens a passage, `block` closes it. */
+  phase: "start" | "block" | "done" | "failed" | "cancelled";
   blockId: string;
   done: number;
   total: number;

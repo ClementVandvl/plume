@@ -51,6 +51,8 @@ const transcript = {
           "b3",
           "text",
           "Dans tout ce paragraphe, le plan est muni d'un repère orthonormé direct. On note $A$, $B$ deux points distincts.",
+          // An annotated passage, so the correction panel has something to run on.
+          { note: "Reprends la fin : il manque « non confondus »." },
         ),
         block(
           "b4",
@@ -274,6 +276,12 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   // while working on the layout.
   reading_documents: () => [documents[1]?.id].filter(Boolean),
   reorder_pages: () => documents[0],
+  // Slow on purpose: the correction panel is only worth looking at while it
+  // is running.
+  apply_corrections: async () => {
+    await new Promise((resolve) => setTimeout(resolve, 8000));
+    return transcript;
+  },
   list_templates: () => [template],
   list_trash: () => trash,
   restore_document: () => documents[0],

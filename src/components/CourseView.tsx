@@ -39,6 +39,7 @@ import {
   type ImportProgress,
   type ScanInfo,
 } from "../types";
+import { KIND_LABEL } from "../types";
 import { logError, logInfo } from "../log";
 import { useConfirm } from "../confirm";
 import { useAdvanced } from "../ui/mode";
@@ -266,6 +267,18 @@ export function CourseView({
     page.blocks.map((block) => ({ block, page: page.number })),
   );
   const selected = all.find((entry) => entry.block.id === openBlock);
+
+  // "Définition (page 3)" rather than "p03-b07": the id means nothing to a
+  // teacher watching their corrections go through.
+  const beingCorrected = correcting
+    ? all.find((entry) => entry.block.id === correcting.blockId)
+    : undefined;
+  const correctingName = beingCorrected
+    ? t("review.correct.name", {
+        kind: KIND_LABEL[beingCorrected.block.kind] ?? beingCorrected.block.kind,
+        page: beingCorrected.page,
+      })
+    : (correcting?.blockId ?? "");
   const selectedAt = all.findIndex((entry) => entry.block.id === openBlock);
 
   function stepTo(delta: number) {
@@ -345,11 +358,24 @@ export function CourseView({
   async function correct() {
     setRunning(true);
     setError(null);
-    setCorrecting(null);
+    // Shown from the click: the backend's first event only arrives once a
+    // passage has been through the model, a minute or so later.
+    setCorrecting({
+      documentId,
+      phase: "start",
+      blockId: annotated[0]?.id ?? "",
+      done: 0,
+      total: annotated.length,
+      message: null,
+    });
     try {
       setTranscript(await applyCorrections(documentId, model));
       refresh().catch(() => {});
     } catch (cause) {
+      // The panel is cleared rather than left on its last known state: a run
+      // that failed before its first event would otherwise sit there claiming
+      // the correction finished, under the error saying it did not.
+      setCorrecting(null);
       setError(String(cause));
       logError("claude", String(cause));
     } finally {
@@ -951,24 +977,54 @@ export function CourseView({
             </div>
 
             {correcting && (
-              <p className={`notice ${correcting.phase === "failed" ? "notice--error" : ""}`}>
-                {correcting.phase === "done"
-                  ? t("review.correct.done", { done: correcting.done, total: correcting.total })
-                  : correcting.phase === "cancelled"
-                    ? tn("review.correct.cancelled", correcting.done, {
-                        done: correcting.done,
-                        total: correcting.total,
-                      })
-                    : correcting.phase === "failed"
-                      ? t("review.correct.failed", {
-                          block: correcting.blockId,
-                          message: correcting.message ?? "",
-                        })
-                      : t("review.correct.progress", {
-                          done: correcting.done,
-                          total: correcting.total,
-                        })}
-              </p>
+              <div className="panelcard">
+                <div className="panelcard__row">
+                  <div className="panelcard__lead">
+                    <span className="panelcard__title">
+                      {running
+                        ? t("review.correct.running")
+                        : correcting.phase === "failed"
+                          ? t("review.correct.stopped")
+                          : t("review.correct.finished")}
+                    </span>
+                    <span className="panelcard__hint">
+                      {correcting.phase === "done"
+                        ? t("review.correct.done", {
+                            done: correcting.done,
+                            total: correcting.total,
+                          })
+                        : correcting.phase === "cancelled"
+                          ? tn("review.correct.cancelled", correcting.done, {
+                              done: correcting.done,
+                              total: correcting.total,
+                            })
+                          : correcting.phase === "failed"
+                            ? t("review.correct.failed", {
+                                block: correctingName,
+                                message: correcting.message ?? "",
+                              })
+                            : correcting.phase === "start"
+                              ? t("review.correct.at", {
+                                  done: correcting.done + 1,
+                                  total: correcting.total,
+                                  name: correctingName,
+                                })
+                              : t("review.correct.progress", {
+                                  done: correcting.done,
+                                  total: correcting.total,
+                                })}
+                    </span>
+                  </div>
+                  <span className="panelcard__count">
+                    {correcting.done} / {correcting.total}
+                  </span>
+                </div>
+                <Meter
+                  share={correcting.total > 0 ? correcting.done / correcting.total : 0}
+                  tone={correcting.phase === "failed" ? "warn" : "accent"}
+                  live={running}
+                />
+              </div>
             )}
 
             {blocks.length === 0 ? (

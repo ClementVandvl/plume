@@ -36,10 +36,25 @@ export function Toggle({
 type MeterTone = "ok" | "warn" | "muted" | "accent";
 
 /** A thin progress pill; `share` is 0 to 1. */
-export function Meter({ share, tone = "ok" }: { share: number; tone?: MeterTone }) {
+export function Meter({
+  share,
+  tone = "ok",
+  live = false,
+}: {
+  share: number;
+  tone?: MeterTone;
+  /**
+   * Sweeps the track while work is under way.
+   *
+   * The fill still shows only what is finished. Correcting a single passage
+   * sits at 0 % for its whole minute, and a bar that never moves says the same
+   * thing as no bar at all.
+   */
+  live?: boolean;
+}) {
   const width = `${Math.round(Math.min(1, Math.max(0, share)) * 100)}%`;
   return (
-    <span className="meter" role="presentation">
+    <span className={`meter ${live ? "meter--live" : ""}`} role="presentation">
       <span className={`meter__fill meter__fill--${tone}`} style={{ width }} />
     </span>
   );
