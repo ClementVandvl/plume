@@ -70,6 +70,20 @@ describe("latexToHtml", () => {
     expect(html).not.toContain("ParseError");
   });
 
+  // `[t]` is what keeps the list number beside the first line of the
+  // calculation rather than halfway down it. KaTeX centres the block instead,
+  // so the option comes back as a shift measured off KaTeX's own row geometry.
+  it("hangs a [t] calculation from its first line", () => {
+    const item = "$\\begin{aligned}[t]\nA &= 1 \\\\\n&= 2\n\\end{aligned}$";
+    const hung = /katex-base" style="vertical-align:-([\d.]+)em/.exec(latexToHtml(item));
+    expect(hung).not.toBeNull();
+    // Roughly half the block: the marker moves from its middle to its top row.
+    expect(Number(hung![1])).toBeGreaterThan(0.5);
+
+    // Without the option, the block keeps KaTeX's own centring.
+    expect(latexToHtml(item.replace("[t]", ""))).toContain('<span class="katex-base">');
+  });
+
   it("turns itemize into a list", () => {
     const html = latexToHtml(
       "Caractérisé par :\n\\begin{itemize}\n\\item une direction\n\\item un sens\n\\end{itemize}",

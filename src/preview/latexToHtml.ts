@@ -99,19 +99,49 @@ function stripComments(text: string): string {
  * the line that introduces it — without it, LaTeX centres the block vertically
  * and the list number floats to its middle. KaTeX ignores the option and
  * typesets a literal "[t]" instead, so it is dropped for the preview only. The
- * exported LaTeX keeps it.
+ * exported LaTeX keeps it, and `hangFromFirstRow` puts back what it bought.
  */
 function forKatex(source: string): string {
   return source.replace(/(\\begin\{(?:aligned|gathered|alignedat)\})\[[tbc]\]/g, "$1");
 }
 
+/** A calculation written as `\begin{aligned}[t]`, and nothing before it. */
+const TOP_ALIGNED = /^\\begin\{(?:aligned|gathered|alignedat)\}\[t\]/;
+
+/**
+ * Re-applies the `[t]` that `forKatex` had to drop, on the rendered HTML.
+ *
+ * KaTeX centres an alignment block on the maths axis, so the `<li>` marker of
+ * the item introducing it lands halfway down the calculation rather than beside
+ * its first line. The rows carry their own geometry: each sits at
+ * `top: -(pstrut + baseline)`, so the first row's baseline is `|top| - pstrut`
+ * above the block's own. Lowering the whole box by that much is exactly what
+ * `[t]` does — and the em here is KaTeX's own, since `.katex-base` inherits the
+ * font size the offsets were measured in.
+ */
+function hangFromFirstRow(html: string): string {
+  const row = /<span style="top:(-[\d.]+)em;">/.exec(html);
+  const strut = /<span class="pstrut" style="height:([\d.]+)em;">/.exec(html);
+  if (!row || !strut) return html;
+
+  const shift = -Number(row[1]) - Number(strut[1]);
+  if (!(shift > 0)) return html;
+
+  return html.replace(
+    '<span class="katex-base">',
+    `<span class="katex-base" style="vertical-align:-${shift.toFixed(4)}em;">`,
+  );
+}
+
 function math(source: string, display: boolean): string {
   try {
-    return katex.renderToString(forKatex(source), {
+    const html = katex.renderToString(forKatex(source), {
       displayMode: display,
       throwOnError: false,
       strict: false,
     });
+    // Only inline: a displayed block owns its line, so it has no marker to miss.
+    return !display && TOP_ALIGNED.test(source.trim()) ? hangFromFirstRow(html) : html;
   } catch {
     return `<code class="tex-raw">${escapeHtml(source)}</code>`;
   }

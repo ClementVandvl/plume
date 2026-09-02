@@ -141,6 +141,8 @@ export function CourseView({
   /** Id the new passage should follow; null when the dialog is closed. */
   const [insertAfter, setInsertAfter] = useState<string | null>(null);
   const [inserting, setInserting] = useState(false);
+  /** How many times this screen has built a PDF, to date its preview. */
+  const [builds, setBuilds] = useState(0);
 
   const [ordering, setOrdering] = useState<string[] | null>(null);
   const pendingOrder = useRef<string[] | null>(null);
@@ -404,6 +406,9 @@ export function CourseView({
     setBuilding(true);
     try {
       setBuild(await buildDocument(documentId, audience));
+      // The PDF is rewritten at the same path, so its URL never changes and the
+      // webview kept showing the previous build. Counting them changes it.
+      setBuilds((count) => count + 1);
       onChanged();
       refresh().catch(() => {});
     } catch (cause) {
@@ -1313,7 +1318,7 @@ export function CourseView({
               {build?.pdfPath ? (
                 <iframe
                   className="pdf-preview"
-                  src={convertFileSrc(build.pdfPath)}
+                  src={`${convertFileSrc(build.pdfPath)}?build=${builds}`}
                   title={t("export.preview.title", {
                     audience:
                       audience === "teacher"
