@@ -431,6 +431,10 @@ export const fr = {
   "settings.model.hint": "Modifiable cours par cours au moment de la lecture.",
   "settings.parallel.label": "Pages lues en parallèle",
   "settings.parallel.auto": "Automatique — selon la mémoire de la machine",
+  "settings.parallel.autoAt":
+    "Automatique — {pages} à la fois ({memory} Go détectés)",
+  "settings.parallel.autoUnknown":
+    "Automatique — {pages} à la fois (mémoire non détectée)",
   "settings.parallel.one": "1 — machine modeste (8 Go)",
   "settings.parallel.three": "3 — machine confortable (16 Go et plus)",
   "settings.parallel.hint":

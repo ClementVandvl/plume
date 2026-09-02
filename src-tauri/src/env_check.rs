@@ -196,6 +196,12 @@ pub struct Environment {
     pub tools: Vec<ToolStatus>,
     /// Every required prerequisite is present.
     pub ready: bool,
+    /// Pages this machine reads at once when the teacher leaves the setting on
+    /// automatic. The interface used to state three, which was only ever true
+    /// of a comfortable machine.
+    pub auto_pages: usize,
+    /// Memory found, in gigabytes; `None` when it could not be measured.
+    pub memory_gb: Option<f64>,
 }
 
 pub fn inspect() -> Environment {
@@ -224,5 +230,28 @@ pub fn inspect() -> Environment {
 
     let tools: Vec<ToolStatus> = specs.iter().map(check).collect();
     let ready = tools.iter().all(|t| t.found || !t.required);
-    Environment { tools, ready }
+    Environment {
+        tools,
+        ready,
+        auto_pages: crate::machine::auto_concurrency(),
+        memory_gb: crate::machine::total_memory_gb(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The interface states this number to the teacher, so it has to be the one
+    /// the reader will actually use — it was hard-coded to three.
+    #[test]
+    fn the_environment_reports_what_this_machine_affords() {
+        let environment = inspect();
+        assert_eq!(
+            environment.auto_pages,
+            crate::machine::auto_concurrency(),
+            "the reported width must be the one the reader applies"
+        );
+        assert!((1..=3).contains(&environment.auto_pages));
+    }
 }

@@ -232,6 +232,9 @@ const settings = {
 
 const environment = {
   ready: false,
+  // A modest machine, so the automatic value is visibly not three.
+  autoPages: 2,
+  memoryGb: 12,
   tools: [
     {
       key: "claude",

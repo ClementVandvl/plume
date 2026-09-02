@@ -34,7 +34,12 @@ use tauri_plugin_opener::OpenerExt;
 async fn check_environment() -> env_check::Environment {
     tauri::async_runtime::spawn_blocking(env_check::inspect)
         .await
-        .unwrap_or_else(|_| env_check::Environment { tools: Vec::new(), ready: false })
+        .unwrap_or_else(|_| env_check::Environment {
+            tools: Vec::new(),
+            ready: false,
+            auto_pages: 1,
+            memory_gb: None,
+        })
 }
 
 /// A course plus what its transcript says is left to do. Computed at list time

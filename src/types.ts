@@ -17,6 +17,10 @@ export type ToolStatus = {
 export type Environment = {
   tools: ToolStatus[];
   ready: boolean;
+  /** Pages this machine reads at once on the automatic setting. */
+  autoPages: number;
+  /** Memory found, in gigabytes; null when it could not be measured. */
+  memoryGb: number | null;
 };
 
 export type TemplateKey = {

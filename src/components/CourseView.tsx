@@ -62,6 +62,8 @@ type Props = {
   initialStep?: StepId;
   defaultModel: string;
   concurrentPages: number;
+  /** What the machine does when the setting is left on automatic. */
+  autoPages: number;
   templates: Template[];
   onBack: () => void;
   onChanged: () => void;
@@ -73,6 +75,7 @@ export function CourseView({
   initialStep,
   defaultModel,
   concurrentPages,
+  autoPages,
   templates,
   onBack,
   onChanged,
@@ -658,7 +661,9 @@ export function CourseView({
           <div className="statcard">
             <span className="statcard__label">{t("advanced.parallel")}</span>
             <span className="statcard__value">
-              {concurrentPages === 0 ? `3 ${t("advanced.parallel.auto")}` : concurrentPages}
+              {concurrentPages === 0
+                ? `${autoPages} ${t("advanced.parallel.auto")}`
+                : concurrentPages}
             </span>
             <span className="statcard__meta">{t("settings.parallel.label")}</span>
           </div>

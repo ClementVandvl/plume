@@ -248,7 +248,16 @@ export function SettingsModal({
                 value={settings.concurrentPages}
                 onChange={(e) => persist({ concurrentPages: Number(e.target.value) })}
               >
-                <option value={0}>{t("settings.parallel.auto")}</option>
+                <option value={0}>
+                  {environment
+                    ? environment.memoryGb
+                      ? t("settings.parallel.autoAt", {
+                          pages: environment.autoPages,
+                          memory: Math.round(environment.memoryGb),
+                        })
+                      : t("settings.parallel.autoUnknown", { pages: environment.autoPages })
+                    : t("settings.parallel.auto")}
+                </option>
                 <option value={1}>{t("settings.parallel.one")}</option>
                 <option value={2}>2</option>
                 <option value={3}>{t("settings.parallel.three")}</option>

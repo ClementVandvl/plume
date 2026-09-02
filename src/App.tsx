@@ -157,6 +157,7 @@ export default function App() {
               initialStep={route.step}
               defaultModel={settings.defaultModel}
               concurrentPages={settings.concurrentPages}
+              autoPages={environment?.autoPages ?? 1}
               templates={templates}
               onBack={() => setRoute({ name: "courses" })}
               onChanged={() => refresh().catch(onRefreshError)}
