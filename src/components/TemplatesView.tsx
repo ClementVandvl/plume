@@ -403,7 +403,7 @@ export function TemplatesView({
                     </span>
                   </span>
                   {!convention.enabled && (
-                    <span className="flag">{t("annotations.disabled")}</span>
+                    <span className="flag">{t("instructions.disabled")}</span>
                   )}
                 </div>
               ))

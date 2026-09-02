@@ -47,7 +47,7 @@ export function RulePanel({ rule, onChange, onDelete, onClose, float }: Props) {
         <div>
           <span className="panel-side__kind">{t("rulePanel.title")}</span>
           <span className="panel-side__meta">
-            {rule.enabled ? t("rulePanel.active") : t("annotations.disabled")}
+            {rule.enabled ? t("rulePanel.active") : t("instructions.disabled")}
           </span>
         </div>
         <button

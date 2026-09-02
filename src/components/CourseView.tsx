@@ -793,7 +793,7 @@ export function CourseView({
                   {t("pages.rules.save")}
                 </button>
                 <span className="panelcard__hint">
-                  {t("pages.rules.global", { annotations: t("nav.annotations") })}
+                  {t("pages.rules.global", { page: t("nav.instructions") })}
                 </span>
               </div>
             </aside>

@@ -37,7 +37,7 @@ export const fr = {
   "nav.home": "Accueil",
   "nav.courses": "Mes cours",
   "nav.layout": "Ma mise en page",
-  "nav.annotations": "Mes annotations",
+  "nav.instructions": "Mes consignes",
   "nav.trash": "Corbeille",
   "nav.help": "Aide",
   "nav.settings": "Réglages",
@@ -160,7 +160,7 @@ export const fr = {
   "pages.rules.example3": "Écrit au crayon = brouillon",
   "pages.rules.example3.text": "Ce qui est écrit au crayon est du brouillon, à ignorer.",
   "pages.rules.global":
-    "Les consignes valables pour tous vos cours se règlent dans {annotations}.",
+    "Les consignes valables pour tous vos cours se règlent dans {page}.",
   "pages.start.one": "Lancer la lecture de la page",
   "pages.start.other": "Lancer la lecture des {count} pages",
 
@@ -317,7 +317,7 @@ export const fr = {
   "layout.mode.centered": "Centré — dans un center",
   "layout.rules.title": "Règles de mise en forme",
   "layout.rules.hint":
-    "Ce que ce modèle attend du LaTeX produit. Elles s'ajoutent à vos annotations, qui valent pour tous les modèles — celles-ci suivent la charte.",
+    "Ce que ce modèle attend du LaTeX produit. Elles s'ajoutent à vos consignes générales, qui valent pour tous les modèles — celles-ci suivent la charte.",
   "layout.rules.add": "+ Ajouter une règle",
   "layout.rules.empty":
     "Aucune règle. Par exemple : aligner sur le signe égal les lignes de calcul qui commencent par « = ».",
@@ -337,30 +337,30 @@ export const fr = {
   "layout.none": "Aucun modèle installé.",
   "layout.builtinFlag": "livré",
 
-  // ------------------------------------------------------------- annotations
-  "annotations.title": "Mes annotations",
-  "annotations.subtitle":
-    "Ce que vos marques au feutre veulent dire. Ces règles s'appliquent à tous vos cours ; les consignes propres à un cours se règlent dans le cours.",
-  "annotations.marks.title": "Marques",
-  "annotations.marks.add": "+ Ajouter une marque",
-  "annotations.marks.hint":
-    "Quelque chose que vous tracez sur la feuille, et ce que ça veut dire.",
-  "annotations.marks.empty":
+  // ------------------------------------------------------------- consignes
+  "instructions.title": "Mes consignes",
+  "instructions.subtitle":
+    "Ce que Plume doit savoir avant de lire, et qui vaut pour tous vos cours. Une consigne propre à un seul cours se règle dans le cours.",
+  "instructions.tab.marks": "Mes annotations",
+  "instructions.tab.conventions": "Mes consignes",
+  "instructions.marks.about":
+    "Ce que vos marques au feutre veulent dire. Plume les repère sur la photo et applique ce que vous avez décidé : un surlignage devient du gras, un trait en marge réserve un passage à votre version.",
+  "instructions.conventions.about":
+    "Des consignes générales, transmises à chaque lecture. Contrairement aux annotations, elles ne dépendent d'aucune marque sur la feuille : ce sont vos habitudes de rédaction, dites une fois pour toutes — la façon de dessiner les schémas, de nommer les points, d'abréger un intitulé.",
+  "instructions.marks.add": "+ Ajouter une marque",
+  "instructions.marks.empty":
     "Aucune marque. Par exemple : surligné orange → gras, trait bleu en marge → réservé au professeur.",
-  "annotations.sentence": "Quand je vois {trigger}, Plume applique : {effect}.",
-  "annotations.conventions.title": "Toujours, quel que soit le cours",
-  "annotations.conventions.hint":
-    "Une consigne permanente, sans marque à repérer — la façon de dessiner les schémas, de nommer les points, d'abréger un intitulé.",
-  "annotations.conventions.add": "+ Ajouter une consigne",
-  "annotations.conventions.empty":
+  "instructions.sentence": "Quand je vois {trigger}, Plume applique : {effect}.",
+  "instructions.conventions.add": "+ Ajouter une consigne",
+  "instructions.conventions.empty":
     "Aucune consigne. Par exemple : jamais d'annotation par-dessus un trait dans les schémas.",
-  "annotations.disabled": "désactivée",
-  "annotations.delete.rule.title": "Supprimer cette marque ?",
-  "annotations.delete.rule.message": "Elle ne sera plus appliquée à vos prochaines lectures.",
-  "annotations.delete.convention.title": "Supprimer cette consigne ?",
-  "annotations.delete.convention.message":
+  "instructions.disabled": "désactivée",
+  "instructions.delete.rule.title": "Supprimer cette marque ?",
+  "instructions.delete.rule.message": "Elle ne sera plus appliquée à vos prochaines lectures.",
+  "instructions.delete.convention.title": "Supprimer cette consigne ?",
+  "instructions.delete.convention.message":
     "Elle ne sera plus transmise au modèle lors de vos prochaines lectures.",
-  "annotations.delete.detail":
+  "instructions.delete.detail":
     "Pour la désactiver sans la perdre, décochez « Appliquer » à la place.",
 
   "rulePanel.title": "Règle de lecture",

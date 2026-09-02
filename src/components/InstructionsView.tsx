@@ -15,7 +15,11 @@ import { ConventionPanel } from "./ConventionPanel";
 import { RulePanel } from "./RulePanel";
 
 /**
- * The registry of marker conventions — "Mes annotations".
+ * Everything Plume is told before reading, in one page — "Mes consignes".
+ *
+ * Two tabs, because the two halves answer different questions: a mark is
+ * something drawn on the sheet and what it means; an instruction has no mark to
+ * find and is simply always true.
  *
  * These are rules, not prose: "highlighted in orange means bold" has a trigger
  * and an effect, so it compiles to the same instruction every time and can be
@@ -40,6 +44,9 @@ const newConvention = (): Convention => ({
 /** Which entry the side panel is editing. */
 type Selection = { list: "rules" | "conventions"; id: string } | null;
 
+/** Which half of the page is open. */
+type Tab = "marks" | "conventions";
+
 const firstLine = (text: string) => text.trim().split("\n")[0] || "—";
 
 /** "Surligné orange" — the trigger as the teacher would say it. */
@@ -60,9 +67,10 @@ type Props = {
   onSaved: (settings: Settings) => void;
 };
 
-export function RulesView({ settings, onSaved }: Props) {
+export function InstructionsView({ settings, onSaved }: Props) {
   const [draft, setDraft] = useState(settings);
   const [selected, setSelected] = useState<Selection>(null);
+  const [tab, setTab] = useState<Tab>("marks");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { confirm } = useConfirm();
@@ -100,11 +108,11 @@ export function RulesView({ settings, onSaved }: Props) {
   async function remove(list: "rules" | "conventions", id: string) {
     const isRule = list === "rules";
     const ok = await confirm({
-      title: isRule ? t("annotations.delete.rule.title") : t("annotations.delete.convention.title"),
+      title: isRule ? t("instructions.delete.rule.title") : t("instructions.delete.convention.title"),
       message: isRule
-        ? t("annotations.delete.rule.message")
-        : t("annotations.delete.convention.message"),
-      detail: t("annotations.delete.detail"),
+        ? t("instructions.delete.rule.message")
+        : t("instructions.delete.convention.message"),
+      detail: t("instructions.delete.detail"),
       confirmLabel: t("common.delete"),
       tone: "danger",
     });
@@ -150,8 +158,8 @@ export function RulesView({ settings, onSaved }: Props) {
     <div className="stack">
       <header className="page-head">
         <div>
-          <h1 className="page-title">{t("annotations.title")}</h1>
-          <p className="page-subtitle page-subtitle--wide">{t("annotations.subtitle")}</p>
+          <h1 className="page-title">{t("instructions.title")}</h1>
+          <p className="page-subtitle page-subtitle--wide">{t("instructions.subtitle")}</p>
         </div>
         <div className="page-head__tools">
           {dirty && (
@@ -173,17 +181,39 @@ export function RulesView({ settings, onSaved }: Props) {
         </p>
       )}
 
-      <div className="annotations-grid">
-        <section className="listcard">
-          <header className="listcard__head">
-            <div className="listcard__lead">
-              <span className="listcard__heading">{t("annotations.marks.title")}</span>
-              <span className="listcard__hint">{t("annotations.marks.hint")}</span>
-            </div>
-          </header>
+      <div className="tabs" role="tablist">
+        {(
+          [
+            ["marks", t("instructions.tab.marks")],
+            ["conventions", t("instructions.tab.conventions")],
+          ] as [Tab, string][]
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            className={`tab ${tab === id ? "tab--on" : ""}`}
+            // A selection belongs to the tab that shows it: leaving one open
+            // while switching would float a panel over an unrelated list.
+            onClick={() => {
+              setSelected(null);
+              setTab(id);
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
+      <p className="page-subtitle page-subtitle--wide">
+        {tab === "marks" ? t("instructions.marks.about") : t("instructions.conventions.about")}
+      </p>
+
+      {tab === "marks" && (
+        <section className="listcard">
           {draft.rules.length === 0 ? (
-            <p className="listcard__empty">{t("annotations.marks.empty")}</p>
+            <p className="listcard__empty">{t("instructions.marks.empty")}</p>
           ) : (
             draft.rules.map((rule) => (
               <div
@@ -204,7 +234,7 @@ export function RulesView({ settings, onSaved }: Props) {
                   aria-hidden="true"
                 />
                 <span className="arule__sentence">
-                  {t("annotations.sentence", {
+                  {t("instructions.sentence", {
                     trigger: triggerPhrase(rule).toLowerCase(),
                     effect: effectPhrase(rule).toLowerCase(),
                   })}
@@ -221,22 +251,15 @@ export function RulesView({ settings, onSaved }: Props) {
           )}
 
           <button type="button" className="listcard__add" onClick={addRule}>
-            {t("annotations.marks.add")}
+            {t("instructions.marks.add")}
           </button>
         </section>
+      )}
 
+      {tab === "conventions" && (
         <section className="listcard">
-          <header className="listcard__head">
-            <div className="listcard__lead">
-              <span className="listcard__heading">
-                {t("annotations.conventions.title")}
-              </span>
-              <span className="listcard__hint">{t("annotations.conventions.hint")}</span>
-            </div>
-          </header>
-
           {draft.conventions.length === 0 ? (
-            <p className="listcard__empty">{t("annotations.conventions.empty")}</p>
+            <p className="listcard__empty">{t("instructions.conventions.empty")}</p>
           ) : (
             draft.conventions.map((convention) => (
               <div
@@ -270,10 +293,10 @@ export function RulesView({ settings, onSaved }: Props) {
           )}
 
           <button type="button" className="listcard__add" onClick={addConvention}>
-            {t("annotations.conventions.add")}
+            {t("instructions.conventions.add")}
           </button>
         </section>
-      </div>
+      )}
 
       {selectedRule && (
         <RulePanel

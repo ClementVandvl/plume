@@ -18,7 +18,7 @@ import { CoursesView } from "./components/CoursesView";
 import { useActiveReadings } from "./ui/reading";
 import { CreateWizard } from "./components/CreateWizard";
 import { HomeView } from "./components/HomeView";
-import { RulesView } from "./components/RulesView";
+import { InstructionsView } from "./components/InstructionsView";
 import { SettingsModal } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
 import { TemplatesView } from "./components/TemplatesView";
@@ -137,8 +137,8 @@ export default function App() {
         ? t("nav.courses")
         : route.name === "templates"
           ? t("nav.layout")
-          : route.name === "rules"
-            ? t("nav.annotations")
+          : route.name === "instructions"
+            ? t("nav.instructions")
             : route.name === "trash"
               ? t("nav.trash")
               : undefined;
@@ -232,8 +232,8 @@ export default function App() {
               />
             )}
 
-            {route.name === "rules" && (
-              <RulesView settings={settings} onSaved={setSettings} />
+            {route.name === "instructions" && (
+              <InstructionsView settings={settings} onSaved={setSettings} />
             )}
 
             {route.name === "templates" && (

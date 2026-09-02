@@ -27,7 +27,7 @@ export function ConventionPanel({ convention, onChange, onDelete, onClose, float
         <div>
           <span className="panel-side__kind">{t("conventionPanel.title")}</span>
           <span className="panel-side__meta">
-            {convention.enabled ? t("rulePanel.active") : t("annotations.disabled")}
+            {convention.enabled ? t("rulePanel.active") : t("instructions.disabled")}
           </span>
         </div>
         <button

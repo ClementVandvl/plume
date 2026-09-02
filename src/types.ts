@@ -188,7 +188,7 @@ export type Route =
   | { name: "home" }
   | { name: "courses" }
   | { name: "templates" }
-  | { name: "rules" }
+  | { name: "instructions" }
   | { name: "trash" }
   | { name: "course"; id: string; step?: StepId };
 
