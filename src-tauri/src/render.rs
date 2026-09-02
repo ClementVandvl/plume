@@ -399,6 +399,15 @@ mod tests {
     }
 
     #[test]
+    fn a_side_remark_column_is_fine() {
+        // The `inline-comment` convention: `&&` opens a column for the remark,
+        // which carries maths of its own inside `\text`.
+        assert!(!has_stray_alignment(
+            r"$\begin{aligned}[t] 5x &= 2 && \text{on met les $x$ d'un côté} \\ x &= 2 \end{aligned}$"
+        ));
+    }
+
+    #[test]
     fn an_escaped_ampersand_is_not_an_alignment_tab() {
         assert!(!has_stray_alignment(r"Pierre \& Marie Curie"));
         assert!(!has_stray_alignment("Rien à signaler ici."));

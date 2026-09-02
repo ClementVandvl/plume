@@ -96,7 +96,8 @@ export default function App() {
     applyTheme(asTheme(settings.theme));
   }, [settings.theme]);
 
-  // Toggled from the native menu (Outils > Console, Cmd+Alt+C).
+  // Toggled from the native menu (Outils > Console, Cmd+Alt+C) on macOS, and
+  // from the title bar's own menu where there is no native one.
   useEffect(() => {
     const stop = listen("toggle-console", () => setConsoleOpen((open) => !open));
     return () => {
@@ -149,7 +150,12 @@ export default function App() {
     return (
       <UiModeContext.Provider value={mode}>
         <div className="frame">
-          <Titlebar context={titlebarContext} mode={mode} onMode={switchMode} />
+          <Titlebar
+            context={titlebarContext}
+            mode={mode}
+            onMode={switchMode}
+            onConsole={() => setConsoleOpen((open) => !open)}
+          />
           <div className={`deep ${consoleOpen ? "deep--console" : ""}`}>
             <CourseView
               key={route.id}
@@ -197,7 +203,12 @@ export default function App() {
   return (
     <UiModeContext.Provider value={mode}>
       <div className="frame">
-        <Titlebar context={titlebarContext} mode={mode} onMode={switchMode} />
+        <Titlebar
+            context={titlebarContext}
+            mode={mode}
+            onMode={switchMode}
+            onConsole={() => setConsoleOpen((open) => !open)}
+          />
 
         <div className={`shell ${consoleOpen ? "shell--console" : ""} ${firstLaunch ? "shell--bare" : ""}`}>
           {!firstLaunch && (

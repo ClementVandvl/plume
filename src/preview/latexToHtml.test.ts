@@ -84,6 +84,55 @@ describe("latexToHtml", () => {
     expect(latexToHtml(item.replace("[t]", ""))).toContain('<span class="katex-base">');
   });
 
+  // A corrected exercise writes one item as several paragraphs — the calculation,
+  // then its conclusion. The blank lines used to cut the `<ol>` itself, opening a
+  // `<p>` inside one item and closing it inside the next.
+  it("keeps an item's paragraphs inside their own item", () => {
+    const html = latexToHtml(
+      "\\begin{enumerate}\n\\item $A = 1$\n\nDonc $S=\\{1\\}$\n\\item Second\n\\end{enumerate}",
+    );
+    expect(html.indexOf("</p>")).toBeLessThan(html.indexOf("</li>"));
+    expect((html.match(/<p>/g) ?? []).length).toBe((html.match(/<\/p>/g) ?? []).length);
+    expect(html.endsWith("</ol>")).toBe(true);
+    // A one-paragraph item stays bare, marker beside its text.
+    expect(html).toContain("<li>Second</li>");
+  });
+
+  // The `inline-comment` convention puts the remark in a column of its own, and
+  // such a remark carries maths: `\text{on met les $x$ d'un côté}`. Closing the
+  // outer `$` on the first inner one parked half the environment as a formula
+  // and spilled the other half onto the page as raw LaTeX.
+  it("reads a formula past the dollars nested in a remark", () => {
+    const html = latexToHtml(
+      "$\\begin{aligned}[t]\n5x&=2 && \\text{on met les $x$ d'un côté}\\\\\nx&=\\frac{2}{5}\n\\end{aligned}$",
+    );
+    // Again in the visible half: the source is echoed verbatim in the MathML
+    // annotation, where a `\begin` proves nothing.
+    // KaTeX sets the spaces of a `\text` run as insecable ones.
+    const visible = html.slice(html.indexOf("katex-html")).replace(/\u00a0/g, " ");
+    expect(html).not.toContain("tex-raw");
+    expect(visible).not.toContain("\\begin");
+    expect(visible).toContain("on met les");
+    // And the remark's own maths is set as maths, not as prose.
+    expect(visible).toContain('<span class="mord mathnormal">x</span>');
+  });
+
+  // `\\[4pt]` is a line break asking for leading under it. The optional length
+  // reached the page as a literal "[4pt]", right where the teacher was reading.
+  it("reads the leading on a line break instead of printing it", () => {
+    const spaced = latexToHtml("Une ligne\\\\[4pt]\nLa suivante");
+    expect(spaced).not.toContain("[4pt]");
+    expect(spaced).toContain('<span class="tex-break" style="height:4pt"></span>');
+
+    // A unit CSS cannot share: the break survives, the gap is dropped.
+    expect(latexToHtml("Une ligne\\\\[0.5\\baselineskip]\nLa suivante")).toContain("<br>");
+    expect(latexToHtml("Une ligne\\\\[0.5\\baselineskip]\nLa suivante")).not.toContain("[0.5");
+
+    // A bare break still breaks, and prose opening on a bracket keeps it.
+    expect(latexToHtml("Une ligne\\\\La suivante")).toContain("<br>");
+    expect(latexToHtml("sur\\\\[a;b] on a")).toContain("<br>[a;b]");
+  });
+
   it("turns itemize into a list", () => {
     const html = latexToHtml(
       "Caractérisé par :\n\\begin{itemize}\n\\item une direction\n\\item un sens\n\\end{itemize}",

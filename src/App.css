@@ -1011,6 +1011,12 @@ textarea.input {
   cursor: pointer;
 }
 
+.menu__name {
+  padding: 0 var(--space-2xs);
+  font-size: var(--font-size-label);
+  white-space: nowrap;
+}
+
 .menu__trigger:hover {
   color: var(--color-text);
   background: var(--color-surface-hover);
@@ -3551,6 +3557,14 @@ textarea.code-area {
   display: block;
   text-align: center;
   margin: var(--space-sm) 0;
+}
+
+/* `\\[4pt]` — the line break, carrying the leading the author asked with it.
+   A block box breaks the line on its own, so it replaces the `<br>` rather than
+   following one; the height rides in on the style attribute. */
+.tex-break {
+  display: block;
+  height: 0;
 }
 
 .tex-rule {

@@ -45,7 +45,7 @@ export function HomeView({
 
   // Dropping photos anywhere on this screen starts a course with them.
   useEffect(() => {
-    if (!isTauri) return;
+    if (!isTauri()) return;
     let stop: (() => void) | null = null;
     import("@tauri-apps/api/webview")
       .then(({ getCurrentWebview }) =>

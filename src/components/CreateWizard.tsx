@@ -40,7 +40,7 @@ export function CreateWizard({ templates, initialPages = [], onCancel, onCreated
   const template = templates.find((tpl) => tpl.id === templateId);
 
   useEffect(() => {
-    if (!isTauri) return;
+    if (!isTauri()) return;
     // If the listener fails (webview without drag-and-drop), the file picker
     // still works: that is not a reason to bring the wizard down.
     let stop: (() => void) | null = null;

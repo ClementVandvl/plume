@@ -238,6 +238,66 @@ function applyCommands(text: string, colours: Record<string, string>): string {
   return out;
 }
 
+/**
+ * Replaces every `$…$` span, closing on the first delimiter at brace depth zero.
+ *
+ * A remark set beside a calculation carries its own maths — the `inline-comment`
+ * convention writes `&& \text{on met les $x$ d'un côté}` — and those inner
+ * delimiters sit inside the `\text` group. A flat `$[^$]+$` closed on the first
+ * of them: half the environment was parked as a formula, and the rest reached
+ * the page as raw LaTeX. Backslash escapes are stepped over, so `\$` and `\{`
+ * do not move the depth.
+ */
+function replaceInlineMath(text: string, render: (body: string) => string): string {
+  let out = "";
+  let index = 0;
+
+  for (let open = text.indexOf("$", index); open >= 0; open = text.indexOf("$", index)) {
+    let depth = 0;
+    let close = -1;
+    for (let cursor = open + 1; cursor < text.length; cursor++) {
+      const char = text[cursor];
+      if (char === "\\") cursor += 1;
+      else if (char === "{") depth += 1;
+      else if (char === "}") depth -= 1;
+      else if (char === "$" && depth <= 0) {
+        close = cursor;
+        break;
+      }
+    }
+    if (close < 0) break;
+
+    out += text.slice(index, open) + render(text.slice(open + 1, close));
+    index = close + 1;
+  }
+
+  return out + text.slice(index);
+}
+
+/** A blank line is a paragraph break, wherever it falls. */
+const splitParagraphs = (text: string) =>
+  text
+    .split(/\n\s*\n/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+
+/**
+ * An item's own paragraphs, resolved while the list is being built.
+ *
+ * The pass over the whole document runs on the assembled HTML and cannot see
+ * where a list starts: an item written as several paragraphs — a calculation,
+ * then its conclusion — had its blank lines cut the `<ol>` itself, opening a
+ * `<p>` in one item and closing it in the next. Splitting here instead leaves
+ * the list a single blank-line-free chunk, which that pass then passes over.
+ *
+ * A one-paragraph item stays bare, so the marker sits beside its text rather
+ * than against a block of its own.
+ */
+function itemParagraphs(item: string): string {
+  const chunks = splitParagraphs(item);
+  return chunks.length > 1 ? chunks.map((chunk) => `<p>${chunk}</p>`).join("") : (chunks[0] ?? "");
+}
+
 export function latexToHtml(latex: string, colours: Record<string, string> = {}): string {
   const slots: string[] = [];
   const keep = (html: string) => {
@@ -252,7 +312,7 @@ export function latexToHtml(latex: string, colours: Record<string, string> = {})
   );
   text = text.replace(/\\\[([\s\S]*?)\\\]/g, (_, body) => keep(math(body, true)));
   text = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, body) => keep(math(body, true)));
-  text = text.replace(/\$([^$]+)\$/g, (_, body) => keep(math(body, false)));
+  text = replaceInlineMath(text, (body) => keep(math(body, false)));
 
   // A maths environment written on its own, outside any `$` or `\[`. The model
   // emits these for a multi-line calculation, and without this they fell through
@@ -275,7 +335,7 @@ export function latexToHtml(latex: string, colours: Record<string, string> = {})
       const items = body
         .split(/\\item\s*/)
         .slice(1)
-        .map((item) => `<li>${item.trim()}</li>`)
+        .map((item) => `<li>${itemParagraphs(item)}</li>`)
         .join("");
       return `<${tag} class="tex-list">${items}</${tag}>`;
     },
@@ -284,16 +344,23 @@ export function latexToHtml(latex: string, colours: Record<string, string> = {})
     /\\begin\{center\}([\s\S]*?)\\end\{center\}/g,
     '<div class="tex-center">$1</div>',
   );
-  html = html.replace(/\\\\/g, "<br>");
+  // `\\` ends the line, `\\[4pt]` also asks for leading under it. The optional
+  // length used to reach the page as a literal "[4pt]". A TeX dimension always
+  // opens on a digit or a sign, which is what tells one from prose that merely
+  // starts on a bracket — an interval left in `[0;1]` keeps its brackets. The
+  // gap is honoured when CSS shares the unit and dropped otherwise, the way
+  // `\vspace` is: page layout belongs to the template, the break does not.
+  html = html.replace(/\\\\(?:\[(-?[\d.][^\]\n]*)\])?/g, (_, gap?: string) =>
+    gap && SAFE_LENGTH.test(gap.trim())
+      ? `<span class="tex-break" style="height:${gap.trim()}"></span>`
+      : "<br>",
+  );
 
   // 4. Commands, at their real argument boundaries.
   html = applyCommands(html, colours);
 
   // 5. Paragraphs, then put the parked HTML back.
-  html = html
-    .split(/\n\s*\n/)
-    .map((chunk) => chunk.trim())
-    .filter(Boolean)
+  html = splitParagraphs(html)
     .map((chunk) => (/^<(ul|ol|div)/.test(chunk) ? chunk : `<p>${chunk}</p>`))
     .join("");
 

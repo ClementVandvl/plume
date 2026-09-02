@@ -95,7 +95,21 @@ export type MenuEntry = {
 };
 
 /** The "⋯" menu: a plain popover, closed by a click anywhere or Escape. */
-export function OverflowMenu({ label, entries }: { label: string; entries: MenuEntry[] }) {
+export function OverflowMenu({
+  label,
+  entries,
+  named = false,
+}: {
+  label: string;
+  entries: MenuEntry[];
+  /**
+   * Shows the label instead of the "⋯" glyph.
+   *
+   * For a menu that replaces a native one, the word is the point: nobody looks
+   * for "Outils" behind three dots.
+   */
+  named?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
@@ -127,7 +141,7 @@ export function OverflowMenu({ label, entries }: { label: string; entries: MenuE
           setOpen((current) => !current);
         }}
       >
-        <Icon name="dots" />
+        {named ? <span className="menu__name">{label}</span> : <Icon name="dots" />}
       </button>
 
       {open && (

@@ -3,6 +3,7 @@ import { t } from "../i18n";
 import { detectPlatform, isTauri, type Platform } from "../platform";
 import { logError } from "../log";
 import { Icon } from "./Icon";
+import { OverflowMenu } from "./controls";
 
 export type UiMode = "simple" | "advanced";
 
@@ -19,6 +20,14 @@ type Props = {
    * would save the defaults over it.
    */
   bare?: boolean;
+  /**
+   * Opens the console.
+   *
+   * A direct call rather than the event the native menu emits: on Windows this
+   * is the only way in, and a round trip through the backend would be one more
+   * thing to be wrong about.
+   */
+  onConsole?: () => void;
 };
 
 /**
@@ -29,7 +38,7 @@ type Props = {
  * buttons on the right. The Simple/Advancé switch lives here because it is a
  * window-level mode, not a page control: it follows you everywhere.
  */
-export function Titlebar({ context, mode, onMode, bare = false }: Props) {
+export function Titlebar({ context, mode, onMode, bare = false, onConsole }: Props) {
   const [platform, setPlatform] = useState<Platform>("browser");
 
   useEffect(() => {
@@ -37,7 +46,7 @@ export function Titlebar({ context, mode, onMode, bare = false }: Props) {
   }, []);
 
   async function windowAction(action: "minimize" | "maximize" | "close") {
-    if (!isTauri) return;
+    if (!isTauri()) return;
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       const current = getCurrentWindow();
@@ -61,6 +70,23 @@ export function Titlebar({ context, mode, onMode, bare = false }: Props) {
       </div>
 
       <div className="titlebar__side">
+        {/* Windows and Linux draw their own buttons here, which means the
+            native menu bar is gone with the decorations — and with it the only
+            way to open the console. It is drawn back in. */}
+        {!bare && (platform === "windows" || platform === "linux") && (
+          <OverflowMenu
+            named
+            label={t("titlebar.tools")}
+            entries={[
+              {
+                label: t("titlebar.tools.console"),
+                icon: "dots",
+                onPick: () => onConsole?.(),
+              },
+            ]}
+          />
+        )}
+
         {!bare && (
           <div className="seg" role="group" aria-label={t("common.advanced")}>
             <button

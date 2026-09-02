@@ -26,6 +26,8 @@ export const fr = {
   "common.modified": "modifié {when}",
 
   // --------------------------------------------------------------- title bar
+  "titlebar.tools": "Outils",
+  "titlebar.tools.console": "Console technique",
   "titlebar.mode.simple": "Simple",
   "titlebar.mode.advanced": "Avancé",
   "titlebar.minimize": "Réduire",
