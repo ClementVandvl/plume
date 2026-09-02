@@ -135,9 +135,15 @@ C &= \dfrac{-3}{4} \times \dfrac{5}{-7} && \text{(on multiplie les numérateurs)
 ```
 
 `&&` opens a further column, so the remark shares the line instead of dropping
-below it. `\text{…}` matters more than it looks: maths mode sets the phrase in
-italic, **removes its spaces and drops its accents** — "(on multiplie les
-numérateurs)" came out as "(onmultiplielesnumrateurs)".
+below it. The model writes such remarks outside the maths today, as ordinary
+LaTeX text, which is why they read correctly but land below the formula rather
+than beside it.
+
+Moving them into the column puts them **inside** maths mode, and `\text{…}` then
+stops being cosmetic: without it the phrase is set in maths italic, its spaces
+are dropped and its accents disappear — compiled, "(on multiplie les
+numérateurs)" comes out "(onmultiplielesnumrateurs)". The two halves of the rule
+go together: `&&` without `\text` is worse than neither.
 
 Unlike the preamble, conventions on the bundled template **are** editable, and an
 upgrade tells an edit from an untouched entry rather than guessing. Each shipped
