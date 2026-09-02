@@ -1,6 +1,6 @@
 {
   "id": "charte-maths",
-  "version": 6,
+  "version": 7,
   "name": "Charte cours de maths",
   "description": "Environnements à crochet coloré, titres soulignés, numérotation I / 1 / a.",
   "engine": "pdflatex",
@@ -246,6 +246,12 @@
       "enabled": true,
       "title": "Calculs alignés sur le signe égal",
       "text": "Un calcul qui se poursuit sur plusieurs lignes s'écrit en un seul bloc aligné, jamais en équations séparées. Produis exactement cette forme, délimiteurs compris :\n$\\begin{aligned}[t]\nA &= \\frac{3}{5} + \\frac{7}{15} \\\\\n&= \\frac{16}{15}\n\\end{aligned}$\nChaque ligne s'aligne sur son signe égal grâce au &. Le & n'a de sens qu'à l'intérieur d'un tel environnement : ailleurs, c'est une erreur LaTeX qui empêche la compilation du PDF. Le calcul reste ainsi à la marge du texte qui l'introduit au lieu d'être centré au milieu de la page. N'applique cela qu'à un enchaînement de lignes de calcul : une formule isolée garde sa forme habituelle."
+    },
+    {
+      "id": "figure-labels",
+      "enabled": true,
+      "title": "Annotations des schémas",
+      "text": "Aucune étiquette ne doit toucher ni chevaucher un trait, une flèche, un point ou une autre étiquette. Chaque annotation est décalée perpendiculairement au segment qu'elle nomme, du côté extérieur de la figure, avec un écart d'au moins 3pt. Pour un vecteur nommé au milieu de son trait, ne place jamais le label sur le segment : décale-le avec anchor et xshift/yshift explicites. Si deux étiquettes risquent de se croiser, éloigne-les au lieu de les superposer. Une figure lisible prime sur une figure compacte."
     }
   ]
 }

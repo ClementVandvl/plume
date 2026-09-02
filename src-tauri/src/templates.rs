@@ -522,6 +522,35 @@ mod tests {
         assert!(example.contains("&="), "it must show the alignment point");
     }
 
+    /// A half-written instruction would reach every page of every course.
+    #[test]
+    fn every_shipped_convention_is_complete() {
+        let bundled: Template = serde_json::from_str(BUILTIN_MANIFEST).expect("valid manifest");
+        assert!(!bundled.conventions.is_empty());
+
+        let mut ids: Vec<&str> = bundled.conventions.iter().map(|c| c.id.as_str()).collect();
+        ids.sort_unstable();
+        let count = ids.len();
+        ids.dedup();
+        assert_eq!(ids.len(), count, "two conventions share an id");
+
+        for convention in &bundled.conventions {
+            assert!(!convention.title.trim().is_empty(), "{} has no title", convention.id);
+            assert!(!convention.text.trim().is_empty(), "{} has no text", convention.id);
+            // The prompt reads "Title — text"; repeating the title in the body
+            // makes the instruction stutter.
+            assert!(
+                !convention
+                    .text
+                    .trim_start()
+                    .to_lowercase()
+                    .starts_with(&convention.title.trim().to_lowercase()),
+                "{} repeats its title in its text",
+                convention.id
+            );
+        }
+    }
+
     #[test]
     fn slugs_fold_accents_rather_than_dropping_them() {
         assert_eq!(slug("Modèle élève"), "modele-eleve");
