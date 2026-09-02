@@ -266,7 +266,11 @@ pub fn transcribe_page(
     run_id: &str,
     document_dir: &Path,
     page_number: usize,
-    image_name: &str,
+    // `image_path` is relative to `document_dir` — `pages/03.jpg`, or an
+    // extract added later — and `context` is the one sentence that tells the
+    // model what it is looking at.
+    image_path: &str,
+    context: &str,
     model: &str,
     reading_rules: &str,
     on_activity: &dyn Fn(&'static str),
@@ -277,13 +281,11 @@ pub fn transcribe_page(
         system.push_str(reading_rules.trim());
     }
 
-    let prompt = format!(
-        "Read the image `pages/{image_name}` and transcribe it. It is page {page_number} of the course."
-    );
+    let prompt = format!("Read the image `{image_path}` and transcribe it. {context}");
 
     logbus::detail(
         "claude",
-        format!("Page {page_number} — lecture de pages/{image_name}"),
+        format!("Page {page_number} — lecture de {image_path}"),
         format!("modèle {model} · consigne {} caractères", system.len()),
     );
 

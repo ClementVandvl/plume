@@ -250,6 +250,22 @@ export const fr = {
   "panel.audience.student": "Version élève",
   "panel.kind.label": "Type de passage",
   "panel.title.label": "Titre (facultatif)",
+  "insert.title": "Ajouter un passage",
+  "insert.here": "Ajouter ici",
+  "insert.tab.latex": "Écrire le LaTeX",
+  "insert.tab.photo": "Photographier",
+  "insert.kind": "Type de passage",
+  "insert.name": "Titre (facultatif)",
+  "insert.name.placeholder": "vecteurs colinéaires",
+  "insert.latex": "Contenu LaTeX",
+  "insert.latex.placeholder":
+    "Deux vecteurs $\\vec{u}$ et $\\vec{v}$ sont colinéaires s'il existe…",
+  "insert.preview": "Aperçu",
+  "insert.add": "Ajouter le passage",
+  "insert.photo.hint":
+    "La photo rejoint les pages du cours, juste après celle où vous ajoutez, et Plume la lit comme les autres. Elle apparaîtra dans l'onglet Photos.",
+  "insert.photo.pick": "Choisir une photo",
+  "insert.photo.reading": "Lecture en cours…",
   "panel.delete": "Supprimer le passage",
   "panel.delete.title": "Supprimer ce passage ?",
   "panel.delete.message":

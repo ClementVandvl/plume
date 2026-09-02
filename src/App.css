@@ -153,6 +153,60 @@ body {
   border-radius: var(--radius-subtle);
 }
 
+/* ---------- Adding a passage ---------- */
+/* A thin gap between two passages, quiet until the pointer comes near: the
+   review is for reading the course, not for looking at controls. */
+.pinsert {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 18px;
+  padding: 0;
+  background: none;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.pinsert:hover,
+.pinsert:focus-visible {
+  opacity: 1;
+}
+
+.pinsert__label {
+  padding: 1px var(--space-xs);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-text-inverted);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-caption);
+  white-space: nowrap;
+}
+
+/* A rule across the gap, so the click target reads as a place. */
+.pinsert::before,
+.pinsert::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed var(--color-accent);
+  opacity: 0.5;
+}
+
+.pinsert__label {
+  margin: 0 var(--space-xs);
+}
+
+.insert__preview {
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-paper);
+  color: var(--color-paper-text);
+  border-radius: var(--radius-subtle);
+  font-size: var(--font-size-sm);
+  overflow-x: auto;
+}
+
 /* ---------- Full-screen photograph ---------- */
 /* Above everything, including the title bar: reading the handwriting is the
    whole point, so nothing competes with it. */

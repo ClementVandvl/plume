@@ -630,6 +630,58 @@ pub fn rename(id: &str, title: &str) -> Result<Document, String> {
 
 /// Appends pages at the end, so existing numbering — and the transcript that
 /// depends on it — stays valid.
+/// Imports one photograph and places it at `at`, 1-based, pushing the rest
+/// along.
+///
+/// A page added to fill a gap belongs where the gap is: appending it and asking
+/// the teacher to drag it back would be busywork, and the pages must stay in
+/// step with the transcript either way.
+pub fn insert_page(id: &str, source: &Path, at: usize) -> Result<Document, String> {
+    let names = page_files(id);
+    let at = at.clamp(1, names.len() + 1);
+
+    let dir = document_dir(id);
+    let pages = dir.join("pages");
+    fs::create_dir_all(&pages).map_err(|e| format!("Dossier des pages : {e}"))?;
+
+    // The newcomer lands on a free name first, so nothing is overwritten while
+    // the others move, then the whole run is renamed in the wanted order.
+    let landing = pages.join(format!("{:02}.jpg", names.len() + 1));
+    import_one(source, &landing)?;
+
+    let mut order: Vec<String> = names;
+    order.insert(at - 1, format!("{:02}.jpg", order.len() + 1));
+
+    let extension_of = |name: &str| {
+        Path::new(name)
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_else(|| "jpg".into())
+    };
+    for (position, name) in order.iter().enumerate() {
+        fs::rename(
+            pages.join(name),
+            pages.join(format!("tmp-{:02}.{}", position + 1, extension_of(name))),
+        )
+        .map_err(|e| format!("Insertion de la page : {e}"))?;
+    }
+    for (position, name) in order.iter().enumerate() {
+        let extension = extension_of(name);
+        fs::rename(
+            pages.join(format!("tmp-{:02}.{extension}", position + 1)),
+            pages.join(format!("{:02}.{extension}", position + 1)),
+        )
+        .map_err(|e| format!("Insertion de la page : {e}"))?;
+    }
+
+    let mut document = load(id)?;
+    document.page_count = page_files(id).len();
+    document.updated_at = now_ms();
+    save(&document)?;
+    logbus::info("workspace", format!("Photo insérée en page {at}"));
+    Ok(document)
+}
+
 pub fn add_pages(
     id: &str,
     sources: &[PathBuf],

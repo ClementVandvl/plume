@@ -83,6 +83,23 @@ export const writeTemplatePreamble = (id: string, text: string) =>
 
 export const checkTemplate = (id: string) => invoke<void>("check_template", { id });
 
+/** Adds a passage the teacher wrote. Returns the whole transcript. */
+export const insertBlock = (
+  id: string,
+  afterBlockId: string,
+  kind: string,
+  title: string | null,
+  latex: string,
+) => invoke<Transcript>("insert_block", { id, afterBlockId, kind, title, latex });
+
+/** Adds a photograph as a page where the gap is, then reads it. */
+export const insertFromPhoto = (
+  id: string,
+  afterBlockId: string,
+  source: string,
+  model: string,
+) => invoke<Transcript>("insert_from_photo", { id, afterBlockId, source, model });
+
 /** Removes one passage. Returns the whole transcript. */
 export const deleteBlock = (id: string, blockId: string) =>
   invoke<Transcript>("delete_block", { id, blockId });

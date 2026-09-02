@@ -19,6 +19,8 @@ import {
   revealPath,
   saveBlock,
   deleteBlock,
+  insertBlock,
+  insertFromPhoto,
   splitBlock,
   setBlockNote,
   setReadingRules,
@@ -50,6 +52,7 @@ import { moved, useDragOrder } from "../ui/dragOrder";
 import { AdvancedRow, Meter, OverflowMenu } from "../ui/controls";
 import { BlockPanel } from "./BlockPanel";
 import { PhotoViewer } from "./PhotoViewer";
+import { InsertPanel } from "./InsertPanel";
 import { latexToHtml } from "../preview/latexToHtml";
 import { DocumentPreview } from "./DocumentPreview";
 import "katex/dist/katex.min.css";
@@ -135,6 +138,9 @@ export function CourseView({
    */
   /** Index of the page shown full screen, null when the viewer is closed. */
   const [viewing, setViewing] = useState<number | null>(null);
+  /** Id the new passage should follow; null when the dialog is closed. */
+  const [insertAfter, setInsertAfter] = useState<string | null>(null);
+  const [inserting, setInserting] = useState(false);
 
   const [ordering, setOrdering] = useState<string[] | null>(null);
   const pendingOrder = useRef<string[] | null>(null);
@@ -591,6 +597,23 @@ export function CourseView({
     } catch (cause) {
       setError(String(cause));
       logError("workspace", "Suppression du passage impossible", cause);
+    }
+  }
+
+  /** Both ways of adding a passage end the same: refresh, close, follow it. */
+  async function addPassage(work: () => Promise<Transcript>) {
+    setInserting(true);
+    setError(null);
+    try {
+      setTranscript(await work());
+      setInsertAfter(null);
+      onChanged();
+      refresh().catch(() => {});
+    } catch (cause) {
+      setError(String(cause));
+      logError("workspace", "Ajout du passage impossible", cause);
+    } finally {
+      setInserting(false);
     }
   }
 
@@ -1136,6 +1159,7 @@ export function CourseView({
                       filter={filter}
                       template={template}
                       selectedId={openBlock}
+                      onInsertAfter={setInsertAfter}
                       onSelect={setOpenBlock}
                     />
                   )}
@@ -1308,6 +1332,21 @@ export function CourseView({
           </div>
         )}
       </div>
+
+      {insertAfter !== null && (
+        <InsertPanel
+          busy={inserting}
+          onClose={() => setInsertAfter(null)}
+          onWrite={(kind, title, latex) =>
+            addPassage(() =>
+              insertBlock(documentId, insertAfter, kind, title.trim() || null, latex),
+            )
+          }
+          onPhoto={(source) =>
+            addPassage(() => insertFromPhoto(documentId, insertAfter, source, model))
+          }
+        />
+      )}
 
       {viewing !== null && (
         <PhotoViewer

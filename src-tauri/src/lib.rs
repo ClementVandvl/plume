@@ -638,6 +638,197 @@ fn split_in_transcript(
     Ok(page.blocks[at + 1].id.clone())
 }
 
+/// Puts new passages after `after_block_id`, or at the very start when it is
+/// empty, and renumbers the page.
+fn insert_in_transcript(
+    transcript: &mut ir::Transcript,
+    after_block_id: &str,
+    fresh: Vec<ir::Block>,
+) -> Result<(), String> {
+    if fresh.is_empty() {
+        return Err("Rien à insérer.".into());
+    }
+
+    let (page_index, at) = if after_block_id.is_empty() {
+        (0, 0)
+    } else {
+        let page_index = transcript
+            .pages
+            .iter()
+            .position(|page| page.blocks.iter().any(|b| b.id == after_block_id))
+            .ok_or("Bloc introuvable.")?;
+        let at = transcript.pages[page_index]
+            .blocks
+            .iter()
+            .position(|b| b.id == after_block_id)
+            .ok_or("Bloc introuvable.")?
+            + 1;
+        (page_index, at)
+    };
+
+    let page = transcript.pages.get_mut(page_index).ok_or("Ce cours n'a aucune page.")?;
+    for (offset, block) in fresh.into_iter().enumerate() {
+        page.blocks.insert(at + offset, block);
+    }
+
+    let number = page.number;
+    for (index, block) in page.blocks.iter_mut().enumerate() {
+        block.id = format!("p{:02}-b{:02}", number, index + 1);
+    }
+    Ok(())
+}
+
+/// Adds a passage the teacher wrote themselves.
+#[tauri::command]
+fn insert_block(
+    id: String,
+    after_block_id: String,
+    kind: String,
+    title: Option<String>,
+    latex: String,
+) -> Result<ir::Transcript, String> {
+    if latex.trim().is_empty() && title.as_deref().map(str::trim).unwrap_or("").is_empty() {
+        return Err("Ce passage est vide.".into());
+    }
+
+    let mut transcript = read_transcript(&id)?;
+    let block = ir::Block {
+        id: String::new(),
+        kind,
+        title: title.map(|t| t.trim().to_string()).filter(|t| !t.is_empty()),
+        number: None,
+        latex: latex.trim().to_string(),
+        // Written by hand, so there is nothing for the model to be unsure about
+        // and nothing left to review.
+        confidence: 1.0,
+        doubt: None,
+        audience: vec!["teacher".into(), "student".into()],
+        note: None,
+        reviewed: true,
+    };
+    insert_in_transcript(&mut transcript, &after_block_id, vec![block])?;
+    write_transcript(&id, &transcript)?;
+    logbus::info("workspace", format!("Passage ajouté après {after_block_id}"));
+    Ok(transcript)
+}
+
+/// Adds a photograph as a page where the gap is, then reads it.
+///
+/// The photograph joins the others: it appears in the Photos step and in the
+/// course folder, at the position the teacher chose. Pages and transcript move
+/// together — everything numbered after it shifts, block ids included — because
+/// every part of the app relies on the two staying in step.
+#[tauri::command]
+async fn insert_from_photo(
+    app: AppHandle,
+    id: String,
+    after_block_id: String,
+    source: String,
+    model: String,
+) -> Result<ir::Transcript, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut transcript = read_transcript(&id).unwrap_or(ir::Transcript {
+            version: 1,
+            pages: Vec::new(),
+        });
+
+        // The new page follows the one holding the passage it was asked for.
+        let after_page = if after_block_id.is_empty() {
+            0
+        } else {
+            transcript
+                .pages
+                .iter()
+                .find(|page| page.blocks.iter().any(|b| b.id == after_block_id))
+                .map(|page| page.number)
+                .ok_or("Bloc introuvable.")?
+        };
+        let at = after_page + 1;
+
+        workspace::insert_page(&id, std::path::Path::new(&source), at)?;
+
+        // Everything after the new page moves up one, ids included.
+        for page in &mut transcript.pages {
+            if page.number >= at {
+                page.number += 1;
+                for (index, block) in page.blocks.iter_mut().enumerate() {
+                    block.id = format!("p{:02}-b{:02}", page.number, index + 1);
+                }
+            }
+        }
+
+        let dir = workspace::document_dir(&id);
+        let files = workspace::page_files(&id);
+        let name = files.get(at - 1).cloned().ok_or("La page insérée est introuvable.")?;
+
+        let document = workspace::load(&id)?;
+        let rules = settings::combined_rules(&document.template_id, &document.reading_rules);
+        let job = runs::reading(&id);
+        runs::begin(&job);
+
+        let _ = app.emit(
+            "page-state",
+            PageState {
+                document_id: id.clone(),
+                page: at,
+                state: "reading".into(),
+                blocks: 0,
+                message: None,
+            },
+        );
+
+        let outcome = recognizer::transcribe_page(
+            &job,
+            &dir,
+            at,
+            &format!("pages/{name}"),
+            &format!("It is page {at} of the course."),
+            &model,
+            &rules,
+            &|label| {
+                let _ = app.emit(
+                    "heartbeat",
+                    Heartbeat { document_id: id.clone(), page: at, label: label.to_string() },
+                );
+            },
+        );
+        runs::finish(&job);
+
+        // The photograph stays whatever the reading did: it is in the course
+        // now, and a failed reading is retried from the Lecture step.
+        let outcome = outcome?;
+
+        transcript.pages.push(outcome.page);
+        transcript.pages.sort_by_key(|page| page.number);
+        write_transcript(&id, &transcript)?;
+
+        if let Ok(mut document) = workspace::load(&id) {
+            document.cost_usd += outcome.cost_usd;
+            document.updated_at = workspace::now_ms();
+            let _ = workspace::save(&document);
+        }
+
+        let _ = app.emit(
+            "page-state",
+            PageState {
+                document_id: id.clone(),
+                page: at,
+                state: "done".into(),
+                blocks: transcript
+                    .pages
+                    .iter()
+                    .find(|p| p.number == at)
+                    .map(|p| p.blocks.len())
+                    .unwrap_or(0),
+                message: None,
+            },
+        );
+        Ok(transcript)
+    })
+    .await
+    .map_err(|e| format!("Lecture de la page interrompue : {e}"))?
+}
+
 /// Takes one passage out and renumbers the page after it.
 fn remove_in_transcript(transcript: &mut ir::Transcript, block_id: &str) -> Result<(), String> {
     let page = transcript
@@ -948,7 +1139,8 @@ async fn transcribe_document(
                         &job,
                         &dir,
                         number,
-                        &files[index],
+                        &format!("pages/{}", files[index]),
+                        &format!("It is page {number} of the course."),
                         &model,
                         &rules,
                         &|label| {
@@ -1242,6 +1434,8 @@ pub fn run() {
             save_block,
             split_block,
             delete_block,
+            insert_block,
+            insert_from_photo,
             reading_documents,
             set_block_note,
             apply_corrections,
@@ -1264,6 +1458,21 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn block_of(kind: &str, latex: &str) -> ir::Block {
+        ir::Block {
+            id: String::new(),
+            kind: kind.into(),
+            title: None,
+            number: None,
+            latex: latex.into(),
+            confidence: 1.0,
+            doubt: None,
+            audience: Vec::new(),
+            note: None,
+            reviewed: true,
+        }
+    }
 
     fn page(number: usize, blocks: usize) -> ir::Page {
         ir::Page {
@@ -1326,6 +1535,31 @@ mod tests {
     }
 
     /// Ids encode the position, so what follows a removal has to shift.
+    #[test]
+    fn a_written_passage_lands_where_it_was_asked_for() {
+        let mut transcript = ir::Transcript { version: 1, pages: vec![page(1, 3)] };
+        let fresh = || vec![block_of("text", "ajouté")];
+
+        insert_in_transcript(&mut transcript, "p01-b02", fresh()).unwrap();
+
+        let bodies: Vec<&str> =
+            transcript.pages[0].blocks.iter().map(|b| b.latex.as_str()).collect();
+        assert_eq!(
+            bodies,
+            vec!["page 1 bloc 1", "page 1 bloc 2", "ajouté", "page 1 bloc 3"]
+        );
+        let ids: Vec<&str> = transcript.pages[0].blocks.iter().map(|b| b.id.as_str()).collect();
+        assert_eq!(ids, vec!["p01-b01", "p01-b02", "p01-b03", "p01-b04"]);
+
+        // An empty anchor puts it at the very beginning.
+        insert_in_transcript(&mut transcript, "", vec![block_of("text", "en tête")]).unwrap();
+        assert_eq!(transcript.pages[0].blocks[0].latex, "en tête");
+        assert_eq!(transcript.pages[0].blocks[0].id, "p01-b01");
+
+        assert!(insert_in_transcript(&mut transcript, "p09-b01", fresh()).is_err());
+        assert!(insert_in_transcript(&mut transcript, "p01-b01", Vec::new()).is_err());
+    }
+
     #[test]
     fn removing_a_passage_renumbers_the_rest_of_its_page() {
         let mut transcript = ir::Transcript {

@@ -25,6 +25,8 @@ type Props = {
   template: Template | undefined;
   selectedId: string | null;
   onSelect: (blockId: string) => void;
+  /** Opens the "add a passage" dialog, anchored after this block. */
+  onInsertAfter: (blockId: string) => void;
 };
 
 
@@ -64,6 +66,7 @@ export function DocumentPreview({
   template,
   selectedId,
   onSelect,
+  onInsertAfter,
 }: Props) {
   const colours = useMemo(() => {
     const map: Record<string, string> = {};
@@ -154,8 +157,8 @@ export function DocumentPreview({
         const strayTab = hasStrayAlignment(block.latex);
 
         return (
+          <div key={block.id}>
           <div
-            key={block.id}
             className={`pblock ${flagged ? "pblock--flagged" : ""} ${
               block.note ? "pblock--noted" : ""
             } ${teacherOnly ? "pblock--teacher" : ""} ${
@@ -246,6 +249,18 @@ export function DocumentPreview({
                 </div>
               )}
             </div>
+          </div>
+
+            {/* After the passage it anchors to, so clicking it adds the next
+                one right here. Quiet until the pointer comes near. */}
+            <button
+              type="button"
+              className="pinsert"
+              onClick={() => onInsertAfter(block.id)}
+              aria-label={t("insert.here")}
+            >
+              <span className="pinsert__label">{t("insert.here")}</span>
+            </button>
           </div>
         );
       })}

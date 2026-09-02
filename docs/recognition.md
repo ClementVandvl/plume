@@ -145,6 +145,28 @@ calculation to be grouped in an `aligned` environment, so that a line beginning
 with `=` lands under the `=` above it instead of being centred on its own. Move
 a course to another template and that instruction moves with it.
 
+### Adding a passage after the fact
+
+A reading misses things, and the gap is noticed during review. Two ways in,
+because the missing part is in two different places.
+
+**Written by hand** — `insert_block` puts one block after another, inside the
+same page, and renumbers that page's ids. It is marked `reviewed` at full
+confidence: the teacher wrote it, there is nothing for the model to be unsure
+about.
+
+**Photographed** — `insert_from_photo` adds the image *as a page*, at the
+position the gap is in, and reads it like any other. Not as an aside: the app
+holds photographs and transcript pages in step everywhere — `page_files` against
+`transcript.pages`, and block ids encoding their page — so an image that fed the
+course has to be one of its pages. Everything numbered after it shifts, block
+ids included, and the photograph appears in the Photos step where it can be
+reordered or removed.
+
+The consequence is worth knowing: a written passage lands exactly between two
+others, while a photographed one lands after the whole page holding the anchor.
+A photograph is a page, and a page cannot start in the middle of another.
+
 ### Invented page layout
 
 The prompt forbids `minipage`, `multicols`, `\rule`, `\hfill`, `\vspace` and
