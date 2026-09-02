@@ -420,6 +420,23 @@ pub fn write_preamble(root: &Path, id: &str, text: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// The size ladder, from a stored name to the LaTeX command.
+///
+/// The stored value is a plain name rather than `\\Large` so the interface can
+/// offer "Grand" to a teacher who does not write LaTeX, and so a renamed or
+/// reordered ladder never leaves a raw command stranded in a workbook. An
+/// unknown name falls back to the body size rather than to nothing: an empty
+/// substitution would silently change the meaning of the surrounding group.
+pub fn size_command(value: &str) -> &'static str {
+    match value.trim() {
+        "small" => "\\small",
+        "large" => "\\large",
+        "xlarge" => "\\Large",
+        "xxlarge" => "\\LARGE",
+        _ => "\\normalsize",
+    }
+}
+
 /// Substitutes every `{{key}}` in the preamble with the template's values.
 ///
 /// Colours are stored as `#A93226` for the UI, but `\definecolor` expects
@@ -429,10 +446,10 @@ pub fn render_preamble(root: &Path, template: &Template) -> io::Result<String> {
         fs::read_to_string(dir(root).join(&template.id).join("preamble.tex.tmpl"))?;
 
     for key in &template.keys {
-        let value = if key.kind == "color" {
-            key.value.trim_start_matches('#').to_string()
-        } else {
-            key.value.clone()
+        let value = match key.kind.as_str() {
+            "color" => key.value.trim_start_matches('#').to_string(),
+            "size" => size_command(&key.value).to_string(),
+            _ => key.value.clone(),
         };
         preamble = preamble.replace(&format!("{{{{{}}}}}", key.key), &value);
     }
@@ -549,6 +566,17 @@ mod tests {
                 convention.id
             );
         }
+    }
+
+    #[test]
+    fn a_size_becomes_a_latex_command() {
+        assert_eq!(size_command("xlarge"), "\\Large");
+        assert_eq!(size_command("normal"), "\\normalsize");
+        assert_eq!(size_command(" large "), "\\large");
+        // Never empty: an empty substitution would change the meaning of the
+        // group it sits in rather than leaving the size alone.
+        assert_eq!(size_command("inconnue"), "\\normalsize");
+        assert_eq!(size_command(""), "\\normalsize");
     }
 
     #[test]

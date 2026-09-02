@@ -2028,6 +2028,42 @@ textarea.input {
 }
 
 /* ---------- Template keys ---------- */
+/* One line per element of the course: its name on the left, everything that
+   describes it on the right. A grid of one box per key put the colour of a
+   chapter and its size in different cells, and sometimes different sections. */
+.stylelines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.styleline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.styleline__name {
+  font-size: var(--font-size-sm);
+}
+
+.styleline__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.styleline__control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
 .keys {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

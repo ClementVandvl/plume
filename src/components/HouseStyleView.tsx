@@ -46,6 +46,9 @@ const MODES = [
 
 type Tab = "keys" | "rules" | "preamble" | "blocks";
 
+/** Kept in step with `templates::size_command`. */
+const SIZES = ["small", "normal", "large", "xlarge", "xxlarge"] as const;
+
 export function HouseStyleView({
   templates,
   documents,
@@ -97,12 +100,30 @@ export function HouseStyleView({
       .catch((cause) => setError(String(cause)));
   }, [selected]);
 
+  /**
+   * One row per element of the course, not one box per key.
+   *
+   * Colour, size and label of the same thing were three cells of a grid, in two
+   * different sections. Keys sharing a suffix — `color.chapter`, `size.chapter`
+   * — describe one element, so they are gathered on a single full-width line
+   * and the sections collapse to the groups that remain.
+   */
   const groups = useMemo(() => {
-    const map = new Map<string, TemplateKey[]>();
+    const rows = new Map<string, { label: string; group: string; keys: TemplateKey[] }>();
+
     for (const key of draft?.keys ?? []) {
-      map.set(key.group, [...(map.get(key.group) ?? []), key]);
+      const dot = key.key.indexOf(".");
+      const subject = dot === -1 ? key.key : key.key.slice(dot + 1);
+      const row = rows.get(subject);
+      if (row) row.keys.push(key);
+      else rows.set(subject, { label: key.label, group: key.group, keys: [key] });
     }
-    return [...map.entries()];
+
+    const sections = new Map<string, { label: string; keys: TemplateKey[] }[]>();
+    for (const row of rows.values()) {
+      sections.set(row.group, [...(sections.get(row.group) ?? []), row]);
+    }
+    return [...sections.entries()];
   }, [draft]);
 
   const keysDirty =
@@ -354,16 +375,25 @@ export function HouseStyleView({
             </section>
           )}
 
-          {groups.map(([group, keys]) => (
+          {groups.map(([group, rows]) => (
             <section key={group} className="stack stack--tight">
               <h2 className="section-title">{group}</h2>
-              <div className="keys">
-                {keys.map((key) => (
-                  <label key={key.key} className="key">
-                    <span className="key__label">{key.label}</span>
-                    <KeyInput keyDef={key} onChange={(value) => edit(key.key, value)} />
-                    {advanced && <code className="key__id">{key.key}</code>}
-                  </label>
+              <div className="stylelines">
+                {rows.map((row) => (
+                  <div key={row.keys[0].key} className="styleline">
+                    <span className="styleline__name">{row.label}</span>
+                    <div className="styleline__controls">
+                      {row.keys.map((key) => (
+                        <span key={key.key} className="styleline__control">
+                          <KeyInput
+                            keyDef={key}
+                            onChange={(value) => edit(key.key, value)}
+                          />
+                          {advanced && <code className="key__id">{key.key}</code>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </section>
@@ -551,6 +581,24 @@ function KeyInput({
   keyDef: TemplateKey;
   onChange: (value: string) => void;
 }) {
+  // The stored value is a plain name; the ladder is shown in French, and the
+  // LaTeX command is the backend's business.
+  if (keyDef.type === "size") {
+    return (
+      <select
+        className="input input--compact"
+        value={keyDef.value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {SIZES.map((size) => (
+          <option key={size} value={size}>
+            {t(`houseStyle.size.${size}`)}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
   if (keyDef.type === "color") {
     return (
       <span className="key__color">
@@ -603,9 +651,11 @@ function KeyInput({
     );
   }
 
+  // Compact like its neighbours: a full-height field made its row taller than
+  // the ones beside it, for no reason a reader could see.
   return (
     <input
-      className="input"
+      className="input input--compact"
       value={keyDef.value}
       onChange={(e) => onChange(e.target.value)}
     />

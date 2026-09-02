@@ -81,7 +81,7 @@
   \par\vspace{0.4\baselineskip}\noindent
   \begin{tcolorbox}[hbox, enhanced, colback=white, colframe=mcChapitre,
       boxrule=0.9pt, sharp corners, left=10pt, right=10pt, top=6pt, bottom=6pt]
-    \large\bfseries\color{mcChapitre}%
+    {{size.chapter}}\bfseries\color{mcChapitre}%
     \mcul{mcChapitre}{Chapitre\ifblank{#1}{}{~#1}~:}\ #2
   \end{tcolorbox}
   \par\vspace{0.9\baselineskip}}
@@ -91,9 +91,9 @@
 %============================================================================
 % Les compteurs LaTeX sont écartés au profit du numéro lu sur la page. Les
 % commandes étoilées gardent la mise en forme et l'espacement sans numéroter.
-\titleformat{\section}      {\normalfont\large\bfseries}{}{0pt}{}
-\titleformat{\subsection}   {\normalfont\normalsize\bfseries}{}{0pt}{}
-\titleformat{\subsubsection}{\normalfont\normalsize\itshape}{}{0pt}{}
+\titleformat{\section}      {\normalfont{{size.part}}\bfseries}{}{0pt}{}
+\titleformat{\subsection}   {\normalfont{{size.subpart}}\bfseries}{}{0pt}{}
+\titleformat{\subsubsection}{\normalfont{{size.paragraph}}\itshape}{}{0pt}{}
 
 \newcommand{\partie}[2]{%
   \section*{\mcul{mcPartie}{\ifblank{#1}{#2}{#1 -- #2}}}}
