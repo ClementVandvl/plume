@@ -145,6 +145,23 @@ calculation to be grouped in an `aligned` environment, so that a line beginning
 with `=` lands under the `=` above it instead of being centred on its own. Move
 a course to another template and that instruction moves with it.
 
+### Invented page layout
+
+The prompt forbids `minipage`, `multicols`, `\rule`, `\hfill`, `\vspace` and
+`\newpage` outright — columns and spacing belong to the charte. The model
+reaches for them anyway when a page shows two things side by side, and at high
+confidence, so nothing flags them.
+
+Warning was not enough. Two `minipage` separated by a rule came out of the
+compiler as a blank half-page, a rule hanging in the margin and overlapping
+lines; the review had said so, but the PDF was just as broken.
+
+`strip_layout` now removes the wrappers at parse time, with their arguments,
+and keeps everything they contained in order. The passage stacks — which is
+what the charte expects and what the review already showed. Every removal is
+named in the console. `hasLayout` and `LAYOUT_COMMANDS` still exist for what
+reaches the review from an older reading, or from a hand edit.
+
 ### Echoed headings
 
 A page reading « Propriété : » above a framed box came back as two blocks: a

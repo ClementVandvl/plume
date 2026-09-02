@@ -48,6 +48,95 @@ pub struct PageOutcome {
     pub turns: u32,
 }
 
+/// Page-layout constructs the prompt forbids, and how many braced arguments
+/// each one swallows. An optional `[...]` is always taken first.
+const LAYOUT: &[(&str, usize)] = &[
+    ("\\begin{minipage}", 1),
+    ("\\end{minipage}", 0),
+    ("\\begin{multicols}", 1),
+    ("\\end{multicols}", 0),
+    ("\\rule", 2),
+    ("\\vspace*", 1),
+    ("\\vspace", 1),
+    ("\\hfill", 0),
+    ("\\newpage", 0),
+    ("\\clearpage", 0),
+];
+
+/// Consumes a balanced `[..]` or `{..}` starting at `from`, if one is there.
+fn skip_group(chars: &[char], from: usize, open: char, close: char) -> Option<usize> {
+    let mut at = from;
+    while chars.get(at).is_some_and(|c| *c == ' ' || *c == '\n') {
+        at += 1;
+    }
+    if chars.get(at) != Some(&open) {
+        return None;
+    }
+    let mut depth = 0usize;
+    while at < chars.len() {
+        if chars[at] == open {
+            depth += 1;
+        } else if chars[at] == close {
+            depth -= 1;
+            if depth == 0 {
+                return Some(at + 1);
+            }
+        }
+        at += 1;
+    }
+    None
+}
+
+/// Removes the page layout a passage invented for itself.
+///
+/// The prompt forbids these outright — columns and spacing belong to the
+/// charte — but the model reaches for them anyway when a page shows two things
+/// side by side. Warning was not enough: two `minipage` separated by a rule
+/// came out of the compiler as a blank half-page, a rule hanging in the margin
+/// and overlapping lines. Stripped, the same passage stacks, which is what the
+/// charte expects and what the review already showed.
+///
+/// Only the wrappers go; everything they contained stays, in order.
+fn strip_layout(latex: &str) -> (String, Vec<String>) {
+    let chars: Vec<char> = latex.chars().collect();
+    let mut out = String::new();
+    let mut removed: Vec<String> = Vec::new();
+    let mut at = 0usize;
+
+    'outer: while at < chars.len() {
+        if chars[at] == '\\' {
+            for (needle, groups) in LAYOUT {
+                let end = at + needle.chars().count();
+                if end <= chars.len() && chars[at..end].iter().collect::<String>() == **needle {
+                    let mut after = end;
+                    if let Some(next) = skip_group(&chars, after, '[', ']') {
+                        after = next;
+                    }
+                    for _ in 0..*groups {
+                        match skip_group(&chars, after, '{', '}') {
+                            Some(next) => after = next,
+                            None => break,
+                        }
+                    }
+                    if !removed.iter().any(|r| r == needle) {
+                        removed.push((*needle).to_string());
+                    }
+                    at = after;
+                    continue 'outer;
+                }
+            }
+        }
+        out.push(chars[at]);
+        at += 1;
+    }
+
+    // Removing a wrapper leaves the blank lines that surrounded it.
+    while out.contains("\n\n\n") {
+        out = out.replace("\n\n\n", "\n\n");
+    }
+    (out.trim().to_string(), removed)
+}
+
 /// The French name a page uses for each environment, folded for comparison.
 ///
 /// Only what a teacher writes above a box — not every block kind — because the
@@ -329,6 +418,20 @@ pub fn transcribe_page(
         .collect::<Result<Vec<_>, String>>()?;
 
     let mut blocks = blocks;
+    for block in &mut blocks {
+        let (cleaned, removed) = strip_layout(&block.latex);
+        if !removed.is_empty() {
+            logbus::warn(
+                "claude",
+                format!(
+                    "Mise en page retirée d'un passage de la page {page_number} ({}) — \
+                     le contenu est conservé, empilé.",
+                    removed.join(", ")
+                ),
+            );
+            block.latex = cleaned;
+        }
+    }
     drop_echoed_headings(&mut blocks);
     for (index, block) in blocks.iter_mut().enumerate() {
         block.id = format!("p{page_number:02}-b{:02}", index + 1);
@@ -507,6 +610,66 @@ pub fn correct_block(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The passage that came out of a real page and broke the PDF: two
+    /// columns with a rule between them, from a model told not to.
+    #[test]
+    fn the_two_column_passage_becomes_a_stack() {
+        let latex = "\\begin{minipage}[t]{0.48\\textwidth}\n\
+                     \\textbf{Relation de Chasles :}\n\n\
+                     \\begin{center}A\\end{center}\n\
+                     \\end{minipage}%\n\
+                     \\hfill\\rule{0.4pt}{6cm}\\hfill%\n\
+                     \\begin{minipage}[t]{0.48\\textwidth}\n\
+                     \\textbf{Règle du parallélogramme :}\n\n\
+                     \\begin{center}B\\end{center}\n\
+                     \\end{minipage}";
+
+        let (cleaned, removed) = strip_layout(latex);
+
+        assert!(!cleaned.contains("minipage"));
+        assert!(!cleaned.contains("\\rule"));
+        assert!(!cleaned.contains("\\hfill"));
+        assert!(!cleaned.contains("0.48"), "the width argument goes with its wrapper");
+
+        // Everything the wrappers held is still there, in order.
+        assert!(cleaned.contains("Relation de Chasles"));
+        assert!(cleaned.contains("\\begin{center}A\\end{center}"));
+        assert!(cleaned.contains("Règle du parallélogramme"));
+        assert!(cleaned.contains("\\begin{center}B\\end{center}"));
+        assert!(
+            cleaned.find("Chasles") < cleaned.find("parallélogramme"),
+            "order is preserved"
+        );
+
+        assert!(removed.contains(&"\\begin{minipage}".to_string()));
+        assert!(removed.contains(&"\\rule".to_string()));
+    }
+
+    #[test]
+    fn ordinary_content_is_returned_untouched() {
+        for latex in [
+            "Soient $\\vec{u}$ et $\\vec{v}$ deux vecteurs.",
+            "\\begin{center}\n\\begin{tikzpicture}\\draw (0,0) -- (1,1);\\end{tikzpicture}\n\\end{center}",
+            "$\\begin{aligned}[t] a &= b \\\\ &= c \\end{aligned}$",
+            "\\begin{itemize}\\item une direction\\end{itemize}",
+        ] {
+            let (cleaned, removed) = strip_layout(latex);
+            assert_eq!(cleaned, latex.trim(), "changed: {latex}");
+            assert!(removed.is_empty());
+        }
+    }
+
+    #[test]
+    fn spacing_commands_go_with_their_argument() {
+        let (cleaned, _) = strip_layout("avant\\vspace{1cm}après");
+        assert_eq!(cleaned, "avantaprès");
+        let (cleaned, _) = strip_layout("avant\\vspace*{2\\baselineskip}après");
+        assert_eq!(cleaned, "avantaprès");
+        // A rule takes an optional lift and two lengths.
+        let (cleaned, _) = strip_layout("a\\rule[2pt]{0.4pt}{6cm}b");
+        assert_eq!(cleaned, "ab");
+    }
 
     fn block(kind: &str, title: Option<&str>, number: Option<&str>, latex: &str) -> ir::Block {
         ir::Block {
