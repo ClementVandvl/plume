@@ -145,6 +145,20 @@ calculation to be grouped in an `aligned` environment, so that a line beginning
 with `=` lands under the `=` above it instead of being centred on its own. Move
 a course to another template and that instruction moves with it.
 
+### Echoed headings
+
+A page reading « Propriété : » above a framed box came back as two blocks: a
+heading titled "Propriétés", then the property itself. Nothing was missing from
+the transcription — there was one passage too many, on every page holding a box.
+
+The prompt now says a keyword introducing a passage is that block's own label,
+never a heading. `drop_echoed_headings` is the belt: a heading is removed only
+when it carries **no number** (this template numbers its real headings, and the
+number comes from the page), has **no body of its own**, and its title is the
+keyword of the **very next block**. Accents, plurals and a trailing colon are
+folded for the comparison. Anything else is left alone, and every removal is
+named in the console — a heading the teacher wrote is theirs to keep.
+
 ### Concurrency
 
 Pages are independent and read three at a time (`CONCURRENT_PAGES`). The cap is

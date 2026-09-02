@@ -25,6 +25,7 @@ Rules:
 - `latex` carries body content ONLY. Never emit \begin{...}/\end{...} wrappers for the block itself, never a preamble, never \section or \chapter — the caller wraps each block according to its kind.
 - For heading blocks (`chapter`, `part`, `subpart`, `paragraph`): put the heading text ALONE in `title` — without its number and without the words "Chapitre", "Partie" — and leave `latex` empty. Put the number exactly as the page writes it in `number`: "3", "II", "1", "a". Plume never renumbers, so a course opening on "Chapitre 3" stays chapter 3. If the page shows no number, leave `number` empty rather than inventing one.
 - Emit CONTENT, never page layout. No `minipage`, no `tabular` used for placement, no `multicols`, no `\rule`, no `\hfill`, no `\vspace`, no `\newpage`. Columns and spacing belong to the template, and a layout you invent will not fit the page. If the page shows two things side by side, emit them as two consecutive blocks.
+- A keyword introducing a passage — « Définition : », « Propriété : », « Exemple : », « Remarque : » — is that block's own label, not a heading. Emit the block itself and nothing else; never a separate `paragraph` or `subpart` repeating the keyword above it. Emit a heading block only for a heading the page itself sets apart as one, with its own number.
 - Set `title` ONLY when the page itself writes a title next to the keyword, e.g. « Définition (vecteurs colinéaires) : ». If the page just says « Définition : », leave `title` empty. Never repeat the environment's own name as its title.
 - A diagram that belongs to an example or a proof stays inside that block's `latex`, wrapped in \begin{center}...\end{center}. Use a standalone `figure` block only for a diagram that stands on its own.
 - Maths in LaTeX: $...$ inline, \[...\] displayed. Vectors as \overrightarrow{AB} or \vec{u}.
@@ -45,6 +46,92 @@ pub struct PageOutcome {
     pub cost_usd: f64,
     pub duration_ms: u64,
     pub turns: u32,
+}
+
+/// The French name a page uses for each environment, folded for comparison.
+///
+/// Only what a teacher writes above a box — not every block kind — because the
+/// point is to recognise a keyword the model turned into a heading.
+fn environment_word(kind: &str) -> Option<&'static str> {
+    match kind {
+        "definition" => Some("definition"),
+        "property" => Some("propriete"),
+        "theorem" => Some("theoreme"),
+        "method" => Some("methode"),
+        "example" => Some("exemple"),
+        "application" => Some("application"),
+        "remark" => Some("remarque"),
+        "proof" => Some("demonstration"),
+        _ => None,
+    }
+}
+
+/// Accents and a trailing plural removed, for comparing a heading to a keyword.
+fn folded(text: &str) -> String {
+    let mut out: String = text
+        .trim()
+        .trim_end_matches([':', ' '])
+        .to_lowercase()
+        .chars()
+        .map(|c| match c {
+            'à' | 'â' | 'ä' => 'a',
+            'é' | 'è' | 'ê' | 'ë' => 'e',
+            'î' | 'ï' => 'i',
+            'ô' | 'ö' => 'o',
+            'û' | 'ü' | 'ù' => 'u',
+            'ç' => 'c',
+            other => other,
+        })
+        .collect();
+    if out.ends_with('s') {
+        out.pop();
+    }
+    out
+}
+
+/// Drops a heading that only repeats the keyword of the box beneath it.
+///
+/// A page reading "Propriété :" above a framed box gave two blocks: a heading
+/// titled "Propriétés", then the property itself. Nothing was missing from the
+/// transcription — there was one passage too many, and it appeared on every
+/// page holding a box.
+///
+/// The test is deliberately narrow. The heading must carry no number, because
+/// this template numbers its real headings and the number now comes from the
+/// page; it must have no body of its own; and the very next block must be the
+/// environment it names. Anything else is left alone and reported, since a
+/// heading the teacher wrote is theirs to keep.
+fn drop_echoed_headings(blocks: &mut Vec<ir::Block>) {
+    let mut redundant: Vec<usize> = Vec::new();
+
+    for (index, block) in blocks.iter().enumerate() {
+        let is_heading = matches!(block.kind.as_str(), "part" | "subpart" | "paragraph");
+        let numbered = block.number.as_deref().map(str::trim).is_some_and(|n| !n.is_empty());
+        let has_body = !block.latex.trim().is_empty();
+        if !is_heading || numbered || has_body {
+            continue;
+        }
+
+        let Some(title) = block.title.as_deref().map(folded).filter(|t| !t.is_empty()) else {
+            continue;
+        };
+        let follows = blocks.get(index + 1).and_then(|next| environment_word(&next.kind));
+        if follows == Some(title.as_str()) {
+            redundant.push(index);
+        }
+    }
+
+    for index in redundant.iter().rev() {
+        let dropped = blocks.remove(*index);
+        logbus::detail(
+            "claude",
+            format!(
+                "Titre « {} » retiré : il ne fait que répéter l'encadré qui suit",
+                dropped.title.unwrap_or_default()
+            ),
+            "aucun contenu perdu — le mot-clé appartient à l'encadré".to_string(),
+        );
+    }
 }
 
 /// Coarse, user-safe reading of one stream event.
@@ -241,6 +328,12 @@ pub fn transcribe_page(
         })
         .collect::<Result<Vec<_>, String>>()?;
 
+    let mut blocks = blocks;
+    drop_echoed_headings(&mut blocks);
+    for (index, block) in blocks.iter_mut().enumerate() {
+        block.id = format!("p{page_number:02}-b{:02}", index + 1);
+    }
+
     if blocks.is_empty() {
         return Err(format!(
             "La page {page_number} n'a produit aucun bloc. Vérifiez que l'image est lisible."
@@ -414,6 +507,78 @@ pub fn correct_block(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn block(kind: &str, title: Option<&str>, number: Option<&str>, latex: &str) -> ir::Block {
+        ir::Block {
+            id: String::new(),
+            kind: kind.into(),
+            title: title.map(str::to_string),
+            number: number.map(str::to_string),
+            latex: latex.into(),
+            confidence: 0.9,
+            doubt: None,
+            audience: Vec::new(),
+            note: None,
+            reviewed: false,
+        }
+    }
+
+    /// The shape read off a real page: "Propriété :" above a framed box came
+    /// back as a heading and then the box.
+    #[test]
+    fn a_heading_that_only_names_the_box_below_is_dropped() {
+        let mut blocks = vec![
+            block("subpart", Some("Règles de calcul"), Some("2"), ""),
+            block("paragraph", Some("Propriétés"), None, ""),
+            block("property", None, None, "a + b"),
+            block("paragraph", Some("Exemple"), None, ""),
+            block("example", None, None, "A = ..."),
+        ];
+
+        drop_echoed_headings(&mut blocks);
+
+        let kinds: Vec<&str> = blocks.iter().map(|b| b.kind.as_str()).collect();
+        assert_eq!(kinds, vec!["subpart", "property", "example"]);
+        // The real heading, numbered on the page, stays.
+        assert_eq!(blocks[0].title.as_deref(), Some("Règles de calcul"));
+    }
+
+    #[test]
+    fn a_heading_the_teacher_wrote_is_left_alone() {
+        let cases = vec![
+            // Numbered on the page: a heading of theirs, whatever it says.
+            vec![
+                block("paragraph", Some("Propriétés"), Some("a"), ""),
+                block("property", None, None, "corps"),
+            ],
+            // Carries its own text, so it is not a bare echo.
+            vec![
+                block("paragraph", Some("Propriétés"), None, "Trois règles suivent."),
+                block("property", None, None, "corps"),
+            ],
+            // Names something other than what follows.
+            vec![
+                block("paragraph", Some("Exercices"), None, ""),
+                block("property", None, None, "corps"),
+            ],
+            // Nothing follows it at all.
+            vec![block("paragraph", Some("Propriétés"), None, "")],
+        ];
+
+        for mut blocks in cases {
+            let before = blocks.len();
+            drop_echoed_headings(&mut blocks);
+            assert_eq!(blocks.len(), before, "nothing should have been dropped");
+        }
+    }
+
+    #[test]
+    fn the_comparison_ignores_accents_plurals_and_a_trailing_colon() {
+        assert_eq!(folded("Propriétés"), "propriete");
+        assert_eq!(folded("PROPRIÉTÉ :"), "propriete");
+        assert_eq!(folded("  Démonstration  "), "demonstration");
+        assert_ne!(folded("Exercices"), "exemple");
+    }
 
     fn event(raw: &str) -> serde_json::Value {
         serde_json::from_str(raw).expect("valid test event")
