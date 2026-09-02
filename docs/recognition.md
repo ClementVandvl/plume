@@ -184,6 +184,22 @@ This is also why a short definition still reads "Définition (Vecteur) : Un
 vecteur est…" on one line, in the PDF as on paper: running the body on is right
 when the body is a sentence, and wrong only when it is a list.
 
+### Aligning a passage
+
+Where a passage sits on the page is a decision about the page, not about what it
+says, so `align` is set during review and never by the model — it is not in the
+schema at all.
+
+It works by **wrapping**, never by rewriting: the block's LaTeX is passed
+through untouched inside `\begingroup\raggedright … \par\endgroup`, so no
+amount of alignment can mangle a formula. `center` is redefined inside that
+group for the same reason — a figure the recogniser centred would otherwise
+ignore the choice, and neutralising it by hand would mean editing content.
+
+Measured, not assumed: `\raggedright` moves text and, with that redefinition,
+figures. It does **not** move display maths — `\[...\]` positions itself and no
+grouping changes that. Only the charte can, by loading `fleqn`.
+
 ### Invented page layout
 
 The prompt forbids `minipage`, `multicols`, `\rule`, `\hfill`, `\vspace` and

@@ -771,6 +771,7 @@ mod tests {
             confidence: 0.9,
             doubt: None,
             audience: Vec::new(),
+            align: None,
             note: None,
             reviewed: false,
         }

@@ -116,8 +116,38 @@ fn warn_about_layout(block: &Block) {
     }
 }
 
+/// Wraps a body so it sits left, centred or right.
+///
+/// A wrapper, not a rewrite: the block's LaTeX is never read or altered, so
+/// this cannot mangle a formula. `center` is redefined inside the group for the
+/// same reason — a figure the recogniser centred would otherwise ignore the
+/// choice, and neutralising it by hand would mean editing the content.
+///
+/// Display maths keeps LaTeX's own centring: `\[...\]` positions itself and no
+/// grouping changes that. Only the charte can, by loading `fleqn`.
+fn aligned(body: String, align: Option<&str>) -> String {
+    let declaration = match align {
+        Some("left") => "\\raggedright",
+        Some("center") => "\\centering",
+        Some("right") => "\\raggedleft",
+        _ => return body,
+    };
+
+    // `center` centres whatever it holds; left and right have to undo it.
+    let neutralise = if align == Some("center") {
+        ""
+    } else {
+        "\\renewenvironment{center}{\\par}{\\par}%\n"
+    };
+
+    format!("\\begingroup{declaration}\n{neutralise}{body}\n\\par\\endgroup")
+}
+
 fn render_block(template: &Template, block: &Block) -> String {
-    let body = escape_nothing(block.latex.trim());
+    // The alignment wraps the body, inside whatever environment holds it: a
+    // heading's own label must keep the place the charte gives it.
+    let body = aligned(escape_nothing(block.latex.trim()).to_string(), block.align.as_deref());
+    let body = body.as_str();
     let mapping = template.blocks.get(&block.kind);
 
     let Some(mapping) = mapping else {
@@ -249,6 +279,7 @@ mod tests {
             confidence: 1.0,
             doubt: None,
             audience: Vec::new(),
+            align: None,
             note: None,
             reviewed: false,
         }
@@ -315,6 +346,37 @@ mod tests {
                 "wrongly reported: {latex}"
             );
         }
+    }
+
+    #[test]
+    fn alignment_wraps_without_touching_the_content() {
+        let formula = "$\\dfrac{a}{c} + \\dfrac{b}{c}$";
+
+        for (choice, declaration) in [
+            ("left", "\\raggedright"),
+            ("center", "\\centering"),
+            ("right", "\\raggedleft"),
+        ] {
+            let out = aligned(formula.to_string(), Some(choice));
+            assert!(out.contains(declaration), "{choice} must use {declaration}");
+            assert!(out.contains(formula), "the content is passed through untouched");
+            assert!(out.starts_with("\\begingroup"), "the change must stay local");
+            assert!(out.ends_with("\\par\\endgroup"));
+        }
+
+        // Left and right have to undo a `center` the recogniser emitted; the
+        // centred choice has nothing to undo.
+        assert!(aligned(formula.into(), Some("left")).contains("\\renewenvironment{center}"));
+        assert!(aligned(formula.into(), Some("right")).contains("\\renewenvironment{center}"));
+        assert!(!aligned(formula.into(), Some("center")).contains("\\renewenvironment"));
+    }
+
+    #[test]
+    fn no_alignment_leaves_the_body_exactly_as_it_was() {
+        let body = "\\begin{center}\\begin{tikzpicture}\\end{tikzpicture}\\end{center}";
+        assert_eq!(aligned(body.to_string(), None), body);
+        assert_eq!(aligned(body.to_string(), Some("")), body);
+        assert_eq!(aligned(body.to_string(), Some("justified")), body);
     }
 
     #[test]

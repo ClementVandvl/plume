@@ -75,7 +75,8 @@ export function BlockPanel({
     draft.latex !== block.latex ||
     draft.title !== block.title ||
     draft.kind !== block.kind ||
-    draft.audience.join() !== block.audience.join();
+    draft.audience.join() !== block.audience.join() ||
+    draft.align !== block.align;
   const noteDirty = note.trim() !== (block.note ?? "");
 
   async function save() {
@@ -253,6 +254,30 @@ export function BlockPanel({
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="stack stack--tight">
+          <span className="overline">{t("panel.align.title")}</span>
+          <div className="seg seg--field">
+            {(
+              [
+                [null, "panel.align.default"],
+                ["left", "panel.align.left"],
+                ["center", "panel.align.center"],
+                ["right", "panel.align.right"],
+              ] as [string | null, string][]
+            ).map(([value, key]) => (
+              <button
+                key={key}
+                type="button"
+                className={`seg__opt ${draft.align === value ? "seg__opt--on" : ""}`}
+                onClick={() => setDraft({ ...draft, align: value })}
+              >
+                {t(key as Parameters<typeof t>[0])}
+              </button>
+            ))}
+          </div>
+          <span className="field__hint">{t("panel.align.hint")}</span>
         </div>
 
         <div className="panel-side__tool">

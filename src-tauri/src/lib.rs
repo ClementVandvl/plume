@@ -703,6 +703,7 @@ fn insert_block(
         confidence: 1.0,
         doubt: None,
         audience: vec!["teacher".into(), "student".into()],
+        align: None,
         note: None,
         reviewed: true,
     };
@@ -1469,6 +1470,7 @@ mod tests {
             confidence: 1.0,
             doubt: None,
             audience: Vec::new(),
+            align: None,
             note: None,
             reviewed: true,
         }
@@ -1488,6 +1490,7 @@ mod tests {
                     confidence: 1.0,
                     doubt: None,
                     audience: Vec::new(),
+                    align: None,
                     note: None,
                     reviewed: false,
                 })

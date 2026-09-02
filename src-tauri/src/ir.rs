@@ -63,6 +63,12 @@ pub struct Block {
     /// Which exports keep this block. Empty means every audience.
     #[serde(default)]
     pub audience: Vec<String>,
+    /// `left` | `center` | `right`, or absent for the template's own choice.
+    ///
+    /// Set during review, never by the model: it is a decision about the page,
+    /// not about what the page says. Kept out of the schema for that reason.
+    #[serde(default)]
+    pub align: Option<String>,
     /// The teacher's pending instruction for this block, in their words. Set
     /// during review, consumed by a targeted re-run, then cleared.
     #[serde(default)]

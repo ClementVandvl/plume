@@ -27,6 +27,7 @@ const block = (
   confidence: 0.97,
   doubt: null,
   audience: [],
+  align: null,
   note: null,
   reviewed: false,
   ...extra,

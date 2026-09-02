@@ -108,6 +108,13 @@ export type Block = {
   confidence: number;
   doubt: string | null;
   audience: string[];
+  /**
+   * `left` | `center` | `right`, or null for the charte's own choice.
+   *
+   * Set during review, never by the model: where a passage sits on the page is
+   * a decision about the page, not about what it says.
+   */
+  align: string | null;
   /** The teacher's pending instruction, consumed by a targeted re-run. */
   note: string | null;
   reviewed: boolean;

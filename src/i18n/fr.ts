@@ -266,6 +266,13 @@ export const fr = {
     "La photo rejoint les pages du cours, juste après celle où vous ajoutez, et Plume la lit comme les autres. Elle apparaîtra dans l'onglet Photos.",
   "insert.photo.pick": "Choisir une photo",
   "insert.photo.reading": "Lecture en cours…",
+  "panel.align.title": "Alignement",
+  "panel.align.default": "Charte",
+  "panel.align.left": "Gauche",
+  "panel.align.center": "Centré",
+  "panel.align.right": "Droite",
+  "panel.align.hint":
+    "Déplace le passage sans toucher à son contenu. Une formule sur sa propre ligne garde le centrage de LaTeX.",
   "panel.delete": "Supprimer le passage",
   "panel.delete.title": "Supprimer ce passage ?",
   "panel.delete.message":

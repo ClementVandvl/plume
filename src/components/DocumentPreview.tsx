@@ -222,6 +222,13 @@ export function DocumentPreview({
                   )}
                   <div
                     className={`tex-body ${block.kind === "proof" ? "tex-body--proof" : ""}`}
+                    // The same choice as the PDF: the review must not promise a
+                    // placement the export will not honour.
+                    style={
+                      block.align
+                        ? { textAlign: block.align as "left" | "center" | "right" }
+                        : undefined
+                    }
                   >
                     {layout && (
                       <p className="tex-layout-note">{t("preview.layout.note")}</p>
