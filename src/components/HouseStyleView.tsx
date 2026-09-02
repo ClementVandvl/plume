@@ -46,8 +46,7 @@ const MODES = [
 
 type Tab = "keys" | "rules" | "preamble" | "blocks";
 
-/** Kept in step with `templates::size_command`. */
-const SIZES = ["small", "normal", "large", "xlarge", "xxlarge"] as const;
+
 
 export function HouseStyleView({
   templates,
@@ -382,17 +381,22 @@ export function HouseStyleView({
                 {rows.map((row) => (
                   <div key={row.keys[0].key} className="styleline">
                     <span className="styleline__name">{row.label}</span>
-                    <div className="styleline__controls">
-                      {row.keys.map((key) => (
-                        <span key={key.key} className="styleline__control">
-                          <KeyInput
-                            keyDef={key}
-                            onChange={(value) => edit(key.key, value)}
-                          />
-                          {advanced && <code className="key__id">{key.key}</code>}
-                        </span>
-                      ))}
-                    </div>
+                    {row.keys.map((key) => (
+                      <span
+                        key={key.key}
+                        // The column follows what the control is, not what
+                        // order it came in: colours under colours, values under
+                        // values, whether or not the row has both.
+                        className={
+                          key.type === "color"
+                            ? "styleline__cell styleline__cell--color"
+                            : "styleline__cell styleline__cell--value"
+                        }
+                      >
+                        <KeyInput keyDef={key} onChange={(value) => edit(key.key, value)} />
+                        {advanced && <code className="key__id">{key.key}</code>}
+                      </span>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -581,21 +585,22 @@ function KeyInput({
   keyDef: TemplateKey;
   onChange: (value: string) => void;
 }) {
-  // The stored value is a plain name; the ladder is shown in French, and the
-  // LaTeX command is the backend's business.
+  // A number of points, typed. The unit sits beside the field rather than in
+  // it: it is never a choice, and it must not be deleted by mistake.
   if (keyDef.type === "size") {
     return (
-      <select
-        className="input input--compact"
-        value={keyDef.value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {SIZES.map((size) => (
-          <option key={size} value={size}>
-            {t(`houseStyle.size.${size}`)}
-          </option>
-        ))}
-      </select>
+      <span className="key__unit">
+        <input
+          type="number"
+          min={4}
+          max={96}
+          step={0.5}
+          className="input input--compact"
+          value={keyDef.value.replace(/pt$/, "")}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <span className="key__suffix">{t("houseStyle.size.unit")}</span>
+      </span>
     );
   }
 

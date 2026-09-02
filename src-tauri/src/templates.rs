@@ -420,20 +420,26 @@ pub fn write_preamble(root: &Path, id: &str, text: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// The size ladder, from a stored name to the LaTeX command.
+/// A type size, as `\\fontsize{..}{..}\\selectfont`.
 ///
-/// The stored value is a plain name rather than `\\Large` so the interface can
-/// offer "Grand" to a teacher who does not write LaTeX, and so a renamed or
-/// reordered ladder never leaves a raw command stranded in a workbook. An
-/// unknown name falls back to the body size rather than to nothing: an empty
-/// substitution would silently change the meaning of the surrounding group.
-pub fn size_command(value: &str) -> &'static str {
-    match value.trim() {
-        "small" => "\\small",
-        "large" => "\\large",
-        "xlarge" => "\\Large",
-        "xxlarge" => "\\LARGE",
-        _ => "\\normalsize",
+/// The value is a plain number of points — "16" or "16pt" — because a teacher
+/// setting a chapter title wants a size, not a rung on a ladder. Points, not
+/// pixels: a pixel means nothing on paper, and the rest of the charte is
+/// already in points.
+///
+/// The second argument is the baseline skip, which LaTeX does not derive on its
+/// own: leaving it at the body's value would set 20pt type on 13pt lines and
+/// overlap them. The usual 1.2 ratio is applied.
+///
+/// Anything unreadable falls back to the body size rather than to nothing: an
+/// empty substitution would change the meaning of the group it sits in.
+pub fn size_command(value: &str) -> String {
+    let cleaned = value.trim().trim_end_matches("pt").trim().replace(',', ".");
+    match cleaned.parse::<f64>() {
+        Ok(points) if (4.0..=96.0).contains(&points) => {
+            format!("\\fontsize{{{points}pt}}{{{:.1}pt}}\\selectfont", points * 1.2)
+        }
+        _ => "\\normalsize".to_string(),
     }
 }
 
@@ -448,7 +454,7 @@ pub fn render_preamble(root: &Path, template: &Template) -> io::Result<String> {
     for key in &template.keys {
         let value = match key.kind.as_str() {
             "color" => key.value.trim_start_matches('#').to_string(),
-            "size" => size_command(&key.value).to_string(),
+            "size" => size_command(&key.value),
             _ => key.value.clone(),
         };
         preamble = preamble.replace(&format!("{{{{{}}}}}", key.key), &value);
@@ -569,14 +575,21 @@ mod tests {
     }
 
     #[test]
-    fn a_size_becomes_a_latex_command() {
-        assert_eq!(size_command("xlarge"), "\\Large");
-        assert_eq!(size_command("normal"), "\\normalsize");
-        assert_eq!(size_command(" large "), "\\large");
+    fn a_size_becomes_a_font_size_with_its_line_spacing() {
+        assert_eq!(size_command("16"), "\\fontsize{16pt}{19.2pt}\\selectfont");
+        assert_eq!(size_command("16pt"), "\\fontsize{16pt}{19.2pt}\\selectfont");
+        assert_eq!(size_command(" 11 pt "), "\\fontsize{11pt}{13.2pt}\\selectfont");
+        // A French keyboard produces a comma.
+        assert_eq!(size_command("13,5"), "\\fontsize{13.5pt}{16.2pt}\\selectfont");
+    }
+
+    #[test]
+    fn an_unreadable_size_falls_back_rather_than_vanishing() {
         // Never empty: an empty substitution would change the meaning of the
         // group it sits in rather than leaving the size alone.
-        assert_eq!(size_command("inconnue"), "\\normalsize");
-        assert_eq!(size_command(""), "\\normalsize");
+        for value in ["", "grand", "abc", "0", "-4", "500", "12pt12"] {
+            assert_eq!(size_command(value), "\\normalsize", "for {value:?}");
+        }
     }
 
     #[test]

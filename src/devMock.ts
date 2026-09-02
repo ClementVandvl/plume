@@ -168,11 +168,11 @@ const template = {
   keys: [
     // Colour and size of the same element, so the paired rows are visible.
     { key: "color.chapter", label: "Titre de chapitre", group: "Structure", type: "color", value: "#A93226" },
-    { key: "size.chapter", label: "Titre de chapitre", group: "Structure", type: "size", value: "xlarge" },
+    { key: "size.chapter", label: "Titre de chapitre", group: "Structure", type: "size", value: "16" },
     { key: "color.part", label: "Grande partie (I)", group: "Structure", type: "color", value: "#1F618D" },
-    { key: "size.part", label: "Grande partie (I)", group: "Structure", type: "size", value: "large" },
+    { key: "size.part", label: "Grande partie (I)", group: "Structure", type: "size", value: "13" },
     { key: "color.subpart", label: "Sous-partie (1)", group: "Structure", type: "color", value: "#117A65" },
-    { key: "size.subpart", label: "Sous-partie (1)", group: "Structure", type: "size", value: "normal" },
+    { key: "size.subpart", label: "Sous-partie (1)", group: "Structure", type: "size", value: "11" },
     { key: "color.definition", label: "Définition", group: "Environnements", type: "color", value: "#A93226" },
     { key: "label.definition", label: "Définition", group: "Environnements", type: "text", value: "Définition" },
     { key: "color.property", label: "Propriété", group: "Environnements", type: "color", value: "#117A65" },
