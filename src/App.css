@@ -151,6 +151,11 @@ body {
 
 .seg--field .seg__opt {
   border-radius: var(--radius-subtle);
+  /* The control is stretched by its column, so its options share that width
+     instead of huddling at one end of an empty bar. */
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
 }
 
 /* ---------- Adding a passage ---------- */
