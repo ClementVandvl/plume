@@ -192,6 +192,7 @@ const LATEX_HINT: &str = "Plume peut installer Tectonic pour vous, en un clic.";
 const LATEX_HINT: &str = "Plume peut installer Tectonic pour vous, en un clic.";
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Environment {
     pub tools: Vec<ToolStatus>,
     /// Every required prerequisite is present.
@@ -253,5 +254,19 @@ mod tests {
             "the reported width must be the one the reader applies"
         );
         assert!((1..=3).contains(&environment.auto_pages));
+    }
+
+    /// The value being right in Rust was not enough: `Environment` carried no
+    /// camelCase rule — harmless while its fields were single words — so
+    /// `auto_pages` crossed the bridge under a name the screen never reads, and
+    /// the settings offered "Automatique — undefined à la fois".
+    #[test]
+    fn the_payload_uses_the_names_the_screen_reads() {
+        let payload = serde_json::to_value(inspect()).expect("serialisable");
+
+        for key in ["tools", "ready", "autoPages", "memoryGb"] {
+            assert!(payload.get(key).is_some(), "`{key}` is missing from the payload");
+        }
+        assert!(payload.get("auto_pages").is_none(), "snake_case must not reach the screen");
     }
 }
