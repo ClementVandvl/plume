@@ -301,8 +301,22 @@ export const hasStrayAlignment = (latex: string) =>
     )
     .includes("&");
 
+/**
+ * Whether a passage lays itself out, in ways a single column cannot reproduce.
+ *
+ * A fixed list of constructs, not a comparison of the two renderings: telling
+ * "this will look different" in general would mean typesetting the page twice
+ * and diffing it. So it flags what is known to place things — columns, struts,
+ * page breaks — and stays quiet about anything else.
+ *
+ * Kept identical to `render::LAYOUT_COMMANDS`, which writes the console
+ * warning: the two disagreed once, and a passage was reported in one place and
+ * silent in the other.
+ */
 export const hasLayout = (latex: string) =>
-  /\\begin\{(minipage|multicols|tabular)\}|\\rule\{|\\hfill|\\newpage/.test(latex);
+  /\\begin\{(minipage|multicols|tabular)\}|\\rule\{|\\hfill|\\newpage|\\vspace/.test(
+    latex,
+  );
 
 export type Segment = { kind: "text"; latex: string } | { kind: "figure"; tikz: string };
 

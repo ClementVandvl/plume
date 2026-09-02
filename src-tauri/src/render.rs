@@ -20,9 +20,14 @@ fn escape_nothing(latex: &str) -> &str {
 /// They are not rewritten — the block belongs to the teacher — but they are
 /// reported, because a `minipage` pair that does not fit produces a stray rule
 /// and a half-empty page in the PDF while looking fine in the preview.
+/// Kept identical to `hasLayout` in the preview. The two disagreed once —
+/// `\\vspace` warned in the console without flagging on screen, `tabular` the
+/// other way round — so a passage could be reported in one place and silent in
+/// the other.
 const LAYOUT_COMMANDS: &[&str] = &[
     "\\begin{minipage}",
     "\\begin{multicols}",
+    "\\begin{tabular}",
     "\\rule{",
     "\\hfill",
     "\\newpage",
@@ -281,6 +286,35 @@ mod tests {
             "\\souspartie{}{Définition}",
             "blank is the same as absent"
         );
+    }
+
+    /// The twin of `hasLayout` in the preview: the same list, checked here so
+    /// the console and the screen cannot drift apart again.
+    #[test]
+    fn every_layout_construct_is_reported() {
+        for latex in [
+            "\\begin{minipage}[t]{0.48\\textwidth}a\\end{minipage}",
+            "\\begin{multicols}{2}a\\end{multicols}",
+            "\\begin{tabular}{cc}a & b\\end{tabular}",
+            "\\hfill\\rule{0.4pt}{6cm}\\hfill",
+            "avant\\newpage après",
+            "\\vspace{1cm}",
+        ] {
+            assert!(
+                LAYOUT_COMMANDS.iter().any(|needle| latex.contains(needle)),
+                "not reported: {latex}"
+            );
+        }
+
+        for latex in [
+            "Soient $\\vec{u}$ et $\\vec{v}$ deux vecteurs.",
+            "\\begin{center}\\begin{tikzpicture}\\end{tikzpicture}\\end{center}",
+        ] {
+            assert!(
+                !LAYOUT_COMMANDS.iter().any(|needle| latex.contains(needle)),
+                "wrongly reported: {latex}"
+            );
+        }
     }
 
     #[test]

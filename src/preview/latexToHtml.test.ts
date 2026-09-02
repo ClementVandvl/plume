@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasStrayAlignment, latexToHtml } from "./latexToHtml";
+import { hasLayout, hasStrayAlignment, latexToHtml } from "./latexToHtml";
 import blocks from "./__fixtures__/blocks.json";
 
 /**
@@ -145,5 +145,30 @@ describe("hasStrayAlignment", () => {
     expect(hasStrayAlignment("\\begin{align*} A &= 1 \\end{align*}")).toBe(false);
     expect(hasStrayAlignment("\\begin{pmatrix} a & b \\end{pmatrix}")).toBe(false);
     expect(hasStrayAlignment("Pierre \\& Marie Curie")).toBe(false);
+  });
+});
+
+describe("hasLayout", () => {
+  // The same list as `render::LAYOUT_COMMANDS`; the two once disagreed, and a
+  // passage was reported in the console without being flagged on screen.
+  it("flags every construct the console warns about", () => {
+    for (const latex of [
+      "\\begin{minipage}[t]{0.48\\textwidth}a\\end{minipage}",
+      "\\begin{multicols}{2}a\\end{multicols}",
+      "\\begin{tabular}{cc}a & b\\end{tabular}",
+      "\\hfill\\rule{0.4pt}{6cm}\\hfill",
+      "avant\\newpage après",
+      "\\vspace{1cm}",
+    ]) {
+      expect(hasLayout(latex)).toBe(true);
+    }
+  });
+
+  it("stays quiet on ordinary content", () => {
+    expect(hasLayout("Soient $\\vec{u}$ et $\\vec{v}$ deux vecteurs.")).toBe(false);
+    expect(hasLayout("\\begin{center}\\begin{tikzpicture}\\end{tikzpicture}\\end{center}")).toBe(
+      false,
+    );
+    expect(hasLayout("$\\begin{aligned} a &= b \\end{aligned}$")).toBe(false);
   });
 });
