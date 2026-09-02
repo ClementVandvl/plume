@@ -47,6 +47,8 @@ const transcript = {
           title: "Vecteurs du plan",
           number: "II",
         }),
+        // A heading the page did not number: it used to render as "null – …".
+        block("b2b", "subpart", "Exercices", { title: "Exercices" }),
         block(
           "b3",
           "text",
@@ -322,6 +324,7 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   save_block: () => undefined,
   set_block_note: () => undefined,
   split_block: () => transcript,
+  delete_block: () => transcript,
   set_reading_rules: () => undefined,
   updates_configured: () => false,
   os_platform: () => "macos",

@@ -18,6 +18,7 @@ import {
   loadTranscript,
   revealPath,
   saveBlock,
+  deleteBlock,
   splitBlock,
   setBlockNote,
   setReadingRules,
@@ -536,6 +537,35 @@ export function CourseView({
     } catch (cause) {
       setError(String(cause));
       logError("workspace", "Scission impossible", cause);
+    }
+  }
+
+  /**
+   * Removes the open passage and steps to the one that takes its place.
+   *
+   * The ids after it all shift by one, so keeping the old selection would open
+   * whatever landed on that id — or nothing, at the end of a page.
+   */
+  async function discard(blockId: string) {
+    const ok = await confirm({
+      title: t("panel.delete.title"),
+      message: t("panel.delete.message"),
+      detail: t("panel.delete.detail"),
+      confirmLabel: t("common.delete"),
+      tone: "danger",
+    });
+    if (!ok) return;
+
+    const following = sequence[sequence.findIndex((e) => e.block.id === blockId) + 1]?.block.id;
+    try {
+      const updated = await deleteBlock(documentId, blockId);
+      setTranscript(updated);
+      const stillThere = updated.pages.some((p) => p.blocks.some((b) => b.id === following));
+      setOpenBlock(stillThere ? (following ?? null) : null);
+      onChanged();
+    } catch (cause) {
+      setError(String(cause));
+      logError("workspace", "Suppression du passage impossible", cause);
     }
   }
 
@@ -1100,6 +1130,7 @@ export function CourseView({
                     onNote={(note) => annotate(selected.block.id, note)}
                     onSplit={(head, tail) => split(selected.block.id, head, tail)}
                     onZoom={() => setViewing(selected.page - 1)}
+                    onDelete={() => discard(selected.block.id)}
                   />
                 )}
               </div>

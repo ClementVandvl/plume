@@ -638,6 +638,37 @@ fn split_in_transcript(
     Ok(page.blocks[at + 1].id.clone())
 }
 
+/// Takes one passage out and renumbers the page after it.
+fn remove_in_transcript(transcript: &mut ir::Transcript, block_id: &str) -> Result<(), String> {
+    let page = transcript
+        .pages
+        .iter_mut()
+        .find(|page| page.blocks.iter().any(|block| block.id == block_id))
+        .ok_or("Bloc introuvable.")?;
+
+    page.blocks.retain(|block| block.id != block_id);
+
+    let number = page.number;
+    for (index, block) in page.blocks.iter_mut().enumerate() {
+        block.id = format!("p{:02}-b{:02}", number, index + 1);
+    }
+    Ok(())
+}
+
+/// Removes a passage from the transcript.
+///
+/// A reading sometimes produces a heading with nothing under it, and a manual
+/// edit can leave a passage empty. The photograph is untouched: only the
+/// transcription loses it, and a fresh reading brings it back.
+#[tauri::command]
+fn delete_block(id: String, block_id: String) -> Result<ir::Transcript, String> {
+    let mut transcript = read_transcript(&id)?;
+    remove_in_transcript(&mut transcript, &block_id)?;
+    write_transcript(&id, &transcript)?;
+    logbus::info("workspace", format!("Passage {block_id} supprimé"));
+    Ok(transcript)
+}
+
 /// Splits one passage in two, so its halves can be treated separately.
 ///
 /// A worked example whose statement and answer were read as one block cannot
@@ -1210,6 +1241,7 @@ pub fn run() {
             cancel_corrections,
             save_block,
             split_block,
+            delete_block,
             reading_documents,
             set_block_note,
             apply_corrections,
@@ -1291,6 +1323,28 @@ mod tests {
         // Ids follow the new positions, including the untouched blocks after.
         let ids: Vec<&str> = blocks.iter().map(|b| b.id.as_str()).collect();
         assert_eq!(ids, vec!["p01-b01", "p01-b02", "p01-b03", "p01-b04"]);
+    }
+
+    /// Ids encode the position, so what follows a removal has to shift.
+    #[test]
+    fn removing_a_passage_renumbers_the_rest_of_its_page() {
+        let mut transcript = ir::Transcript {
+            version: 1,
+            pages: vec![page(1, 3), page(2, 2)],
+        };
+        transcript.pages[0].blocks[1].latex = "à supprimer".into();
+
+        remove_in_transcript(&mut transcript, "p01-b02").expect("remove");
+
+        let first: Vec<&str> = transcript.pages[0].blocks.iter().map(|b| b.id.as_str()).collect();
+        assert_eq!(first, vec!["p01-b01", "p01-b02"]);
+        assert_eq!(transcript.pages[0].blocks[1].latex, "page 1 bloc 3");
+
+        // The other page is untouched.
+        let second: Vec<&str> = transcript.pages[1].blocks.iter().map(|b| b.id.as_str()).collect();
+        assert_eq!(second, vec!["p02-b01", "p02-b02"]);
+
+        assert!(remove_in_transcript(&mut transcript, "p09-b01").is_err());
     }
 
     #[test]

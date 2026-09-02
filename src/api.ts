@@ -83,6 +83,10 @@ export const writeTemplatePreamble = (id: string, text: string) =>
 
 export const checkTemplate = (id: string) => invoke<void>("check_template", { id });
 
+/** Removes one passage. Returns the whole transcript. */
+export const deleteBlock = (id: string, blockId: string) =>
+  invoke<Transcript>("delete_block", { id, blockId });
+
 /** Replaces one passage with two. Returns the whole transcript. */
 export const splitBlock = (id: string, blockId: string, head: string, tail: string) =>
   invoke<Transcript>("split_block", { id, blockId, head, tail });

@@ -250,6 +250,12 @@ export const fr = {
   "panel.audience.student": "Version élève",
   "panel.kind.label": "Type de passage",
   "panel.title.label": "Titre (facultatif)",
+  "panel.delete": "Supprimer le passage",
+  "panel.delete.title": "Supprimer ce passage ?",
+  "panel.delete.message":
+    "Il disparaît de la transcription. La photo de la page n'est pas touchée.",
+  "panel.delete.detail":
+    "Une nouvelle lecture de la page le ferait revenir.",
   "split.action": "Scinder le passage",
   "split.why":
     "Pour traiter séparément les deux moitiés — garder une correction pour vous, par exemple.",

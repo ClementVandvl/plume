@@ -23,6 +23,8 @@ type Props = {
   onSplit: (head: string, tail: string) => Promise<void>;
   /** Opens the page photograph full screen. */
   onZoom: () => void;
+  /** Removes this passage from the transcription. */
+  onDelete: () => Promise<void>;
 };
 
 /** Canned starts for the note — the frequent reasons a passage is wrong. */
@@ -51,6 +53,7 @@ export function BlockPanel({
   onNote,
   onSplit,
   onZoom,
+  onDelete,
 }: Props) {
   const advanced = useAdvanced();
   const [draft, setDraft] = useState(block);
@@ -253,14 +256,24 @@ export function BlockPanel({
         </div>
 
         <div className="panel-side__tool">
-          <button
-            type="button"
-            className="btn btn--outline btn--sm"
-            onClick={() => setSplitting((current) => !current)}
-            disabled={saving}
-          >
-            {splitting ? t("common.cancel") : t("split.action")}
-          </button>
+          <div className="panel-side__toolrow">
+            <button
+              type="button"
+              className="btn btn--outline btn--sm"
+              onClick={() => setSplitting((current) => !current)}
+              disabled={saving}
+            >
+              {splitting ? t("common.cancel") : t("split.action")}
+            </button>
+            <button
+              type="button"
+              className="btn btn--danger btn--sm"
+              onClick={onDelete}
+              disabled={saving}
+            >
+              {t("panel.delete")}
+            </button>
+          </div>
           <span className="field__hint">{t("split.why")}</span>
         </div>
 

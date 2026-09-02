@@ -197,9 +197,14 @@ export function DocumentPreview({
                   className={`tex-heading tex-heading--${block.kind}`}
                   style={{ color: colour, borderColor: colour }}
                 >
-                  {block.kind === "paragraph"
-                    ? `${number}) ${block.title || block.latex}`
-                    : `${number} – ${block.title || block.latex}`}
+                  {/* No number on the page means no number here — not the
+                      word "null", which is what interpolating it produced. */}
+                  {[
+                    number && (block.kind === "paragraph" ? `${number})` : `${number} –`),
+                    block.title || block.latex,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 </p>
               ) : (
                 <div
