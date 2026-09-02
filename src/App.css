@@ -1988,6 +1988,19 @@ textarea.input {
   color: var(--color-text-muted);
 }
 
+/* The passage itself, on paper, bounded: a long one must not push the buttons
+   off the dialog. */
+.confirm__preview {
+  max-height: 220px;
+  margin-top: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-paper);
+  color: var(--color-paper-text);
+  border-radius: var(--radius-subtle);
+  font-size: var(--font-size-sm);
+  overflow: auto;
+}
+
 .confirm__foot {
   display: flex;
   justify-content: flex-end;

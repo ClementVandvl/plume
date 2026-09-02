@@ -24,6 +24,14 @@ type Ask = {
   tone?: Tone;
   /** Present for a rename-style dialog. */
   input?: { label: string; value: string; placeholder?: string };
+  /**
+   * What is about to be lost, shown as it appears in the course.
+   *
+   * Naming a passage is not enough to recognise it: an id means nothing, and a
+   * title is often absent. Seeing the passage itself is the only way to be sure
+   * of what a deletion takes.
+   */
+  preview?: ReactNode;
 };
 
 type Pending = Ask & { resolve: (value: string | null) => void };
@@ -91,6 +99,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 <h2 className="confirm__title">{pending.title}</h2>
                 <p className="confirm__message">{pending.message}</p>
                 {pending.detail && <p className="confirm__detail">{pending.detail}</p>}
+
+                {pending.preview && (
+                  <div className="confirm__preview">{pending.preview}</div>
+                )}
 
                 {pending.input && (
                   <label className="field">

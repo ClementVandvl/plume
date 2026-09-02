@@ -39,16 +39,16 @@ const transcript = {
       number: 1,
       sessionId: null,
       blocks: [
-        block("b1", "chapter", "Géométrie dans le plan", {
+        block("b1", "chapter", "", {
           title: "Géométrie dans le plan",
           number: "3",
         }),
-        block("b2", "part", "Vecteurs du plan", {
+        block("b2", "part", "", {
           title: "Vecteurs du plan",
           number: "II",
         }),
         // A heading the page did not number: it used to render as "null – …".
-        block("b2b", "subpart", "Exercices", { title: "Exercices" }),
+        block("b2b", "subpart", "", { title: "Exercices" }),
         block(
           "b3",
           "text",

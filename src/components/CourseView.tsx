@@ -50,6 +50,7 @@ import { moved, useDragOrder } from "../ui/dragOrder";
 import { AdvancedRow, Meter, OverflowMenu } from "../ui/controls";
 import { BlockPanel } from "./BlockPanel";
 import { PhotoViewer } from "./PhotoViewer";
+import { latexToHtml } from "../preview/latexToHtml";
 import { DocumentPreview } from "./DocumentPreview";
 import "katex/dist/katex.min.css";
 
@@ -547,12 +548,36 @@ export function CourseView({
    * whatever landed on that id — or nothing, at the end of a page.
    */
   async function discard(blockId: string) {
+    const entry = all.find((candidate) => candidate.block.id === blockId);
+    if (!entry) return;
+
+    const { block } = entry;
+    const heading = block.title?.trim();
     const ok = await confirm({
       title: t("panel.delete.title"),
       message: t("panel.delete.message"),
       detail: t("panel.delete.detail"),
       confirmLabel: t("common.delete"),
       tone: "danger",
+      // Shown as it reads in the course: a passage is recognised by its words,
+      // not by "Passage 7 sur 41".
+      preview: (
+        <>
+          <strong>
+            {KIND_LABEL[block.kind] ?? block.kind}
+            {heading ? ` — ${heading}` : ""}
+          </strong>
+          {block.latex.trim() && (
+            <div
+              dangerouslySetInnerHTML={{
+                // Without the colour map the review uses: it lives with the
+                // preview, and a dialog identifying a passage does not need it.
+                __html: latexToHtml(block.latex),
+              }}
+            />
+          )}
+        </>
+      ),
     });
     if (!ok) return;
 
