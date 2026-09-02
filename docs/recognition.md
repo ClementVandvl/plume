@@ -167,6 +167,23 @@ The consequence is worth knowing: a written passage lands exactly between two
 others, while a photographed one lands after the whole page holding the anchor.
 A photograph is a page, and a page cannot start in the middle of another.
 
+### Hand-numbered lists
+
+A property listing four rules came back as « 1)\quad ... » separated by blank
+lines. LaTeX starts an environment's first paragraph on the label's own line, so
+the PDF read "Propriété : 1) ..." with the rest beneath — while the review,
+which stacks, had promised otherwise. An `enumerate` starts on its own line in
+both, and aligns its items.
+
+The prompt asks for `enumerate`/`itemize`, and `enumerate_hand_numbered` catches
+what slips through: a run of at least two paragraphs, each opening with `n)` or
+`n.` **in order from one**. Numbers out of order, a single line, or ordinary
+paragraphs are left exactly as written.
+
+This is also why a short definition still reads "Définition (Vecteur) : Un
+vecteur est…" on one line, in the PDF as on paper: running the body on is right
+when the body is a sentence, and wrong only when it is a list.
+
 ### Invented page layout
 
 The prompt forbids `minipage`, `multicols`, `\rule`, `\hfill`, `\vspace` and

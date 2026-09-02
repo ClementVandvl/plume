@@ -28,6 +28,7 @@ Rules:
 - A keyword introducing a passage — « Définition : », « Propriété : », « Exemple : », « Remarque : » — is that block's own label, not a heading. Emit the block itself and nothing else; never a separate `paragraph` or `subpart` repeating the keyword above it. Emit a heading block only for a heading the page itself sets apart as one, with its own number.
 - Set `title` ONLY when the page itself writes a title next to the keyword, e.g. « Définition (vecteurs colinéaires) : ». If the page just says « Définition : », leave `title` empty. Never repeat the environment's own name as its title.
 - A diagram that belongs to an example or a proof stays inside that block's `latex`, wrapped in \begin{center}...\end{center}. Use a standalone `figure` block only for a diagram that stands on its own.
+- A numbered or bulleted list is `enumerate` or `itemize` with `\item`. Never number the lines by hand: written as « 1)\quad ... », the first item runs on after the environment's own label instead of starting its own line.
 - Maths in LaTeX: $...$ inline, \[...\] displayed. Vectors as \overrightarrow{AB} or \vec{u}.
 - A drawn diagram is a `figure` block whose `latex` is one complete tikzpicture environment. Redraw the mathematical object cleanly with named \coordinate and \draw[->]; do not trace the handwriting stroke by stroke. Map pen colour to semantic colours already defined by the document: black or blue -> mcTexte, red -> mcDef, green -> mcProp. Construction lines are dashed in mcTexte.
 - `audience` lists which exports keep the block, and defaults to both: ["teacher", "student"]. Restrict it to ["teacher"] ONLY when the teacher's own reading conventions below describe a visual marker that means "my copy only" AND that marker is present on this block. Never restrict a block because you judge it too hard, too detailed, or answer-like — that decision belongs to the teacher, not to you.
@@ -46,6 +47,46 @@ pub struct PageOutcome {
     pub cost_usd: f64,
     pub duration_ms: u64,
     pub turns: u32,
+}
+
+/// Turns a hand-numbered run of lines into a real `enumerate`.
+///
+/// A property listing four rules came back as « 1)\quad ... » separated by
+/// blank lines. LaTeX starts an environment's first paragraph on the label's
+/// own line, so the PDF read "Propriété : 1) ..." with the rest beneath, while
+/// the review — which stacks — had promised otherwise. An `enumerate` starts on
+/// its own line in both.
+///
+/// Only a run of at least two paragraphs, each opening with `n)` or `n.` in
+/// order from one, is converted. Anything else is left as written.
+fn enumerate_hand_numbered(latex: &str) -> Option<String> {
+    let paragraphs: Vec<&str> = latex.split("\n\n").map(str::trim).collect();
+    if paragraphs.len() < 2 {
+        return None;
+    }
+
+    let mut items: Vec<String> = Vec::new();
+    for (index, paragraph) in paragraphs.iter().enumerate() {
+        let expected = (index + 1).to_string();
+        let rest = paragraph
+            .strip_prefix(&expected)
+            .and_then(|r| r.strip_prefix(')').or_else(|| r.strip_prefix('.')))?;
+        let rest = rest.trim_start();
+        let rest = rest.strip_prefix("\\quad").unwrap_or(rest);
+        items.push(rest.trim().to_string());
+    }
+
+    if items.iter().any(|item| item.is_empty()) {
+        return None;
+    }
+    Some(format!(
+        "\\begin{{enumerate}}\n{}\n\\end{{enumerate}}",
+        items
+            .iter()
+            .map(|item| format!("\\item {item}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    ))
 }
 
 /// Page-layout constructs the prompt forbids, and how many braced arguments
@@ -421,6 +462,14 @@ pub fn transcribe_page(
 
     let mut blocks = blocks;
     for block in &mut blocks {
+        if let Some(listed) = enumerate_hand_numbered(&block.latex) {
+            logbus::detail(
+                "claude",
+                format!("Liste numérotée à la main convertie en enumerate (page {page_number})"),
+                "sinon le premier élément se colle à l'intitulé de l'encadré".to_string(),
+            );
+            block.latex = listed;
+        }
         let (cleaned, removed) = strip_layout(&block.latex);
         if !removed.is_empty() {
             logbus::warn(
@@ -612,6 +661,45 @@ pub fn correct_block(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The property that read "Propriété : 1) ..." in the PDF while the review
+    /// stacked all four rules.
+    #[test]
+    fn a_hand_numbered_run_becomes_a_list() {
+        let latex = "1)\\quad $\\dfrac{a}{c} + \\dfrac{b}{c} = \\dfrac{a+b}{c}$\n\n\
+                     2)\\quad $\\dfrac{a}{c} - \\dfrac{b}{c} = \\dfrac{a-b}{c}$\n\n\
+                     3)\\quad $\\dfrac{a}{b} \\times \\dfrac{c}{d} = \\dfrac{a \\times c}{b \\times d}$";
+
+        let listed = enumerate_hand_numbered(latex).expect("a list");
+
+        assert!(listed.starts_with("\\begin{enumerate}"));
+        assert!(listed.ends_with("\\end{enumerate}"));
+        assert_eq!(listed.matches("\\item").count(), 3);
+        assert!(!listed.contains("\\quad"), "the hand spacing goes with the hand numbering");
+        assert!(!listed.contains("1)"));
+        assert!(listed.contains("\\dfrac{a+b}{c}"), "the content is untouched");
+    }
+
+    #[test]
+    fn anything_that_is_not_a_list_is_left_alone() {
+        for latex in [
+            // A single paragraph, numbered or not.
+            "1)\\quad une seule ligne",
+            "Un vecteur est défini par une direction, un sens et une longueur.",
+            // Numbers out of order, or not starting at one.
+            "2) deux\n\n3) trois",
+            "1) un\n\n3) trois",
+            // Ordinary paragraphs that happen to follow each other.
+            "Première phrase.\n\nSeconde phrase.",
+            // A run whose items would be empty.
+            "1)\n\n2)",
+        ] {
+            assert!(
+                enumerate_hand_numbered(latex).is_none(),
+                "wrongly converted: {latex}"
+            );
+        }
+    }
 
     /// The passage that came out of a real page and broke the PDF: two
     /// columns with a rule between them, from a model told not to.
