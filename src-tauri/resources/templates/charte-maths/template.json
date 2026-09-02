@@ -1,6 +1,6 @@
 {
   "id": "charte-maths",
-  "version": 10,
+  "version": 11,
   "name": "Charte cours de maths",
   "description": "Environnements à crochet coloré, titres soulignés, numérotation I / 1 / a.",
   "engine": "pdflatex",
@@ -280,6 +280,12 @@
       "enabled": true,
       "title": "Annotations des schémas",
       "text": "Aucune étiquette ne doit toucher ni chevaucher un trait, une flèche, un point ou une autre étiquette. Chaque annotation est décalée perpendiculairement au segment qu'elle nomme, du côté extérieur de la figure, avec un écart d'au moins 3pt. Pour un vecteur nommé au milieu de son trait, ne place jamais le label sur le segment : décale-le avec anchor et xshift/yshift explicites. Si deux étiquettes risquent de se croiser, éloigne-les au lieu de les superposer. Une figure lisible prime sur une figure compacte."
+    },
+    {
+      "id": "inline-comment",
+      "enabled": true,
+      "title": "Commentaires à côté du calcul",
+      "text": "un commentaire écrit à droite d'une ligne de calcul reste à droite de cette ligne, jamais en dessous. Dans un environnement aligned, ouvre une colonne supplémentaire avec && et mets le commentaire dans \\text{…} :\n$\\begin{aligned}[t]\nC &= \\dfrac{-3}{4} \\times \\dfrac{5}{-7} && \\text{(on multiplie les numérateurs et dénominateurs)} \\\\\n&= \\dfrac{15}{28}\n\\end{aligned}$\nLe \\text{…} est indispensable : sans lui, la phrase est composée en italique mathématique, ses espaces sont supprimés et ses accents disparaissent. Utilise-le pour tout texte ordinaire à l'intérieur d'une formule, y compris « donc », « car » ou « avec »."
     }
   ]
 }

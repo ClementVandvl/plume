@@ -127,6 +127,18 @@ to the middle of the block. KaTeX ignores that option and would typeset it as a
 literal "[t]", so `forKatex` strips it **for the preview only**; the exported
 LaTeX keeps it.
 
+A third, `inline-comment`, keeps a remark written beside a calculation beside
+it, in ordinary type:
+
+```latex
+C &= \dfrac{-3}{4} \times \dfrac{5}{-7} && \text{(on multiplie les numérateurs)}
+```
+
+`&&` opens a further column, so the remark shares the line instead of dropping
+below it. `\text{…}` matters more than it looks: maths mode sets the phrase in
+italic, **removes its spaces and drops its accents** — "(on multiplie les
+numérateurs)" came out as "(onmultiplielesnumrateurs)".
+
 Unlike the preamble, conventions on the bundled template **are** editable, and an
 upgrade tells an edit from an untouched entry rather than guessing. Each shipped
 convention records its wording as delivered, in `shipped`:
