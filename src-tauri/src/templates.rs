@@ -147,6 +147,19 @@ pub fn seed(root: &Path) -> io::Result<()> {
             let mut preserved = 0usize;
             for key in &mut upgraded.keys {
                 if let Some(value) = kept.get(key.key.as_str()) {
+                    // Only when it still fits: a key whose meaning changed
+                    // carries values that no longer say anything.
+                    if !value_fits(&key.kind, value) {
+                        logbus::warn(
+                            "template",
+                            format!(
+                                "« {} » valait « {value} », qui n'a plus de sens pour ce réglage — \
+                                 remis à « {} »",
+                                key.label, key.value
+                            ),
+                        );
+                        continue;
+                    }
                     if *value != key.value {
                         preserved += 1;
                     }
@@ -434,12 +447,40 @@ pub fn write_preamble(root: &Path, id: &str, text: &str) -> Result<(), String> {
 /// Anything unreadable falls back to the body size rather than to nothing: an
 /// empty substitution would change the meaning of the group it sits in.
 pub fn size_command(value: &str) -> String {
-    let cleaned = value.trim().trim_end_matches("pt").trim().replace(',', ".");
-    match cleaned.parse::<f64>() {
-        Ok(points) if (4.0..=96.0).contains(&points) => {
+    match parse_points(value) {
+        Some(points) => {
             format!("\\fontsize{{{points}pt}}{{{:.1}pt}}\\selectfont", points * 1.2)
         }
-        _ => "\\normalsize".to_string(),
+        None => "\\normalsize".to_string(),
+    }
+}
+
+/// A type size in points, if the value is one. Shared with `value_fits`, so the
+/// screen and the renderer never disagree about what counts as a size.
+fn parse_points(value: &str) -> Option<f64> {
+    let cleaned = value.trim().trim_end_matches("pt").trim().replace(',', ".");
+    cleaned.parse::<f64>().ok().filter(|p| (4.0..=96.0).contains(p))
+}
+
+/// Whether a stored value still means something for a key of this kind.
+///
+/// `seed` carries the teacher's values across an upgrade, which assumes the
+/// value still fits the key. It did not when the size keys moved from a named
+/// ladder to a number of points: "xlarge" was preserved into a numeric field,
+/// which rendered blank, and the size silently fell back to the body text. A
+/// value that no longer parses is not the teacher's choice any more — it is a
+/// leftover, and the delivered default is the better answer.
+fn value_fits(kind: &str, value: &str) -> bool {
+    match kind {
+        "size" => parse_points(value).is_some(),
+        "color" => {
+            let hex = value.trim().trim_start_matches('#');
+            (hex.len() == 6 || hex.len() == 3) && hex.chars().all(|c| c.is_ascii_hexdigit())
+        }
+        other => match other.strip_prefix("choice:") {
+            Some(options) => options.split('|').any(|option| option == value.trim()),
+            None => true,
+        },
     }
 }
 
@@ -590,6 +631,59 @@ mod tests {
         for value in ["", "grand", "abc", "0", "-4", "500", "12pt12"] {
             assert_eq!(size_command(value), "\\normalsize", "for {value:?}");
         }
+    }
+
+    #[test]
+    fn a_value_fits_only_while_it_still_means_something() {
+        assert!(value_fits("size", "16"));
+        assert!(value_fits("size", " 13,5 pt "));
+        assert!(!value_fits("size", "xlarge"), "the ladder this key used to hold");
+        assert!(!value_fits("size", ""));
+
+        assert!(value_fits("color", "#A93226"));
+        assert!(value_fits("color", "abc"));
+        assert!(!value_fits("color", "rouge"));
+
+        assert!(value_fits("choice:a4paper|letterpaper", "letterpaper"));
+        assert!(!value_fits("choice:a4paper|letterpaper", "a3paper"));
+
+        // Free text and lengths take whatever the teacher wrote.
+        assert!(value_fits("text", "Démonstration"));
+        assert!(value_fits("length", "2.2cm"));
+    }
+
+    /// The size keys changed meaning between two deliveries, and the upgrade
+    /// carried the old names into a numeric field: it rendered blank, and the
+    /// title quietly fell back to the body size.
+    #[test]
+    fn an_upgrade_drops_a_value_its_key_can_no_longer_read() {
+        let root = scratch("stale-value");
+
+        let mut installed = load(&root, BUILTIN_ID).unwrap();
+        for key in &mut installed.keys {
+            match key.key.as_str() {
+                "size.chapter" => key.value = "xlarge".into(),
+                "color.chapter" => key.value = "#123456".into(),
+                _ => {}
+            }
+        }
+        installed.version = 1;
+        fs::write(
+            dir(&root).join(BUILTIN_ID).join("template.json"),
+            serde_json::to_string_pretty(&installed).unwrap(),
+        )
+        .unwrap();
+
+        seed(&root).expect("upgrade");
+
+        let after = load(&root, BUILTIN_ID).unwrap();
+        let value = |name: &str| {
+            after.keys.iter().find(|k| k.key == name).unwrap().value.clone()
+        };
+        assert_eq!(value("size.chapter"), "16", "a stale value gives way to the default");
+        assert_eq!(value("color.chapter"), "#123456", "a valid choice is still theirs");
+
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
