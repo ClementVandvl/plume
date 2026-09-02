@@ -17,7 +17,12 @@ import type { Convention, DocumentSummary, Template, TemplateKey } from "../type
 import { KIND_LABEL } from "../types";
 
 /**
- * The layout editor — "Ma mise en page".
+ * The house-style editor — "Mes chartes".
+ *
+ * A charte is more than a look: it carries the colours, the LaTeX skeleton,
+ * how each kind of passage is written, and the typesetting rules the model is
+ * told about. The stored object stays a `Template`, which is what the backend
+ * and the workbook folder call it.
  *
  * The bundled template is deliberately read-mostly. `seed` rewrites its
  * preamble whenever Plume ships a new version, so an edit made there would
@@ -33,15 +38,15 @@ import { KIND_LABEL } from "../types";
 const BUILTIN_ID = "charte-maths";
 
 const MODES = [
-  { id: "command", labelKey: "layout.mode.command" },
-  { id: "environment", labelKey: "layout.mode.environment" },
-  { id: "raw", labelKey: "layout.mode.raw" },
-  { id: "centered", labelKey: "layout.mode.centered" },
+  { id: "command", labelKey: "houseStyle.mode.command" },
+  { id: "environment", labelKey: "houseStyle.mode.environment" },
+  { id: "raw", labelKey: "houseStyle.mode.raw" },
+  { id: "centered", labelKey: "houseStyle.mode.centered" },
 ] as const;
 
 type Tab = "keys" | "rules" | "preamble" | "blocks";
 
-export function TemplatesView({
+export function HouseStyleView({
   templates,
   documents,
   onSaved,
@@ -171,20 +176,20 @@ export function TemplatesView({
       }
       if (keysDirty) await saveTemplate(draft);
       onSaved();
-      setDone(t("layout.saved"));
+      setDone(t("houseStyle.saved"));
     });
   }
 
   async function duplicate() {
     if (!selected) return;
     const name = await confirm.promptFor({
-      title: t("layout.duplicate.title"),
-      message: t("layout.duplicate.message", { name: selected.name }),
-      detail: t("layout.duplicate.detail"),
+      title: t("houseStyle.duplicate.title"),
+      message: t("houseStyle.duplicate.message", { name: selected.name }),
+      detail: t("houseStyle.duplicate.detail"),
       confirmLabel: t("common.duplicate"),
       input: {
-        label: t("layout.duplicate.field"),
-        value: t("layout.duplicate.default", { name: selected.name }),
+        label: t("houseStyle.duplicate.field"),
+        value: t("houseStyle.duplicate.default", { name: selected.name }),
       },
     });
     if (!name) return;
@@ -200,9 +205,9 @@ export function TemplatesView({
   async function remove() {
     if (!selected) return;
     const ok = await confirm.confirm({
-      title: t("layout.delete.title", { name: selected.name }),
-      message: t("layout.delete.message"),
-      detail: t("layout.delete.detail"),
+      title: t("houseStyle.delete.title", { name: selected.name }),
+      message: t("houseStyle.delete.message"),
+      detail: t("houseStyle.delete.detail"),
       confirmLabel: t("common.delete"),
       tone: "danger",
     });
@@ -227,24 +232,24 @@ export function TemplatesView({
       if (keysDirty) await saveTemplate(draft);
       await checkTemplate(draft.id);
       onSaved();
-      setDone(t("layout.compiles"));
+      setDone(t("houseStyle.compiles"));
     });
   }
 
   if (!draft || !selected) {
-    return <p className="muted">{t("layout.none")}</p>;
+    return <p className="muted">{t("houseStyle.none")}</p>;
   }
 
   const TABS: [Tab, string][] = advanced
     ? [
-        ["keys", t("layout.tab.keys")],
-        ["rules", t("layout.tab.rules")],
-        ["preamble", t("layout.tab.preamble")],
-        ["blocks", t("layout.tab.blocks")],
+        ["keys", t("houseStyle.tab.keys")],
+        ["rules", t("houseStyle.tab.rules")],
+        ["preamble", t("houseStyle.tab.preamble")],
+        ["blocks", t("houseStyle.tab.blocks")],
       ]
     : [
-        ["keys", t("layout.tab.keys")],
-        ["rules", t("layout.tab.rules")],
+        ["keys", t("houseStyle.tab.keys")],
+        ["rules", t("houseStyle.tab.rules")],
       ];
 
   return (
@@ -253,8 +258,8 @@ export function TemplatesView({
         <div>
           <h1 className="page-title">{draft.name}</h1>
           <p className="page-subtitle">
-            {builtin ? t("layout.subtitle.builtin") : draft.description}
-            {usedBy > 0 && <> · {tn("layout.usedBy", usedBy)}</>}
+            {builtin ? t("houseStyle.subtitle.builtin") : draft.description}
+            {usedBy > 0 && <> · {tn("houseStyle.usedBy", usedBy)}</>}
           </p>
         </div>
         <div className="page-head__tools">
@@ -264,7 +269,7 @@ export function TemplatesView({
             onClick={duplicate}
             disabled={busy !== null}
           >
-            {busy === "duplicate" ? t("layout.duplicating") : t("common.duplicate")}
+            {busy === "duplicate" ? t("houseStyle.duplicating") : t("common.duplicate")}
           </button>
           <button
             type="button"
@@ -288,14 +293,14 @@ export function TemplatesView({
             >
               {tpl.name}
               {tpl.id === BUILTIN_ID && (
-                <span className="chip__count">{t("layout.builtinFlag")}</span>
+                <span className="chip__count">{t("houseStyle.builtinFlag")}</span>
               )}
             </button>
           ))}
         </div>
       )}
 
-      {builtin && advanced && <p className="notice">{t("layout.builtin.notice")}</p>}
+      {builtin && advanced && <p className="notice">{t("houseStyle.builtin.notice")}</p>}
 
       {error && (
         <p className="notice notice--error" role="alert">
@@ -323,10 +328,10 @@ export function TemplatesView({
         <>
           {advanced && (
             <section className="stack stack--tight">
-              <h2 className="section-title">{t("layout.identity.title")}</h2>
+              <h2 className="section-title">{t("houseStyle.identity.title")}</h2>
               <div className="keys">
                 <label className="key">
-                  <span className="key__label">{t("layout.identity.name")}</span>
+                  <span className="key__label">{t("houseStyle.identity.name")}</span>
                   <input
                     className="input"
                     value={draft.name}
@@ -336,7 +341,7 @@ export function TemplatesView({
                   <code className="key__id">{draft.id}</code>
                 </label>
                 <label className="key">
-                  <span className="key__label">{t("layout.identity.description")}</span>
+                  <span className="key__label">{t("houseStyle.identity.description")}</span>
                   <input
                     className="input"
                     value={draft.description}
@@ -366,7 +371,7 @@ export function TemplatesView({
 
           {!advanced && (
             <p className="field__hint">
-              {t("layout.advanced.row")} — {t("titlebar.mode.advanced")}
+              {t("houseStyle.advanced.row")} — {t("titlebar.mode.advanced")}
             </p>
           )}
         </>
@@ -374,16 +379,13 @@ export function TemplatesView({
 
       {tab === "rules" && (
         <>
-          <section className="listcard">
-            <header className="listcard__head">
-              <div className="listcard__lead">
-                <span className="listcard__heading">{t("layout.rules.title")}</span>
-                <span className="listcard__hint">{t("layout.rules.hint")}</span>
-              </div>
-            </header>
+          {/* Outside the card, like "Mes consignes": inside it, the description
+              ran straight into the first rule and the two read as one list. */}
+          <p className="page-subtitle page-subtitle--wide">{t("houseStyle.rules.hint")}</p>
 
+          <section className="listcard">
             {draft.conventions.length === 0 ? (
-              <p className="listcard__empty">{t("layout.rules.empty")}</p>
+              <p className="listcard__empty">{t("houseStyle.rules.empty")}</p>
             ) : (
               draft.conventions.map((convention) => (
                 <div
@@ -410,7 +412,7 @@ export function TemplatesView({
             )}
 
             <button type="button" className="listcard__add" onClick={addConvention}>
-              {t("layout.rules.add")}
+              {t("houseStyle.rules.add")}
             </button>
           </section>
 
@@ -447,7 +449,7 @@ export function TemplatesView({
       {tab === "preamble" && (
         <section className="stack stack--tight">
           <div className="section-head">
-            <h2 className="section-title">{t("layout.tab.preamble")}</h2>
+            <h2 className="section-title">{t("houseStyle.tab.preamble")}</h2>
             <div className="page-head__tools">
               <button
                 type="button"
@@ -455,7 +457,7 @@ export function TemplatesView({
                 onClick={verify}
                 disabled={busy !== null}
               >
-                {busy === "check" ? t("layout.verifying") : t("layout.verify")}
+                {busy === "check" ? t("houseStyle.verifying") : t("houseStyle.verify")}
               </button>
               <button
                 type="button"
@@ -466,12 +468,12 @@ export function TemplatesView({
                     .catch((cause) => setError(String(cause)))
                 }
               >
-                {rendered ? t("layout.preview.refresh") : t("layout.preview.substituted")}
+                {rendered ? t("houseStyle.preview.refresh") : t("houseStyle.preview.substituted")}
               </button>
             </div>
           </div>
           <p className="field__hint">
-            {t("layout.preamble.hint", { syntax: "{{clé}}" })}
+            {t("houseStyle.preamble.hint", { syntax: "{{clé}}" })}
           </p>
           <textarea
             className="input code-area"
@@ -486,8 +488,8 @@ export function TemplatesView({
 
       {tab === "blocks" && (
         <section className="stack stack--tight">
-          <h2 className="section-title">{t("layout.blocks.title")}</h2>
-          <p className="field__hint">{t("layout.blocks.hint")}</p>
+          <h2 className="section-title">{t("houseStyle.blocks.title")}</h2>
+          <p className="field__hint">{t("houseStyle.blocks.hint")}</p>
           <div className="keys">
             {Object.entries(draft.blocks)
               .sort(([a], [b]) => (KIND_LABEL[a] ?? a).localeCompare(KIND_LABEL[b] ?? b))
@@ -524,9 +526,9 @@ export function TemplatesView({
 
       {!builtin && advanced && (
         <section className="stack stack--tight">
-          <h2 className="section-title">{t("layout.danger.title")}</h2>
+          <h2 className="section-title">{t("houseStyle.danger.title")}</h2>
           <div className="folder">
-            <p className="folder__path">{t("layout.danger.text", { name: draft.name })}</p>
+            <p className="folder__path">{t("houseStyle.danger.text", { name: draft.name })}</p>
             <button
               type="button"
               className="btn btn--danger"

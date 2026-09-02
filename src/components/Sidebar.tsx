@@ -18,7 +18,7 @@ const HELP_URL = "https://github.com/ClementVandvl/plume#readme";
 const SECTIONS = [
   { name: "home", labelKey: "nav.home", icon: "home" },
   { name: "courses", labelKey: "nav.courses", icon: "book" },
-  { name: "templates", labelKey: "nav.layout", icon: "palette" },
+  { name: "houseStyle", labelKey: "nav.houseStyle", icon: "palette" },
   { name: "instructions", labelKey: "nav.instructions", icon: "marker" },
 ] as const;
 

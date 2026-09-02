@@ -21,7 +21,7 @@ import { HomeView } from "./components/HomeView";
 import { InstructionsView } from "./components/InstructionsView";
 import { SettingsModal } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
-import { TemplatesView } from "./components/TemplatesView";
+import { HouseStyleView } from "./components/HouseStyleView";
 import { TrashView } from "./components/TrashView";
 import { Icon } from "./ui/Icon";
 import { Titlebar, type UiMode } from "./ui/Titlebar";
@@ -135,8 +135,8 @@ export default function App() {
       ? currentCourse?.title
       : route.name === "courses"
         ? t("nav.courses")
-        : route.name === "templates"
-          ? t("nav.layout")
+        : route.name === "houseStyle"
+          ? t("nav.houseStyle")
           : route.name === "instructions"
             ? t("nav.instructions")
             : route.name === "trash"
@@ -236,8 +236,8 @@ export default function App() {
               <InstructionsView settings={settings} onSaved={setSettings} />
             )}
 
-            {route.name === "templates" && (
-              <TemplatesView
+            {route.name === "houseStyle" && (
+              <HouseStyleView
                 templates={templates}
                 documents={documents}
                 onSaved={() => refresh().catch(onRefreshError)}

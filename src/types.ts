@@ -187,7 +187,7 @@ export const AUDIENCE_LABEL: Record<string, string> = {
 export type Route =
   | { name: "home" }
   | { name: "courses" }
-  | { name: "templates" }
+  | { name: "houseStyle" }
   | { name: "instructions" }
   | { name: "trash" }
   | { name: "course"; id: string; step?: StepId };
