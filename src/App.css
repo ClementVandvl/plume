@@ -153,6 +153,101 @@ body {
   border-radius: var(--radius-subtle);
 }
 
+/* ---------- Full-screen photograph ---------- */
+/* Above everything, including the title bar: reading the handwriting is the
+   whole point, so nothing competes with it. */
+.viewer {
+  position: fixed;
+  inset: 0;
+  /* Above the modal backdrop (20) and the sticky bars: nothing competes with
+     the handwriting being read. */
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: rgb(19 18 17 / 94%);
+  backdrop-filter: blur(2px);
+}
+
+.viewer__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-console-text);
+}
+
+.viewer__count {
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.viewer__stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 0 var(--space-lg) var(--space-lg);
+  overflow: auto;
+}
+
+.viewer__image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-subtle);
+  cursor: zoom-in;
+}
+
+/* Actual size: the stage scrolls instead of shrinking the photograph, which is
+   what a teacher wants when a single word is unclear. */
+.viewer__stage--zoomed {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.viewer__stage--zoomed .viewer__image {
+  max-width: none;
+  max-height: none;
+  cursor: zoom-out;
+}
+
+.viewer__step {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-console-surface);
+  color: var(--color-console-text);
+  cursor: pointer;
+}
+
+.viewer__step:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.viewer__step--prev {
+  left: var(--space-md);
+}
+
+.viewer__step--next {
+  right: var(--space-md);
+}
+
 /* ---------- Boot ---------- */
 /* Held until the workbook has answered once: an empty list and an unread one
    look identical, and the welcome screen flashing at someone with forty
@@ -3561,10 +3656,6 @@ textarea.code-area {
   background: var(--color-paper-ground);
   overflow: hidden;
   max-height: 150px;
-}
-
-.excerpt--large {
-  max-height: none;
 }
 
 .excerpt img {

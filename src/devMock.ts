@@ -301,7 +301,12 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   save_settings: (args) => Object.assign(settings, args.settings as object),
   workspace_path: () => "/Users/vous/Documents/Plume",
   get_document: (args) => documents.find((d) => d.id === args.id) ?? documents[0],
-  document_page_paths: () => [],
+  // Real-looking page paths, so the full-screen viewer can be worked on.
+  document_page_paths: () => [
+    '/mock/IMG_4021.jpg',
+    '/mock/IMG_4022.jpg',
+    '/mock/IMG_4023.jpg',
+  ],
   load_transcript: () => transcript,
   logs: () => logs,
   clear_logs: () => undefined,

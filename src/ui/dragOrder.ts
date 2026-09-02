@@ -1,4 +1,4 @@
-import { useState, type PointerEvent, type RefObject } from "react";
+import { useRef, useState, type PointerEvent, type RefObject } from "react";
 
 /**
  * Reordering a list by dragging, on pointer events.
@@ -62,6 +62,13 @@ export function useDragOrder(
 ) {
   const { axis = "list", onSettle } = options;
   const [held, setHeld] = useState<number | null>(null);
+  /**
+   * True when the pointer that just went up had reordered something.
+   *
+   * A drop fires a click as well, and on a grid of thumbnails that click also
+   * opens the photograph. The caller reads this to tell one from the other.
+   */
+  const dragged = useRef(false);
 
   function grab(event: PointerEvent, index: number) {
     event.preventDefault();
@@ -70,6 +77,7 @@ export function useDragOrder(
 
     let from = index;
     let moved = false;
+    dragged.current = false;
     setHeld(index);
 
     const onPointerMove = (pointer: PointerEvent | globalThis.PointerEvent) => {
@@ -86,6 +94,7 @@ export function useDragOrder(
         onMove(from, to);
         from = to;
         moved = true;
+        dragged.current = true;
         setHeld(to);
       }
     };
@@ -101,7 +110,7 @@ export function useDragOrder(
     window.addEventListener("pointerup", onPointerUp);
   }
 
-  return { held, grab };
+  return { held, grab, dragged };
 }
 
 /** Moves one item, returning a new array. */

@@ -48,6 +48,7 @@ import { Icon } from "../ui/Icon";
 import { moved, useDragOrder } from "../ui/dragOrder";
 import { AdvancedRow, Meter, OverflowMenu } from "../ui/controls";
 import { BlockPanel } from "./BlockPanel";
+import { PhotoViewer } from "./PhotoViewer";
 import { DocumentPreview } from "./DocumentPreview";
 import "katex/dist/katex.min.css";
 
@@ -130,10 +131,13 @@ export function CourseView({
    * reorders locally and only the drop is persisted: renaming files on every
    * intermediate position would be a lot of work to undo.
    */
+  /** Index of the page shown full screen, null when the viewer is closed. */
+  const [viewing, setViewing] = useState<number | null>(null);
+
   const [ordering, setOrdering] = useState<string[] | null>(null);
   const pendingOrder = useRef<string[] | null>(null);
   const thumbsRef = useRef<HTMLDivElement>(null);
-  const { held, grab } = useDragOrder(
+  const { held, grab, dragged } = useDragOrder(
     thumbsRef,
     (from, to) =>
       setOrdering((current) => {
@@ -545,6 +549,9 @@ export function CourseView({
   useEffect(() => {
     if (step !== "review") return;
     const onKey = (event: KeyboardEvent) => {
+      // The photograph owns the keyboard while it is open: Entrée would
+      // otherwise approve the passage hidden behind it.
+      if (viewing !== null) return;
       const target = event.target as HTMLElement | null;
       const tag = target?.tagName ?? "";
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
@@ -564,7 +571,7 @@ export function CourseView({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, openBlock, transcript, filter]);
+  }, [step, openBlock, transcript, filter, viewing]);
 
   if (!document) return <p className="muted">{t("app.loading")}</p>;
 
@@ -726,6 +733,13 @@ export function CourseView({
                       // not start when the pointer went down on it.
                       if ((event.target as HTMLElement).closest(".thumb__remove")) return;
                       grab(event, index);
+                    }}
+                    // A drop fires a click too; only a still pointer opens the
+                    // photograph.
+                    onClick={(event) => {
+                      if (dragged.current) return;
+                      if ((event.target as HTMLElement).closest(".thumb__remove")) return;
+                      setViewing(index);
                     }}
                   >
                     <img
@@ -1085,6 +1099,7 @@ export function CourseView({
                     onSave={persist}
                     onNote={(note) => annotate(selected.block.id, note)}
                     onSplit={(head, tail) => split(selected.block.id, head, tail)}
+                    onZoom={() => setViewing(selected.page - 1)}
                   />
                 )}
               </div>
@@ -1237,6 +1252,15 @@ export function CourseView({
           </div>
         )}
       </div>
+
+      {viewing !== null && (
+        <PhotoViewer
+          paths={pagePaths}
+          index={viewing}
+          onIndex={setViewing}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   );
 }

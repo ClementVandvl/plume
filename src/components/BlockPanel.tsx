@@ -21,6 +21,8 @@ type Props = {
   onNote: (note: string | null) => Promise<void>;
   /** Replaces this passage with two. */
   onSplit: (head: string, tail: string) => Promise<void>;
+  /** Opens the page photograph full screen. */
+  onZoom: () => void;
 };
 
 /** Canned starts for the note — the frequent reasons a passage is wrong. */
@@ -48,12 +50,12 @@ export function BlockPanel({
   onSave,
   onNote,
   onSplit,
+  onZoom,
 }: Props) {
   const advanced = useAdvanced();
   const [draft, setDraft] = useState(block);
   const [note, setNote] = useState(block.note ?? "");
   const [saving, setSaving] = useState(false);
-  const [photoLarge, setPhotoLarge] = useState(false);
   const [latexOpen, setLatexOpen] = useState(advanced);
   const [splitting, setSplitting] = useState(false);
 
@@ -159,14 +161,14 @@ export function BlockPanel({
         {pageSrc && (
           <div className="stack stack--tight">
             <span className="overline">{t("panel.photo.title")}</span>
-            <div className={`excerpt ${photoLarge ? "excerpt--large" : ""}`}>
-              <img src={convertFileSrc(pageSrc)} alt={t("pages.page", { number: page })} />
-              <button
-                type="button"
-                className="excerpt__zoom"
-                onClick={() => setPhotoLarge((large) => !large)}
-              >
-                {photoLarge ? t("panel.photo.reduce") : t("panel.photo.enlarge")}
+            <div className="excerpt">
+              <img
+                src={convertFileSrc(pageSrc)}
+                alt={t("pages.page", { number: page })}
+                onClick={onZoom}
+              />
+              <button type="button" className="excerpt__zoom" onClick={onZoom}>
+                {t("panel.photo.enlarge")}
               </button>
             </div>
           </div>

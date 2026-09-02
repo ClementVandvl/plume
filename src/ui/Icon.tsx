@@ -23,6 +23,7 @@ const PATHS: Record<string, string> = {
   upload:
     "M4 16.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5M12 3v11m0-11 4 4m-4-4-4 4",
   back: "m14 6-8 6 8 6",
+  next: "m10 6 8 6-8 6",
   "chevron-down": "m6 9 6 6 6-6",
   warning:
     "M12 9v5m0 3v.01M10.3 3.9 2.6 17.2A1.6 1.6 0 0 0 4 19.6h16a1.6 1.6 0 0 0 1.4-2.4L13.7 3.9a1.6 1.6 0 0 0-2.8 0",

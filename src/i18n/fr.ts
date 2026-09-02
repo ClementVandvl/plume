@@ -135,6 +135,12 @@ export const fr = {
   // ----------------------------------------------------------- course/photos
   "pages.title.one": "{count} page dans ce cours",
   "pages.title.other": "{count} pages dans ce cours",
+  "viewer.title": "Photo de la page {number}",
+  "viewer.of": "Page {number} sur {total}",
+  "viewer.zoom": "Taille réelle",
+  "viewer.fit": "Ajuster à l'écran",
+  "viewer.previous": "Page précédente",
+  "viewer.next": "Page suivante",
   "pages.reorder.hint":
     "Glissez une vignette pour changer l'ordre des pages.",
   "pages.add": "+ Ajouter des photos",
@@ -231,7 +237,6 @@ export const fr = {
   "panel.next": "Passage suivant",
   "panel.photo.title": "Votre page",
   "panel.photo.enlarge": "Agrandir la photo",
-  "panel.photo.reduce": "Réduire la photo",
   "panel.wrong.title": "Qu'est-ce qui ne va pas ?",
   "panel.wrong.formula": "Formule fausse",
   "panel.wrong.kind": "Mauvais type de passage",
