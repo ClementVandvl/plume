@@ -114,6 +114,18 @@ Windows code signing follows the same shape (`WINDOWS_CERTIFICATE`,
 `WINDOWS_CERTIFICATE_PASSWORD`) and needs a certificate from a commercial
 authority; without it, SmartScreen warns on first run.
 
+## The macOS traffic lights
+
+Our title bar is 44pt tall; macOS places its window buttons for a standard 28pt
+one, so they sit above the wordmark. `trafficLightPosition` moves them, but its
+`y` is not the gap above the buttons: tao resizes the title-bar container to
+`button height + y`, which means **y = 16 reproduces the standard bar exactly**
+and moves nothing. Past that the relation is one for one — each extra point
+lowers the buttons by a point.
+
+Ours is at 24, eight points below the default, to line the buttons up with the
+feather. If the bar height changes, this number has to change with it.
+
 ## Updates
 
 Plume checks for a new version and installs it on demand, from the settings
