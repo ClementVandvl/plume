@@ -3959,21 +3959,32 @@ textarea.code-area {
 }
 
 /* ---------- Export step ---------- */
+/* The step takes the height it is given rather than a fixed box: the preview
+   is the whole point of this screen, and reading a page of the PDF should not
+   mean scrolling the settings beside it out of the way. Each column then
+   scrolls on its own, as the review step's two panes do. */
 .exportstep {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr);
   gap: var(--space-xl);
-  align-items: start;
 }
 
 .exportstep__side {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  /* A grid item will not shrink below its content without this, and the
+     column would push the preview off the bottom instead of scrolling. */
+  min-height: 0;
+  overflow-y: auto;
 }
 
+/* A floor rather than a height: on a short window the body scrolls, which
+   beats squashing the preview into a letterbox. */
 .exportstep__preview {
-  min-height: 620px;
+  min-height: 420px;
   display: flex;
   flex-direction: column;
   background: var(--color-paper-ground);
@@ -3993,7 +4004,7 @@ textarea.code-area {
 .pdf-preview {
   flex: 1;
   width: 100%;
-  min-height: 620px;
+  min-height: 0;
   border: none;
   background: var(--color-paper-ground);
 }
