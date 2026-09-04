@@ -24,6 +24,7 @@ import {
   splitBlock,
   setBlockNote,
   setReadingRules,
+  setTaughtEnd,
   transcribeDocument,
 } from "../api";
 import { formatMoney, t, tn } from "../i18n";
@@ -94,6 +95,8 @@ export function CourseView({
   const [step, setStep] = useState<StepId>(initialStep ?? "pages");
   const [model, setModel] = useState(defaultModel);
   const [audience, setAudience] = useState("teacher");
+  /** Stop the PDF where the class stopped, rather than at the end. */
+  const [taughtOnly, setTaughtOnly] = useState(false);
   const [rules, setRules] = useState("");
   const [progress, setProgress] = useState<TranscriptionProgress | null>(null);
   const [scan, setScan] = useState<Record<number, ScanInfo>>({});
@@ -249,8 +252,54 @@ export function CourseView({
 
   const template = templates.find((tpl) => tpl.id === document?.templateId);
   const blocks = transcript?.pages.flatMap((p) => p.blocks) ?? [];
-  const keptFor = (who: string) =>
-    blocks.filter((b) => b.audience.length === 0 || b.audience.includes(who)).length;
+
+  /**
+   * What one export would contain. Mirrors `kept()` in render.rs, and has to
+   * stay identical to it: this is what the screen promises before the PDF is
+   * made, so a disagreement between the two is a promise the export breaks.
+   *
+   * Two filters — who it is for, and how far the class got. The boundary is
+   * inclusive, and is checked even on a passage the audience filter dropped,
+   * so a teacher-only answer carrying the mark still ends the student handout.
+   */
+  const keptBlocks = (who: string, stopAtTaught: boolean) => {
+    const out: Block[] = [];
+    for (const block of blocks) {
+      if (who === "all" || block.audience.length === 0 || block.audience.includes(who)) {
+        out.push(block);
+      }
+      if (stopAtTaught && block.taughtEnd) break;
+    }
+    return out;
+  };
+  const keptFor = (who: string) => keptBlocks(who, false).length;
+
+  // Where the class got to, and what that means for this export.
+  const taughtAt = blocks.findIndex((b) => b.taughtEnd);
+  const taughtBlock = taughtAt < 0 ? null : blocks[taughtAt];
+  // Named the way the teacher would name it: by its title when it has one,
+  // and by what it is and where it sits when it has not.
+  const taughtName = !taughtBlock
+    ? ""
+    : taughtBlock.title?.trim()
+      ? `« ${taughtBlock.title.trim()} »`
+      : t("taught.unnamed", {
+          kind: KIND_LABEL[taughtBlock.kind] ?? taughtBlock.kind,
+          page:
+            transcript?.pages.find((page) =>
+              page.blocks.some((b) => b.id === taughtBlock.id),
+            )?.number ?? 1,
+        });
+  const taughtComplete = taughtAt >= 0 && taughtAt === blocks.length - 1;
+  // A document that ends on a heading with nothing under it. Worth saying
+  // before the mail goes out, not worth refusing: a lesson can genuinely end
+  // on the title of what comes next week.
+  const inThisExport = keptBlocks(audience, taughtOnly);
+  const lastKept = inThisExport[inThisExport.length - 1];
+  const taughtDangling =
+    taughtOnly &&
+    !!lastKept &&
+    ["chapter", "part", "subpart", "paragraph"].includes(lastKept.kind);
   const doubtful = blocks.filter((b) => b.confidence < DOUBT_THRESHOLD && !b.reviewed);
   const annotated = blocks.filter((b) => b.note);
   const teacherOnly = blocks.filter(
@@ -259,6 +308,29 @@ export function CourseView({
   const studentOnly = blocks.filter(
     (b) => b.audience.length > 0 && !b.audience.includes("teacher"),
   );
+
+  /**
+   * A marked course proposes stopping there.
+   *
+   * The dangerous default is the other one: forgetting to switch sends next
+   * week's lesson to the class, and a mail cannot be recalled. Applied once
+   * per course, so it never overrides a choice already made on this screen.
+   */
+  const defaulted = useRef(false);
+  useEffect(() => {
+    defaulted.current = false;
+  }, [documentId]);
+  useEffect(() => {
+    if (!transcript || defaulted.current) return;
+    defaulted.current = true;
+    setTaughtOnly(transcript.pages.some((page) => page.blocks.some((b) => b.taughtEnd)));
+  }, [transcript]);
+
+  // Clearing the boundary from the review leaves this choice pointing at
+  // nothing, and the build would refuse. Fall back rather than fail.
+  useEffect(() => {
+    if (taughtOnly && taughtAt < 0) setTaughtOnly(false);
+  }, [taughtOnly, taughtAt]);
 
   // "À vérifier" is the useful filter only while something is flagged. Landing
   // on it empty — or being left staring at it after clearing the last doubt —
@@ -405,7 +477,7 @@ export function CourseView({
     setError(null);
     setBuilding(true);
     try {
-      setBuild(await buildDocument(documentId, audience));
+      setBuild(await buildDocument(documentId, audience, taughtOnly));
       // The PDF is rewritten at the same path, so its URL never changes and the
       // webview kept showing the previous build. Counting them changes it.
       setBuilds((count) => count + 1);
@@ -602,6 +674,24 @@ export function CourseView({
     } catch (cause) {
       setError(String(cause));
       logError("workspace", "Suppression du passage impossible", cause);
+    }
+  }
+
+  /**
+   * Records how far the class got, or clears it with `null`.
+   *
+   * Set from the review rather than the export screen, because it is a fact
+   * about the lesson that just happened, not a setting of one PDF: it changes
+   * once a week and every export afterwards reads it.
+   */
+  async function markTaughtEnd(blockId: string | null) {
+    setError(null);
+    try {
+      setTranscript(await setTaughtEnd(documentId, blockId));
+      onChanged();
+    } catch (cause) {
+      setError(String(cause));
+      logError("workspace", "Point d'arrêt impossible à poser", cause);
     }
   }
 
@@ -1165,6 +1255,7 @@ export function CourseView({
                       template={template}
                       selectedId={openBlock}
                       onInsertAfter={setInsertAfter}
+                      onTaughtEnd={markTaughtEnd}
                       onSelect={setOpenBlock}
                     />
                   )}
@@ -1235,6 +1326,56 @@ export function CourseView({
 
               {teacherOnly.length === 0 && studentOnly.length === 0 && (
                 <p className="field__hint">{t("export.sameVersions")}</p>
+              )}
+
+              {/* The second, independent question: not who the document is
+                  for, but how much of the course it holds. */}
+              <div className="panelcard">
+                <span className="panelcard__title">{t("export.reach.title")}</span>
+                <div className="radios">
+                  <button
+                    type="button"
+                    className={`radio ${taughtOnly ? "radio--on" : ""}`}
+                    onClick={() => setTaughtOnly(true)}
+                    disabled={taughtAt < 0}
+                  >
+                    <span className="radio__mark" />
+                    <span className="radio__copy">
+                      <span className="radio__label">{t("export.reach.taught")}</span>
+                      <span className="radio__hint">
+                        {taughtAt < 0
+                          ? t("export.reach.unmarked")
+                          : tn("export.reach.taught.hint", taughtAt + 1, {
+                              total: blocks.length,
+                              last: taughtName,
+                            })}
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`radio ${!taughtOnly ? "radio--on" : ""}`}
+                    onClick={() => setTaughtOnly(false)}
+                  >
+                    <span className="radio__mark" />
+                    <span className="radio__copy">
+                      <span className="radio__label">{t("export.reach.whole")}</span>
+                      <span className="radio__hint">
+                        {tn("export.reach.whole.hint", blocks.length)}
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {taughtOnly && taughtComplete && (
+                <p className="field__hint">{t("export.reach.complete")}</p>
+              )}
+              {taughtDangling && (
+                <p className="field__hint">{t("export.reach.dangling")}</p>
+              )}
+              {taughtOnly && !taughtComplete && (
+                <p className="field__hint">{t("export.partial.note")}</p>
               )}
 
               <button

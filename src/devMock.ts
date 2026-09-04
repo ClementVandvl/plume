@@ -29,6 +29,7 @@ const block = (
   audience: [],
   align: null,
   note: null,
+  taughtEnd: false,
   reviewed: false,
   ...extra,
 });
@@ -75,6 +76,8 @@ const transcript = {
           "b5",
           "property",
           "Deux droites sont parallèles si et seulement si leurs vecteurs directeurs sont colinéaires.",
+          // Where the class stopped: page 2 is next week's lesson.
+          { taughtEnd: true },
         ),
       ],
     },
@@ -117,6 +120,9 @@ const documents = [
     lastPdf: null,
     blockCount: 41,
     doubtfulCount: 3,
+    // A course the class is halfway through, so the card shows how far.
+    taughtCount: 7,
+    taughtHeading: "Vecteurs du plan",
   },
   {
     id: "suites",
@@ -131,6 +137,9 @@ const documents = [
     lastPdf: null,
     blockCount: 52,
     doubtfulCount: 5,
+    // Marked, but no heading above the boundary: the card falls back to a count.
+    taughtCount: 4,
+    taughtHeading: null,
   },
   {
     id: "trigo",
@@ -324,6 +333,15 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   log_client: () => undefined,
   save_block: () => undefined,
   set_block_note: () => undefined,
+  set_taught_end: (args: Record<string, unknown>) => {
+    for (const page of transcript.pages) {
+      for (const b of page.blocks) b.taughtEnd = b.id === args.blockId;
+    }
+    // A fresh object, as the real command's JSON round trip always produces.
+    // Handing back the same reference let React keep memoised work that reads
+    // the mutated blocks, and the mock showed a state the app never has.
+    return structuredClone(transcript);
+  },
   split_block: () => transcript,
   delete_block: () => transcript,
   insert_block: () => transcript,

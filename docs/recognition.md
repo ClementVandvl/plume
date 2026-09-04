@@ -72,15 +72,21 @@ Defined in [`src-tauri/src/ir.rs`](../src-tauri/src/ir.rs).
 
 Each field earns its place:
 
-- **`id`** is stable and assigned by Plume. Review comments anchor on it, so it
-  must not depend on what the model happened to emit. *(This is also where the
-  first real bug lived — see §7.)*
+- **`id`** is assigned by Plume, never taken from the model. *(This is where
+  the first real bug lived — see §7.)* It encodes position — page, then rank on
+  the page — so it identifies a passage **only until the page is next edited**:
+  inserting, splitting, deleting or reordering renumbers every id on the page.
+  Fine for anchoring one review action, wrong for anything that has to outlive
+  an edit. What must survive goes in a field on the block, which is why
+  `taught_end` is one — see §5.
 - **`latex`** holds body content only. No `\begin{...}` wrapper, no `\section`.
   The renderer decides how a `definition` is written, because that depends on
   the template, not on the page.
 - **`confidence` / `doubt`** make uncertainty a first-class field rather than
   something to reconstruct later.
 - **`audience`** is what makes one scan produce several documents.
+- **`taught_end`** marks the last passage the class has covered, so a handout
+  can stop there — see §5.
 
 ### Why the model cannot invent the shape
 
@@ -335,6 +341,49 @@ the block lists no audience, or when it lists the requested one.
 
 Filtering happens **in the renderer, not in LaTeX conditionals**. A `.tex` handed
 to a class must not carry the answers in a `\iffalse` branch or a comment.
+
+### Stopping where the class stopped
+
+A chapter is taught over several weeks, and the handout sent on Tuesday evening
+should hold Tuesday's lesson and no more. `render::kept()` applies two filters,
+independent of each other: who the document is for, and how far the class got.
+
+The second is a mark on one block — `taught_end` — meaning *this is the last
+passage we covered*. `render_document(..., taught_only)` stops after it.
+
+**Why the mark rides on the block.** The obvious design stores the boundary in
+`document.json` as a block id, and it is wrong: ids encode position
+(`p03-b07`), and `insert_in_transcript`, `split_in_transcript`,
+`remove_in_transcript` and `reorder_transcript` all renumber the page they
+touch. An id kept anywhere else would come to name a different passage after
+the next edit — silently, and in the direction that sends the class material
+they have not seen. A field on the block travels with the passage through all
+four.
+
+That leaves the cases where a block moves *out* of existence, and each is a
+decision rather than a default:
+
+| The teacher… | The mark… | Because |
+| --- | --- | --- |
+| deletes the marked passage | steps back to the one before, across a page boundary if needed | the lesson still ended where it ended |
+| deletes the only covered passage | disappears | the class covered nothing |
+| splits the marked passage | goes to the **second** half | the whole passage was taught |
+| inserts before the mark | stays put; the new passage falls inside | it belongs to the part already seen |
+| edits the marked passage by hand | survives the round trip | `save_block` restores it, as it does a pending note |
+
+**Refusing the ambiguous case.** Asking for "as far as the class got" on a
+course with no mark has no answer, and `kept()` would happily return the whole
+thing. `build_document` refuses before rendering: quietly answering *all of it*
+is the one mistake a sent mail cannot take back.
+
+**A partial build is a copy, not the course.** It writes `-partiel.tex` /
+`-partiel.pdf`, and leaves `status` and `last_pdf` alone. Otherwise a handout
+covering a third of the chapter would mark the course finished in the list, and
+point *Ouvrir le PDF* at a document that stops halfway through.
+
+The screen mirrors `kept()` in TypeScript to show what a build will contain
+before making it. The two must stay identical — a preview that promises
+something the export does not honour is worse than no preview.
 
 ---
 

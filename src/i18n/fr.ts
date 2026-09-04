@@ -254,6 +254,16 @@ export const fr = {
   "panel.title.label": "Titre (facultatif)",
   "insert.title": "Ajouter un passage",
   "insert.here": "Ajouter ici",
+
+  // Où la classe en est. Une marque sur le cours, posée après la séance, que
+  // chaque fabrication relit ensuite.
+  "taught.here": "La classe s'arrête ici",
+  "taught.boundary": "Vu en classe jusqu'ici",
+  "taught.clear": "retirer",
+  "taught.unnamed": "le passage « {kind} » de la page {page}",
+  "taught.card.heading": "Vu jusqu'à « {heading} »",
+  "taught.card.count.one": "Vu en classe : 1 passage",
+  "taught.card.count.other": "Vu en classe : {count} passages",
   "insert.tab.latex": "Écrire le LaTeX",
   "insert.tab.photo": "Photographier",
   "insert.kind": "Type de passage",
@@ -306,6 +316,19 @@ export const fr = {
   "export.student.hint.same": "Identique à la version professeur pour l'instant.",
   "export.all.title": "Version complète",
   "export.all.hint": "Tous les passages, sans distinction de version.",
+  "export.reach.title": "Jusqu'où ?",
+  "export.reach.taught": "Jusqu'où la classe en est",
+  "export.reach.taught.hint.one": "1 passage sur {total} — s'arrête après {last}.",
+  "export.reach.taught.hint.other": "{count} passages sur {total} — s'arrête après {last}.",
+  "export.reach.whole": "Tout le cours",
+  "export.reach.whole.hint.one": "Le passage, du début à la fin.",
+  "export.reach.whole.hint.other": "Les {count} passages, du début à la fin.",
+  "export.reach.unmarked":
+    "Aucun point d'arrêt n'est posé. Dans la relecture, marquez le dernier passage vu en classe.",
+  "export.reach.dangling":
+    "Le dernier passage retenu est un titre : le PDF se terminerait sur un titre sans contenu.",
+  "export.reach.complete": "Le point d'arrêt est sur le dernier passage : le PDF sera complet.",
+  "export.partial.note": "Fabrication partielle : elle n'écrase pas le PDF complet du cours.",
   "export.build": "Fabriquer le PDF",
   "export.building": "Fabrication…",
   "export.ready": "PDF prêt",

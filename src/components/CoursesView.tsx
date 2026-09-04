@@ -219,6 +219,17 @@ export function CoursesView({
                     {tn("common.pages", doc.pageCount)} ·{" "}
                     {t("common.modified", { when: formatRelative(doc.updatedAt) })}
                   </span>
+                  {/* Where the class got to — the question a Sunday evening
+                      asks of a course being taught over several weeks. The
+                      heading when there is one, since that is how a teacher
+                      names the place; a count otherwise. */}
+                  {doc.taughtCount != null && (
+                    <span className="ctable__taught">
+                      {doc.taughtHeading
+                        ? t("taught.card.heading", { heading: doc.taughtHeading })
+                        : tn("taught.card.count", doc.taughtCount)}
+                    </span>
+                  )}
                 </div>
                 <div className="ctable__state">
                   {reading.has(doc.id) ? (

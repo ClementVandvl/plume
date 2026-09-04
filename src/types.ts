@@ -81,6 +81,10 @@ export type DocumentSummary = PlumeDocument & {
   blockCount: number;
   /** Blocks below the doubt threshold and not yet confirmed. */
   doubtfulCount: number;
+  /** Passages the class has covered, when a boundary has been marked. */
+  taughtCount?: number | null;
+  /** Title of the heading the class stopped under, in the teacher's words. */
+  taughtHeading?: string | null;
 };
 
 /** A course sitting in the bin. */
@@ -117,6 +121,15 @@ export type Block = {
   align: string | null;
   /** The teacher's pending instruction, consumed by a targeted re-run. */
   note: string | null;
+  /**
+   * True on the last passage the class has actually covered.
+   *
+   * It rides on the passage rather than being an id kept elsewhere: ids encode
+   * position — `p03-b07` — and every insertion, split or reordering renumbers
+   * the page, so a stored id would come to mean a different passage without
+   * anyone noticing.
+   */
+  taughtEnd: boolean;
   reviewed: boolean;
 };
 

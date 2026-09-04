@@ -54,10 +54,22 @@ struct DocumentSummary {
     block_count: usize,
     /// Blocks below the doubt threshold and not yet confirmed by the teacher.
     doubtful_count: usize,
+    /// Passages the class has covered, when a boundary is set. What the course
+    /// list answers on a Sunday evening: where did we get to?
+    taught_count: Option<usize>,
+    /// Title of the heading the class stopped under — the teacher's own words,
+    /// so "Produit scalaire" rather than a passage number.
+    taught_heading: Option<String>,
 }
 
+/// Headings, in the order they nest. A boundary is described by the last one
+/// standing above it, which is how a teacher names where a class got to.
+const HEADINGS: &[&str] = &["chapter", "part", "subpart", "paragraph"];
+
 fn summarise(document: workspace::Document) -> DocumentSummary {
-    let (block_count, doubtful_count) = read_transcript(&document.id)
+    let transcript = read_transcript(&document.id).ok();
+    let (block_count, doubtful_count) = transcript
+        .as_ref()
         .map(|transcript| {
             let blocks: Vec<&ir::Block> =
                 transcript.pages.iter().flat_map(|p| p.blocks.iter()).collect();
@@ -68,7 +80,28 @@ fn summarise(document: workspace::Document) -> DocumentSummary {
             (blocks.len(), doubtful)
         })
         .unwrap_or((0, 0));
-    DocumentSummary { document, block_count, doubtful_count }
+
+    let taught_count = transcript.as_ref().and_then(ir::taught_count);
+    let taught_heading = transcript.as_ref().and_then(|transcript| {
+        let covered = ir::taught_count(transcript)?;
+        transcript
+            .pages
+            .iter()
+            .flat_map(|page| page.blocks.iter())
+            .take(covered)
+            .filter(|block| HEADINGS.contains(&block.kind.as_str()))
+            .filter_map(|block| block.title.as_deref().map(str::trim).filter(|t| !t.is_empty()))
+            .last()
+            .map(str::to_string)
+    });
+
+    DocumentSummary {
+        document,
+        block_count,
+        doubtful_count,
+        taught_count,
+        taught_heading,
+    }
 }
 
 #[tauri::command]
@@ -579,10 +612,15 @@ fn save_block(id: String, block: ir::Block) -> Result<(), String> {
         .ok_or("Bloc introuvable.")?;
 
     let note = target.note.clone();
+    // How far the class has got is not part of what the editor shows, so a
+    // round trip through it must not quietly clear the boundary and let a
+    // partial export run to the end of the course.
+    let taught_end = target.taught_end;
     *target = block;
     // A manual edit does not discard a pending instruction: the teacher may
     // have fixed the wording and still want the diagram redone.
     target.note = note;
+    target.taught_end = taught_end;
     target.reviewed = true;
 
     logbus::info("workspace", format!("Bloc {} modifié à la main", target.id));
@@ -628,6 +666,9 @@ fn split_in_transcript(
     second.note = None;
 
     page.blocks[at].latex = head.trim().to_string();
+    // The class covered the whole passage, so the boundary belongs after both
+    // halves — the clone already carries it, the first half must let it go.
+    page.blocks[at].taught_end = false;
     page.blocks.insert(at + 1, second);
 
     // Ids encode the position, so the whole page is renumbered.
@@ -705,6 +746,7 @@ fn insert_block(
         audience: vec!["teacher".into(), "student".into()],
         align: None,
         note: None,
+        taught_end: false,
         reviewed: true,
     };
     insert_in_transcript(&mut transcript, &after_block_id, vec![block])?;
@@ -832,17 +874,42 @@ async fn insert_from_photo(
 
 /// Takes one passage out and renumbers the page after it.
 fn remove_in_transcript(transcript: &mut ir::Transcript, block_id: &str) -> Result<(), String> {
-    let page = transcript
+    let page_index = transcript
         .pages
-        .iter_mut()
-        .find(|page| page.blocks.iter().any(|block| block.id == block_id))
+        .iter()
+        .position(|page| page.blocks.iter().any(|block| block.id == block_id))
+        .ok_or("Bloc introuvable.")?;
+    let at = transcript.pages[page_index]
+        .blocks
+        .iter()
+        .position(|block| block.id == block_id)
         .ok_or("Bloc introuvable.")?;
 
-    page.blocks.retain(|block| block.id != block_id);
+    // Deleting the passage the class stopped on would take the boundary with
+    // it, and the next export would run to the end of the course without
+    // saying so. The lesson still ended where it ended: the mark steps back.
+    let carried = transcript.pages[page_index].blocks[at].taught_end;
+
+    let page = &mut transcript.pages[page_index];
+    page.blocks.remove(at);
 
     let number = page.number;
     for (index, block) in page.blocks.iter_mut().enumerate() {
         block.id = format!("p{:02}-b{:02}", number, index + 1);
+    }
+
+    if carried {
+        if at > 0 {
+            transcript.pages[page_index].blocks[at - 1].taught_end = true;
+        } else if let Some(previous) = transcript.pages[..page_index]
+            .iter_mut()
+            .rev()
+            .find_map(|page| page.blocks.last_mut())
+        {
+            // First block of its page: the lesson ended on the page before.
+            previous.taught_end = true;
+        }
+        // Nothing precedes it at all, so the class covered nothing: no mark.
     }
     Ok(())
 }
@@ -875,6 +942,27 @@ fn split_block(id: String, block_id: String, head: String, tail: String) -> Resu
         "workspace",
         format!("Passage {block_id} scindé — nouveau bloc {created}"),
     );
+    Ok(transcript)
+}
+
+/// Marks the passage the class stopped on, or clears the mark with `None`.
+///
+/// Not an export setting but a fact about the course, which is why it lives in
+/// the transcript and is set from the review: it changes once a week, when the
+/// lesson ends, and every export afterwards reads it.
+#[tauri::command]
+fn set_taught_end(id: String, block_id: Option<String>) -> Result<ir::Transcript, String> {
+    let mut transcript = read_transcript(&id)?;
+    ir::mark_taught_end(&mut transcript, block_id.as_deref())?;
+    write_transcript(&id, &transcript)?;
+
+    match block_id {
+        Some(block) => logbus::info(
+            "workspace",
+            format!("Classe arrêtée après {block} — {} passage(s) vus", ir::taught_count(&transcript).unwrap_or(0)),
+        ),
+        None => logbus::info("workspace", "Point d'arrêt retiré".to_string()),
+    }
     Ok(transcript)
 }
 
@@ -1293,8 +1381,17 @@ struct BuildResult {
 ///
 /// A compile failure is not an error of this command: the `.tex` still exists
 /// and is the thing the user will fix, so it is returned alongside the message.
+///
+/// `taught_only` stops the document after the passage the class reached — the
+/// handout sent the evening of the lesson. Such a build is a copy taken along
+/// the way, not the course: it writes its own file so it cannot overwrite the
+/// complete PDF, and leaves the course's own state alone.
 #[tauri::command]
-async fn build_document(id: String, audience: String) -> Result<BuildResult, String> {
+async fn build_document(
+    id: String,
+    audience: String,
+    taught_only: bool,
+) -> Result<BuildResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let document = workspace::load(&id)?;
         let root = workspace::root();
@@ -1305,6 +1402,16 @@ async fn build_document(id: String, audience: String) -> Result<BuildResult, Str
             .and_then(|raw| serde_json::from_str(&raw).ok())
             .ok_or("Ce document n'a pas encore été transcrit.")?;
 
+        // Rendering would happily treat an unmarked course as "all of it", and
+        // that is the one wrong answer here: the teacher asked for the part
+        // already taught, and a mail cannot be recalled.
+        if taught_only && ir::taught_end(&transcript).is_none() {
+            return Err(
+                "Ce cours n'a pas de point d'arrêt : marquez d'abord où la classe s'est arrêtée."
+                    .into(),
+            );
+        }
+
         let template = templates::load(&root, &document.template_id)
             .ok_or("Modèle introuvable.".to_string())?;
 
@@ -1314,10 +1421,12 @@ async fn build_document(id: String, audience: String) -> Result<BuildResult, Str
             &transcript,
             &document.title,
             &audience,
+            taught_only,
         )
         .map_err(|e| format!("Rendu impossible : {e}"))?;
 
-        let name = format!("{}-{}.tex", document.id, audience);
+        let suffix = if taught_only { "-partiel" } else { "" };
+        let name = format!("{}-{}{}.tex", document.id, audience, suffix);
         let tex_path = dir.join(&name);
         fs::write(&tex_path, tex).map_err(|e| format!("Écriture du .tex : {e}"))?;
 
@@ -1325,13 +1434,18 @@ async fn build_document(id: String, audience: String) -> Result<BuildResult, Str
             Ok(pdf) => {
                 // A compiled PDF is what "ready" means to the course list, and
                 // remembering the file lets "Ouvrir le PDF" skip a rebuild.
-                let mut document = document;
-                document.status = "ready".into();
-                document.last_pdf = pdf
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string());
-                document.updated_at = workspace::now_ms();
-                let _ = workspace::save(&document);
+                // Only a complete one: a partial build would make the course
+                // read as finished and point "Ouvrir le PDF" at a document
+                // that stops halfway through.
+                if !taught_only {
+                    let mut document = document;
+                    document.status = "ready".into();
+                    document.last_pdf = pdf
+                        .file_name()
+                        .map(|n| n.to_string_lossy().to_string());
+                    document.updated_at = workspace::now_ms();
+                    let _ = workspace::save(&document);
+                }
 
                 Ok(BuildResult {
                     tex_path: tex_path.to_string_lossy().to_string(),
@@ -1439,6 +1553,7 @@ pub fn run() {
             insert_from_photo,
             reading_documents,
             set_block_note,
+            set_taught_end,
             apply_corrections,
             transcribe_document,
             build_document,
@@ -1472,6 +1587,7 @@ mod tests {
             audience: Vec::new(),
             align: None,
             note: None,
+            taught_end: false,
             reviewed: true,
         }
     }
@@ -1492,6 +1608,7 @@ mod tests {
                     audience: Vec::new(),
                     align: None,
                     note: None,
+                    taught_end: false,
                     reviewed: false,
                 })
                 .collect(),
@@ -1535,6 +1652,104 @@ mod tests {
         // Ids follow the new positions, including the untouched blocks after.
         let ids: Vec<&str> = blocks.iter().map(|b| b.id.as_str()).collect();
         assert_eq!(ids, vec!["p01-b01", "p01-b02", "p01-b03", "p01-b04"]);
+    }
+
+    /// The boundary is the one piece of state a wrong answer cannot take back:
+    /// a handout is mailed to a class. Deleting the passage it sits on must not
+    /// silently leave the course unbounded.
+    #[test]
+    fn deleting_the_passage_the_class_stopped_on_steps_the_mark_back() {
+        let mut transcript = ir::Transcript { version: 1, pages: vec![page(1, 3)] };
+        ir::mark_taught_end(&mut transcript, Some("p01-b02")).unwrap();
+
+        remove_in_transcript(&mut transcript, "p01-b02").unwrap();
+
+        assert_eq!(
+            ir::taught_end(&transcript).map(|b| b.latex.as_str()),
+            Some("page 1 bloc 1"),
+            "the lesson still ended where it ended"
+        );
+        assert_eq!(ir::taught_count(&transcript), Some(1));
+    }
+
+    /// The first block of a page: the lesson ended on the page before.
+    #[test]
+    fn the_mark_crosses_back_over_a_page_boundary() {
+        let mut transcript =
+            ir::Transcript { version: 1, pages: vec![page(1, 2), page(2, 2)] };
+        ir::mark_taught_end(&mut transcript, Some("p02-b01")).unwrap();
+
+        remove_in_transcript(&mut transcript, "p02-b01").unwrap();
+
+        assert_eq!(
+            ir::taught_end(&transcript).map(|b| b.id.as_str()),
+            Some("p01-b02")
+        );
+    }
+
+    /// Nothing precedes it, so the class covered nothing — and an empty mark
+    /// beats a mark on someone else's passage.
+    #[test]
+    fn deleting_the_only_covered_passage_clears_the_mark() {
+        let mut transcript = ir::Transcript { version: 1, pages: vec![page(1, 3)] };
+        ir::mark_taught_end(&mut transcript, Some("p01-b01")).unwrap();
+
+        remove_in_transcript(&mut transcript, "p01-b01").unwrap();
+
+        assert!(ir::taught_end(&transcript).is_none());
+    }
+
+    /// The whole passage was taught, so the boundary belongs after both halves
+    /// — and on exactly one of them.
+    #[test]
+    fn splitting_the_last_taught_passage_moves_the_mark_to_its_second_half() {
+        let mut transcript = ir::Transcript { version: 1, pages: vec![page(1, 3)] };
+        transcript.pages[0].blocks[1].latex = "Énoncé.\n\nCorrection.".into();
+        ir::mark_taught_end(&mut transcript, Some("p01-b02")).unwrap();
+
+        split_in_transcript(&mut transcript, "p01-b02", "Énoncé.", "Correction.").unwrap();
+
+        let marked: Vec<&str> = transcript.pages[0]
+            .blocks
+            .iter()
+            .filter(|b| b.taught_end)
+            .map(|b| b.latex.as_str())
+            .collect();
+        assert_eq!(marked, vec!["Correction."], "one mark, on the second half");
+    }
+
+    /// Ids encode position, so a mark stored as an id would follow the position
+    /// rather than the passage. This is the regression the whole design avoids.
+    #[test]
+    fn the_mark_follows_the_passage_through_an_insertion_before_it() {
+        let mut transcript = ir::Transcript { version: 1, pages: vec![page(1, 3)] };
+        ir::mark_taught_end(&mut transcript, Some("p01-b02")).unwrap();
+
+        insert_in_transcript(&mut transcript, "p01-b01", vec![block_of("text", "ajouté")])
+            .unwrap();
+
+        let marked = ir::taught_end(&transcript).expect("still marked");
+        assert_eq!(marked.latex, "page 1 bloc 2", "same passage");
+        assert_eq!(marked.id, "p01-b03", "new position");
+        assert_eq!(
+            ir::taught_count(&transcript),
+            Some(3),
+            "the inserted passage falls inside what was taught"
+        );
+    }
+
+    /// A course reordered by hand carries the mark with the pages.
+    #[test]
+    fn the_mark_survives_reordering_the_pages() {
+        let mut transcript =
+            ir::Transcript { version: 1, pages: vec![page(1, 2), page(2, 2)] };
+        ir::mark_taught_end(&mut transcript, Some("p02-b02")).unwrap();
+
+        reorder_transcript(&mut transcript, &[2, 1]);
+
+        let marked = ir::taught_end(&transcript).expect("still marked");
+        assert_eq!(marked.latex, "page 2 bloc 2");
+        assert_eq!(marked.id, "p01-b02");
     }
 
     /// Ids encode the position, so what follows a removal has to shift.

@@ -27,6 +27,11 @@ type Props = {
   onSelect: (blockId: string) => void;
   /** Opens the "add a passage" dialog, anchored after this block. */
   onInsertAfter: (blockId: string) => void;
+  /**
+   * Moves the boundary of what the class has covered onto this block, or
+   * clears it when the block already carries it.
+   */
+  onTaughtEnd: (blockId: string | null) => void;
 };
 
 
@@ -67,6 +72,7 @@ export function DocumentPreview({
   selectedId,
   onSelect,
   onInsertAfter,
+  onTaughtEnd,
 }: Props) {
   const colours = useMemo(() => {
     const map: Record<string, string> = {};
@@ -109,6 +115,19 @@ export function DocumentPreview({
     }
     return out;
   }, [transcript]);
+
+  /**
+   * Ids of the passages the class has not reached yet.
+   *
+   * Computed on the full reading order, never on the filtered one: "À vérifier"
+   * shows a handful of scattered passages, and deciding "after the boundary"
+   * from that list would grey out the wrong ones.
+   */
+  const beyond = useMemo(() => {
+    const at = numbered.findIndex(({ block }) => block.taughtEnd);
+    if (at < 0) return new Set<string>();
+    return new Set(numbered.slice(at + 1).map(({ block }) => block.id));
+  }, [numbered]);
 
   const kindColour = (kind: string) => {
     const map: Record<string, string> = {
@@ -164,8 +183,8 @@ export function DocumentPreview({
             } ${teacherOnly ? "pblock--teacher" : ""} ${
               studentOnly ? "pblock--student" : ""
             } ${layout || strayTab ? "pblock--layout" : ""} ${
-              selectedId === block.id ? "pblock--selected" : ""
-            }`}
+              beyond.has(block.id) ? "pblock--beyond" : ""
+            } ${selectedId === block.id ? "pblock--selected" : ""}`}
             onClick={() => onSelect(block.id)}
             role="button"
             tabIndex={0}
@@ -258,16 +277,42 @@ export function DocumentPreview({
             </div>
           </div>
 
-            {/* After the passage it anchors to, so clicking it adds the next
-                one right here. Quiet until the pointer comes near. */}
-            <button
-              type="button"
-              className="pinsert"
-              onClick={() => onInsertAfter(block.id)}
-              aria-label={t("insert.here")}
-            >
-              <span className="pinsert__label">{t("insert.here")}</span>
-            </button>
+            {/* Where the class stopped, drawn across the course. Always
+                visible, unlike the gap actions: it is the answer to "how far
+                did we get", and it has to be readable without hunting. */}
+            {block.taughtEnd && (
+              <div className="pbound">
+                <span className="pbound__label">{t("taught.boundary")}</span>
+                <button
+                  type="button"
+                  className="pbound__clear"
+                  onClick={() => onTaughtEnd(null)}
+                >
+                  {t("taught.clear")}
+                </button>
+              </div>
+            )}
+
+            {/* After the passage it anchors to, so both actions apply right
+                here. Quiet until the pointer comes near. */}
+            <div className="pgap">
+              <button
+                type="button"
+                className="pgap__act"
+                onClick={() => onInsertAfter(block.id)}
+              >
+                {t("insert.here")}
+              </button>
+              {!block.taughtEnd && (
+                <button
+                  type="button"
+                  className="pgap__act pgap__act--taught"
+                  onClick={() => onTaughtEnd(block.id)}
+                >
+                  {t("taught.here")}
+                </button>
+              )}
+            </div>
           </div>
         );
       })}

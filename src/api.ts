@@ -44,8 +44,9 @@ export const loadTranscript = (id: string) =>
 export const transcribeDocument = (id: string, model: string) =>
   invoke<Transcript>("transcribe_document", { id, model });
 
-export const buildDocument = (id: string, audience: string) =>
-  invoke<BuildResult>("build_document", { id, audience });
+/** `taughtOnly` stops the document after the passage the class reached. */
+export const buildDocument = (id: string, audience: string, taughtOnly: boolean) =>
+  invoke<BuildResult>("build_document", { id, audience, taughtOnly });
 
 export const revealPath = (path: string) => invoke<void>("reveal_path", { path });
 
@@ -57,6 +58,10 @@ export const saveBlock = (id: string, block: Block) =>
 
 export const setBlockNote = (id: string, blockId: string, note: string | null) =>
   invoke<void>("set_block_note", { id, blockId, note });
+
+/** Marks where the class stopped, or clears the mark with `null`. */
+export const setTaughtEnd = (id: string, blockId: string | null) =>
+  invoke<Transcript>("set_taught_end", { id, blockId });
 
 export const applyCorrections = (id: string, model: string) =>
   invoke<Transcript>("apply_corrections", { id, model });

@@ -773,6 +773,7 @@ mod tests {
             audience: Vec::new(),
             align: None,
             note: None,
+            taught_end: false,
             reviewed: false,
         }
     }

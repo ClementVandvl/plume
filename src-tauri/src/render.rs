@@ -222,33 +222,64 @@ fn keeps(block: &Block, audience: &str) -> bool {
         || block.audience.iter().any(|a| a == audience)
 }
 
+/// Blocks in reading order, narrowed to what this export should contain.
+///
+/// Two filters, independent of each other: who the document is for, and how
+/// far the class has got. Both are applied here rather than through LaTeX
+/// conditionals, so a `.tex` handed to a class holds no trace of what was left
+/// out — neither the answers reserved for the teacher, nor next week's lesson
+/// commented out at the end of the file.
+///
+/// `taught_only` on a course nobody has marked keeps everything. The command
+/// refuses that combination before reaching this point, because "as far as the
+/// class has got" has no answer then, and quietly answering "all of it" is the
+/// one mistake that cannot be taken back once the mail is sent.
+pub fn kept<'a>(
+    transcript: &'a Transcript,
+    audience: &str,
+    taught_only: bool,
+) -> Vec<&'a Block> {
+    let mut out = Vec::new();
+    for page in &transcript.pages {
+        for block in &page.blocks {
+            if keeps(block, audience) {
+                out.push(block);
+            }
+            // Inclusive: the marked passage is the last one taught, not the
+            // first one still to come. Checked even when the audience filter
+            // dropped the block, or a teacher-only boundary would run on.
+            if taught_only && block.taught_end {
+                return out;
+            }
+        }
+    }
+    out
+}
+
 /// Builds the complete `.tex` for one audience.
 ///
-/// `audience` is `all`, `teacher` or `student`. Filtering happens here rather
-/// than in LaTeX conditionals so that the student export contains no trace of
-/// the teacher-only blocks — a `.tex` handed to a class should not hide answers
-/// in a comment.
+/// `audience` is `all`, `teacher` or `student`; `taught_only` stops the
+/// document after the passage the class reached.
 pub fn render_document(
     root: &Path,
     template: &Template,
     transcript: &Transcript,
     title: &str,
     audience: &str,
+    taught_only: bool,
 ) -> std::io::Result<String> {
     let mut out = crate::templates::render_preamble(root, template)?;
     out.push_str("\n\\begin{document}\n\n");
 
     let mut wrote_chapter = false;
-    for page in &transcript.pages {
-        for block in page.blocks.iter().filter(|b| keeps(b, audience)) {
-            if block.kind == "chapter" {
-                wrote_chapter = true;
-            }
-            warn_about_layout(block);
-            warn_about_alignment(block);
-            out.push_str(&render_block(template, block));
-            out.push_str("\n\n");
+    for block in kept(transcript, audience, taught_only) {
+        if block.kind == "chapter" {
+            wrote_chapter = true;
         }
+        warn_about_layout(block);
+        warn_about_alignment(block);
+        out.push_str(&render_block(template, block));
+        out.push_str("\n\n");
     }
 
     // A course without a recognised chapter heading still deserves a title.
@@ -281,8 +312,89 @@ mod tests {
             audience: Vec::new(),
             align: None,
             note: None,
+            taught_end: false,
             reviewed: false,
         }
+    }
+
+    fn passage(id: &str, latex: &str, audience: &[&str]) -> Block {
+        Block {
+            id: id.into(),
+            kind: "text".into(),
+            title: None,
+            number: None,
+            latex: latex.into(),
+            confidence: 1.0,
+            doubt: None,
+            audience: audience.iter().map(|a| a.to_string()).collect(),
+            align: None,
+            note: None,
+            taught_end: false,
+            reviewed: true,
+        }
+    }
+
+    fn course(blocks: Vec<Block>) -> Transcript {
+        Transcript {
+            version: 1,
+            pages: vec![crate::ir::Page { number: 1, blocks, session_id: None }],
+        }
+    }
+
+    /// The marked passage is the last one taught, not the first one to come.
+    #[test]
+    fn the_boundary_keeps_the_passage_it_sits_on() {
+        let mut transcript = course(vec![
+            passage("p01-b01", "un", &[]),
+            passage("p01-b02", "deux", &[]),
+            passage("p01-b03", "trois", &[]),
+        ]);
+        crate::ir::mark_taught_end(&mut transcript, Some("p01-b02")).unwrap();
+
+        let bodies: Vec<&str> = kept(&transcript, AUDIENCE_ALL, true)
+            .iter()
+            .map(|b| b.latex.as_str())
+            .collect();
+        assert_eq!(bodies, vec!["un", "deux"]);
+
+        // The same course, whole, when the teacher asks for all of it.
+        assert_eq!(kept(&transcript, AUDIENCE_ALL, false).len(), 3);
+    }
+
+    /// The two filters are independent, and the order matters: a boundary
+    /// sitting on a teacher-only passage still ends the student handout. Read
+    /// the other way round the student version would run on to the end of the
+    /// course — the exact mistake the feature exists to prevent.
+    #[test]
+    fn a_teacher_only_boundary_still_ends_the_student_export() {
+        let mut transcript = course(vec![
+            passage("p01-b01", "énoncé", &[]),
+            passage("p01-b02", "correction", &["teacher"]),
+            passage("p01-b03", "semaine suivante", &[]),
+        ]);
+        crate::ir::mark_taught_end(&mut transcript, Some("p01-b02")).unwrap();
+
+        let student: Vec<&str> = kept(&transcript, "student", true)
+            .iter()
+            .map(|b| b.latex.as_str())
+            .collect();
+        assert_eq!(student, vec!["énoncé"], "stops there without showing it");
+
+        let teacher: Vec<&str> = kept(&transcript, "teacher", true)
+            .iter()
+            .map(|b| b.latex.as_str())
+            .collect();
+        assert_eq!(teacher, vec!["énoncé", "correction"]);
+    }
+
+    /// Marking the last passage is a legitimate way to say "we finished".
+    #[test]
+    fn a_boundary_on_the_last_passage_keeps_everything() {
+        let mut transcript =
+            course(vec![passage("p01-b01", "un", &[]), passage("p01-b02", "deux", &[])]);
+        crate::ir::mark_taught_end(&mut transcript, Some("p01-b02")).unwrap();
+
+        assert_eq!(kept(&transcript, AUDIENCE_ALL, true).len(), 2);
     }
 
     fn bundled() -> Template {
