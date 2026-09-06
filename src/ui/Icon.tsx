@@ -17,8 +17,13 @@ const PATHS: Record<string, string> = {
   restore: "M4 11a8 8 0 1 0 2.3-5.7M4 4v6h6",
   help: "M12 17v.01M12 14c0-2 2.2-2.3 2.2-4A2.2 2.2 0 0 0 9.8 9.8M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18",
   terminal: "M4 5h16v14H4zM8 10l2.5 2.5L8 15M13 15h4",
+  // An eight-tooth gear as one closed polygon, generated on the 24×24 grid
+  // (outer radius 10, root radius 7.4, teeth 17° wide). The previous path was
+  // a hand-rounded copy of a curved gear whose arc flags had changed in the
+  // rounding: every tooth bulged and met its neighbour wrong, which at 16px
+  // read as a broken ring.
   settings:
-    "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.8-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H3a2 2 0 1 1 0-4h.2A1.6 1.6 0 0 0 4.3 6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.7-1.1V2a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.3a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.1 1z",
+    "M10.08 4.85L10.52 2.11L13.48 2.11L13.92 4.85L15.7 5.59L17.95 3.96L20.04 6.05L18.41 8.3L19.15 10.08L21.89 10.52L21.89 13.48L19.15 13.92L18.41 15.7L20.04 17.95L17.95 20.04L15.7 18.41L13.92 19.15L13.48 21.89L10.52 21.89L10.08 19.15L8.3 18.41L6.05 20.04L3.96 17.95L5.59 15.7L4.85 13.92L2.11 13.48L2.11 10.52L4.85 10.08L5.59 8.3L3.96 6.05L6.05 3.96L8.3 5.59ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6",
   search: "m20 20-4.5-4.5M17 11a6 6 0 1 1-12 0 6 6 0 0 1 12 0",
   upload:
     "M4 16.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5M12 3v11m0-11 4 4m-4-4-4 4",
