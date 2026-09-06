@@ -559,11 +559,37 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .page-head__tools .btn {
+  flex: none;
   white-space: nowrap;
+}
+
+/* The one thing in the tools that can give: the search narrows before the
+   title does, down to a width that still reads as a search box. */
+.page-head__tools .search {
+  flex: 1 1 140px;
+  min-width: 140px;
+}
+
+/* Below this the tools no longer fit beside a title even at that minimum.
+   The buttons keep the title's line, flush right; the search takes the line
+   under them, still flush right. Nothing is pushed off the edge. A viewport
+   query, because the sidebar is a fixed share of the window and every page
+   head sees the same remainder. */
+@media (max-width: 860px) {
+  .page-head__tools {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .page-head__tools .search {
+    order: 1;
+    flex-basis: 100%;
+  }
 }
 
 .page-title {
@@ -834,12 +860,14 @@ textarea.input {
   min-height: 0;
 }
 
+/* Full control height: it sits beside full-size buttons in a page head, and
+   a 32px box between 38px buttons read as a smaller control, not a search. */
 .search {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
   min-width: 220px;
-  height: var(--control-height-sm);
+  height: var(--control-height);
   padding: 0 var(--space-sm);
   background: var(--color-surface);
   border: var(--border-width) solid var(--color-border);
@@ -1631,6 +1659,10 @@ textarea.input {
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-panel);
   overflow: visible;
+  /* The rows answer to the table's own width, not the window's: the sidebar
+     takes a share of the window that the table never sees. */
+  container-type: inline-size;
+  container-name: ctable;
 }
 
 /* Every row is its own grid, so the action column must have a fixed width:
@@ -1717,6 +1749,70 @@ textarea.input {
 .ctable__phrase--ok {
   color: var(--color-strong-success);
   font-weight: var(--font-weight-medium);
+}
+
+/* Narrow: the fixed columns add up to more than the table has, and the one
+   flexible column — the title — was the one that collapsed, wrapping its
+   metadata one word per line under headers that overlapped. Below that width
+   a row takes two lines instead: the document on the first, where it stands
+   and what to do next on the second. The action keeps its fixed width so it
+   still lines up from row to row; the column labels go, having no columns
+   left to label. */
+@container ctable (max-width: 620px) {
+  .ctable__head {
+    display: none;
+  }
+
+  /* `auto` rather than the wide layout's fixed 190px: with the action on its
+     own line and flush right, nothing beside it can drift. */
+  .ctable__row {
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "art identity menu"
+      "art state action";
+    row-gap: var(--space-xs);
+  }
+
+  .ctable__head + .ctable__row {
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+  }
+
+  .ctable__row > :first-child {
+    grid-area: art;
+  }
+
+  .ctable__identity {
+    grid-area: identity;
+  }
+
+  .ctable__state {
+    grid-area: state;
+  }
+
+  .ctable__action {
+    grid-area: action;
+    justify-self: end;
+  }
+
+  .ctable__menu {
+    grid-area: menu;
+    justify-self: end;
+  }
+}
+
+/* Narrower still: the thumbnail is the first thing to go. It says nothing the
+   title does not, and its 58px are a third of what the title has left. */
+@container ctable (max-width: 440px) {
+  .ctable__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "identity menu"
+      "state action";
+  }
+
+  .ctable__row > :first-child {
+    display: none;
+  }
 }
 
 /* ---------- Generic list cards (trash, tools, read pages, registries) ---------- */

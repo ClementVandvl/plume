@@ -352,7 +352,7 @@ export function DocumentsView({
                 </div>
                 <button
                   type="button"
-                  className={`btn ${doc.id === urgent?.id ? "btn--primary" : "btn--outline"} btn--sm`}
+                  className={`ctable__action btn ${doc.id === urgent?.id ? "btn--primary" : "btn--outline"} btn--sm`}
                   onClick={(e) => {
                     e.stopPropagation();
                     // Offering to read a document already being read would start
@@ -371,7 +371,7 @@ export function DocumentsView({
                       ? next.action
                       : t("documents.action.reread")}
                 </button>
-                <div onClick={(e) => e.stopPropagation()}>
+                <div className="ctable__menu" onClick={(e) => e.stopPropagation()}>
                   <OverflowMenu
                     label={t("documents.menu.label")}
                     entries={[

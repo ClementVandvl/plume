@@ -69,7 +69,10 @@ const declared = new Set(
     // exists precisely to outrank `textarea.input`, and reading only bare `.x`
     // selectors reported it as an orphan.
     .flatMap((file) => [
-      ...readFileSync(file, "utf8").matchAll(/^(?:[a-zA-Z][a-zA-Z0-9]*)?\.([a-zA-Z0-9_-]+)/gm),
+      // Leading whitespace allowed: a rule inside `@media` or `@container` is
+      // indented, and anchoring at the line start made every class declared
+      // only there an "orphan" — the first container query tripped over it.
+      ...readFileSync(file, "utf8").matchAll(/^\s*(?:[a-zA-Z][a-zA-Z0-9]*)?\.([a-zA-Z0-9_-]+)/gm),
     ])
     .map((match) => match[1]),
 );
