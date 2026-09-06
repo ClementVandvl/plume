@@ -1667,11 +1667,16 @@ textarea.input {
 
 /* Every row is its own grid, so the action column must have a fixed width:
    an `auto` there let each button size its own column, and the state column
-   drifted from one row to the next. */
+   drifted from one row to the next.
+
+   The title and the state share what is left, two to one. A fixed maximum on
+   the state column — `minmax(200px, 300px)` — was served *before* the flexible
+   title got anything, so on a middling table the state sat at its widest
+   while the title had 115px and its title was cut to « Géométrie dan… ». */
 .ctable__head,
 .ctable__row {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) minmax(200px, 300px) 190px 40px;
+  grid-template-columns: 58px minmax(0, 2fr) minmax(200px, 1fr) 190px 40px;
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
@@ -1751,14 +1756,16 @@ textarea.input {
   font-weight: var(--font-weight-medium);
 }
 
-/* Narrow: the fixed columns add up to more than the table has, and the one
-   flexible column — the title — was the one that collapsed, wrapping its
-   metadata one word per line under headers that overlapped. Below that width
-   a row takes two lines instead: the document on the first, where it stands
-   and what to do next on the second. The action keeps its fixed width so it
-   still lines up from row to row; the column labels go, having no columns
+/* Narrow: the fixed columns — thumbnail, state, action, menu — with their
+   gaps and padding come to about 584px, and the one flexible column, the
+   title, gets whatever is left. It needs 200px or so to hold a title and a
+   line of metadata, so the switch sits at 780: below it the wide layout only
+   *looked* wide, with the title squeezed to a sliver, its metadata wrapping
+   one word per line under column labels that overlapped. From there a row
+   takes two lines instead: the document on the first, where it stands and
+   what to do next on the second. The column labels go, having no columns
    left to label. */
-@container ctable (max-width: 620px) {
+@container ctable (max-width: 780px) {
   .ctable__head {
     display: none;
   }
