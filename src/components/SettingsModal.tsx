@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import {
   installClaude,
   installEngine,
+  mcpConfig,
   openClaudeLogin,
   openUrl,
   revealWorkspace,
@@ -46,6 +47,18 @@ export function SettingsModal({
   const [installing, setInstalling] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
+  const [mcpCopied, setMcpCopied] = useState(false);
+
+  async function copyMcpConfig() {
+    try {
+      await navigator.clipboard.writeText(await mcpConfig());
+      setMcpCopied(true);
+      window.setTimeout(() => setMcpCopied(false), 2000);
+    } catch (cause) {
+      setError(String(cause));
+      logError("interface", "Copie impossible", cause);
+    }
+  }
 
   // Every control here saves on the spot: these are preferences, not a form,
   // and a toggle that waits for a distant "Enregistrer" reads as broken.
@@ -199,6 +212,23 @@ export function SettingsModal({
             onChange={(value) => persist({ checkUpdates: value })}
             label={t("settings.updates.title")}
           />
+        </div>
+
+        {/* Connecting a client is a one-off, and the only hard part is a path
+            nobody should have to type. The block is built from the running
+            binary, so it stays right across updates. */}
+        <div className="setting">
+          <div className="setting__copy">
+            <span className="setting__label">{t("settings.mcp.title")}</span>
+            <span className="setting__hint">{t("settings.mcp.hint")}</span>
+          </div>
+          <button
+            type="button"
+            className="btn btn--outline btn--sm"
+            onClick={copyMcpConfig}
+          >
+            {mcpCopied ? t("settings.mcp.copied") : t("settings.mcp.copy")}
+          </button>
         </div>
 
         <div className="setting">

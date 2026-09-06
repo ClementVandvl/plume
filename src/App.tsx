@@ -92,6 +92,23 @@ export default function App() {
       .finally(() => setLoaded(true));
   }, [refresh]);
 
+  /**
+   * A course can now arrive while Plume sits there: the MCP server writes into
+   * the workbook from another process, and nothing in the app would know.
+   *
+   * Coming back to the window is exactly the moment it happened — the teacher
+   * confirmed in a conversation and switched over to look. It is not the only
+   * moment, though: a course landing while Plume already has focus shows up on
+   * the next switch away and back, not immediately.
+   */
+  useEffect(() => {
+    const look = () => {
+      refresh().catch((cause) => logError("interface", t("error.load"), cause));
+    };
+    window.addEventListener("focus", look);
+    return () => window.removeEventListener("focus", look);
+  }, [refresh]);
+
   // The theme follows the settings; "system" hands control back to the OS.
   useEffect(() => {
     applyTheme(asTheme(settings.theme));

@@ -63,6 +63,9 @@ export const importCourse = (json: string, title: string, templateId: string) =>
 /** What to hand a model so that what comes back will import. */
 export const importInstructions = () => invoke<string>("import_instructions");
 
+/** The block to paste into an MCP client's configuration. */
+export const mcpConfig = () => invoke<string>("mcp_config");
+
 export const revealPath = (path: string) => invoke<void>("reveal_path", { path });
 
 export const logs = () => invoke<LogEntry[]>("logs");

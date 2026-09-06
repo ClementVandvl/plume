@@ -1957,6 +1957,13 @@ textarea.input {
   gap: 2px;
 }
 
+/* The row's action keeps its own width. A long enough explanation beside it
+   squeezed "Copier le réglage" onto three lines. */
+.setting > .btn {
+  flex: none;
+  white-space: nowrap;
+}
+
 .setting__label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);

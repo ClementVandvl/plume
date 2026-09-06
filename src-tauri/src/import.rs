@@ -165,6 +165,95 @@ pub fn transcript_of(blocks: Vec<Block>) -> Transcript {
     Transcript { version: 1, pages: vec![Page { number: 1, blocks, session_id: None }] }
 }
 
+/// Reads a course from JSON and writes it into the workbook.
+///
+/// Shared by the interface and the MCP server rather than written twice: the
+/// interesting part is not the happy path but the rollback, and a course folder
+/// that exists with no passages in it shows up in the list as something to open
+/// with nothing inside.
+///
+/// The text is parsed here rather than taken as blocks, so that what is written
+/// can only ever be something `parse` accepted.
+pub fn create(
+    json: &str,
+    title: &str,
+    template_id: &str,
+) -> Result<crate::workspace::Document, String> {
+    let import = parse(json)?;
+    let title = if title.trim().is_empty() { import.title.as_str() } else { title };
+
+    let document = crate::workspace::create_written(title, template_id)?;
+    let transcript = transcript_of(import.blocks);
+
+    let written = serde_json::to_string_pretty(&transcript)
+        .map_err(|e| e.to_string())
+        .and_then(|raw| {
+            std::fs::write(
+                crate::workspace::document_dir(&document.id).join("transcript.json"),
+                raw,
+            )
+            .map_err(|e| format!("Écriture de la transcription : {e}"))
+        });
+
+    if let Err(error) = written {
+        // Removed rather than binned, as a failed creation is: the teacher
+        // never had this course, so there is nothing to restore.
+        let _ = std::fs::remove_dir_all(crate::workspace::document_dir(&document.id));
+        return Err(error);
+    }
+
+    crate::logbus::info(
+        "workspace",
+        format!(
+            "Cours « {} » importé — {} passage(s)",
+            document.title,
+            transcript.pages.iter().map(|p| p.blocks.len()).sum::<usize>()
+        ),
+    );
+    Ok(document)
+}
+
+/// The same contract as a JSON Schema, for the callers that validate rather
+/// than read — the MCP server hands it to the model as a tool signature.
+pub fn schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "array",
+        "minItems": 1,
+        "description": "Les passages du cours, dans l'ordre de lecture.",
+        "items": {
+            "type": "object",
+            "required": ["kind"],
+            "additionalProperties": false,
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "enum": BLOCK_KINDS,
+                    "description": "Le type de passage."
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Titre facultatif. Pour un titre de partie, c'est son texte."
+                },
+                "number": {
+                    "type": "string",
+                    "description": "Numéro écrit d'un titre de partie : « 3 », « II », « a »."
+                },
+                "latex": {
+                    "type": "string",
+                    "description": "Le CONTENU du passage : ni préambule, ni \\begin{document}, \\
+ni \\section, ni \\begin{definition}. La charte décide de tout cela."
+                },
+                "audience": {
+                    "type": "array",
+                    "items": { "type": "string", "enum": ["teacher", "student"] },
+                    "description": "Vide (les deux) par défaut. [\"teacher\"] pour ce qui ne doit \\
+pas partir aux élèves."
+                }
+            }
+        }
+    })
+}
+
 /// What to hand a model so that what comes back will import.
 ///
 /// Written as instructions rather than as a bare schema because that is how it

@@ -396,6 +396,12 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
     ),
   import_instructions: () =>
     "Tu écris un cours pour Plume. Réponds UNIQUEMENT par un objet JSON…",
+  mcp_config: () =>
+    JSON.stringify(
+      { mcpServers: { plume: { command: "/Applications/Plume.app/Contents/MacOS/plume", args: ["mcp"] } } },
+      null,
+      2,
+    ),
   import_course: (args: Record<string, unknown>) => {
     // Kept in the list and given the imported passages, so the whole flow —
     // land on the review, no Photos step, build the PDF — can be walked

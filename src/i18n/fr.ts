@@ -508,6 +508,11 @@ export const fr = {
   "settings.general.title": "Général",
   "settings.updates.title": "Prévenir quand une mise à jour existe",
   "settings.updates.hint": "L'installation demande toujours votre accord.",
+  "settings.mcp.title": "Connecter Plume à Claude",
+  "settings.mcp.hint":
+    "Copiez ce réglage dans la configuration de Claude (Réglages → Développeur → Modifier la configuration). Claude pourra alors vous demander d'envoyer un cours directement dans Plume.",
+  "settings.mcp.copy": "Copier le réglage",
+  "settings.mcp.copied": "Réglage copié",
   "settings.folder.title": "Mes cours sont rangés dans",
   "settings.advanced.row": "Modèle de lecture, pages en parallèle, journal technique",
   "settings.advanced.title": "Lecture",

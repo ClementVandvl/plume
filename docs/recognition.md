@@ -435,6 +435,44 @@ prompt to paste above the request. A test parses the example inside those
 instructions, because handing out a sample that will not import is the obvious way
 for this to rot.
 
+### The MCP server
+
+`plume mcp` is the same door again, opened from a conversation instead of a
+clipboard. [`mcp.rs`](../src-tauri/src/mcp.rs) speaks the Model Context Protocol
+on stdin and stdout, and four tools sit behind it: `list_chartes`,
+`list_courses`, `read_course`, `create_course`.
+
+**Not a second binary.** `main` branches on `argv[1] == "mcp"` before Tauri
+starts. The command a client has to spawn is then one that is already installed
+and already signed — `/Applications/Plume.app/Contents/MacOS/plume mcp` — and
+*Réglages → Connecter Plume à Claude* builds that block from `current_exe`, so
+it stays right across updates rather than being a path someone typed once.
+
+**stdout is the protocol.** A stray `println!` corrupts the stream, and the
+client reports a parse failure rather than the print. `logbus` is safe because it
+drops everything until an app handle is set, which never happens in this process;
+stderr stays free.
+
+**Refusals are results, not protocol errors.** A bad `kind` comes back as content
+with `isError: true`, which means the model *reads* "Passage 3 : « exercice »
+n'est pas un type de passage" and corrects itself. Sent as a JSON-RPC error it
+could only be reported. Protocol errors are reserved for what a model cannot fix:
+an unknown method, an unknown tool.
+
+`handle()` is pure — one message in, at most one out — so a whole session is
+played through in tests without spawning anything. The case worth naming: a
+notification carries no `id` and must never be answered, and
+`notifications/initialized` arrives in every session.
+
+**What it may do.** It writes courses into the workbook, which is the point, and
+that is a capability given to any conversation the server is connected to —
+including one where the model has just read a web page. The client's confirmation
+is the real gate. On this side the guard is narrowness: four tools, no path ever
+built from an argument, and a course arriving unread rather than approved. Plume
+refreshes the workbook when its window regains focus, which is exactly when the
+teacher comes back from confirming; a course landing while Plume already has
+focus shows on the next switch away and back.
+
 ## 6. Compilation
 
 [`latex.rs`](../src-tauri/src/latex.rs) prefers `tectonic` when present (single

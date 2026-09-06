@@ -7,6 +7,7 @@ pub mod ir;
 mod latex;
 mod logbus;
 mod machine;
+pub mod mcp;
 pub mod photos;
 mod proc;
 mod recognizer;
@@ -357,6 +358,12 @@ fn import_course(
         ),
     );
     Ok(document)
+}
+
+/// The block to paste into an MCP client's configuration.
+#[tauri::command]
+fn mcp_config() -> String {
+    mcp::client_config()
 }
 
 /// The instructions to hand a model, so that what comes back will import.
@@ -1623,6 +1630,7 @@ pub fn run() {
             inspect_import_file,
             import_course,
             import_instructions,
+            mcp_config,
             preview_preamble,
             render_figure,
             install_engine,
