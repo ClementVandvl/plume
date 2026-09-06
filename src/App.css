@@ -1980,6 +1980,45 @@ textarea.input {
   gap: var(--space-xs);
 }
 
+/* ---------- Document filters: shelves as tabs, state as a switch ---------- */
+.filterbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-lg);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+/* The bar draws the line, so the tabs must not draw a second one. */
+.tabs--inline {
+  border-bottom: 0;
+}
+
+.tab__count,
+.seg__count {
+  margin-left: var(--space-2xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-regular);
+}
+
+.tab__count {
+  color: var(--color-text-faint);
+}
+
+.seg__count {
+  opacity: 0.65;
+}
+
+.filterbar > .seg {
+  margin-bottom: var(--space-xs);
+}
+
+.seg__opt:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* ---------- Tags: what a document is, in the teacher's words ---------- */
 .tagpill {
   display: inline-flex;

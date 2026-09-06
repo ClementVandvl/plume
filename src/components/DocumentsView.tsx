@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { deleteDocument, openDocumentPdf, renameDocument, setTags } from "../api";
 import { useAdvanced } from "../ui/mode";
 import { TagEditor } from "./TagEditor";
@@ -116,8 +116,17 @@ export function DocumentsView({
     }
   }
 
+  // Counted within the shelf being looked at: « À vérifier 2 » among the DS
+  // is the number that answers the question the teacher is asking.
   const countFor = (wanted: DocumentStatus) =>
-    documents.filter((d) => d.status === wanted).length;
+    documents.filter((d) => (!tag || carries(d, tag)) && d.status === wanted).length;
+
+  // Changing shelf can empty the selected state; a lit, disabled segment over
+  // an empty list is not an answer.
+  useEffect(() => {
+    if (status && countFor(status) === 0) setStatus(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tag, documents]);
 
   // The one document the teacher is most likely here for: the most recently
   // touched one with doubts left. Its button is the filled one.
@@ -199,50 +208,63 @@ export function DocumentsView({
         </div>
       </header>
 
-      <div className="chips">
-        <button
-          type="button"
-          className={`chip ${status === null ? "chip--on" : ""}`}
-          onClick={() => setStatus(null)}
-        >
-          {t("documents.filter.all")} <span className="chip__count">{documents.length}</span>
-        </button>
-        {(["review", "ready", "draft"] as const).map((id) => (
-          <button
-            key={id}
-            type="button"
-            className={`chip ${status === id ? "chip--on" : ""}`}
-            onClick={() => setStatus(status === id ? null : id)}
-            disabled={countFor(id) === 0}
-          >
-            {t(`status.${id}`)} <span className="chip__count">{countFor(id)}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* The teacher's own shelves. A second row rather than more chips on the
-          first: what a document is and where it stands are two questions. */}
-      {tags.length > 0 && (
-        <div className="chips" role="group" aria-label={t("documents.tags.label")}>
-          <button
-            type="button"
-            className={`chip ${tag === null ? "chip--on" : ""}`}
-            onClick={() => setTag(null)}
-          >
-            {t("documents.tags.all")}
-          </button>
-          {tags.map((entry) => (
+      {/* One bar for two questions, each with its own control: what a document
+          is — the teacher's own shelves, as tabs — and where it stands, as a
+          switch. Two rows of the same pills read as one question asked twice,
+          with « Tous » lit on both. */}
+      <div className="filterbar">
+        {tags.length > 0 ? (
+          <div className="tabs tabs--inline" role="tablist" aria-label={t("documents.tags.label")}>
             <button
-              key={entry.tag}
               type="button"
-              className={`chip ${tag?.toLowerCase() === entry.tag.toLowerCase() ? "chip--on" : ""}`}
-              onClick={() => setTag(tag?.toLowerCase() === entry.tag.toLowerCase() ? null : entry.tag)}
+              role="tab"
+              aria-selected={tag === null}
+              className={`tab ${tag === null ? "tab--on" : ""}`}
+              onClick={() => setTag(null)}
             >
-              {entry.tag} <span className="chip__count">{entry.count}</span>
+              {t("documents.filter.all")}
+              <span className="tab__count">{documents.length}</span>
+            </button>
+            {tags.map((entry) => {
+              const on = tag?.toLowerCase() === entry.tag.toLowerCase();
+              return (
+                <button
+                  key={entry.tag}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  className={`tab ${on ? "tab--on" : ""}`}
+                  onClick={() => setTag(on ? null : entry.tag)}
+                >
+                  {entry.tag}
+                  <span className="tab__count">{entry.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <span />
+        )}
+
+        {/* No « Tous » here: nothing lit means no filter, and pressing the lit
+            one again clears it. A neutral segment would be a second « Tous »
+            on the same line as the tabs' one. */}
+        <div className="seg" role="group" aria-label={t("documents.column.state")}>
+          {(["review", "ready", "draft"] as const).map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={`seg__opt ${status === id ? "seg__opt--on" : ""}`}
+              onClick={() => setStatus(status === id ? null : id)}
+              disabled={countFor(id) === 0}
+              aria-pressed={status === id}
+            >
+              {t(`status.${id}`)}
+              <span className="seg__count">{countFor(id)}</span>
             </button>
           ))}
         </div>
-      )}
+      </div>
 
       {visible.length === 0 ? (
         <p className="muted">

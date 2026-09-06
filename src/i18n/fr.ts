@@ -156,7 +156,6 @@ export const fr = {
   "documents.menu.rename": "Renommer",
   "documents.menu.tags": "Étiquettes…",
   "documents.menu.trash": "Mettre à la corbeille",
-  "documents.tags.all": "Toutes",
   "documents.tags.label": "Étiquettes",
   "documents.empty.none": "Aucun document pour l'instant.",
   "documents.empty.filtered": "Aucun document ne correspond à cette recherche.",
