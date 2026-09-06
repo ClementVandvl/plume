@@ -23,6 +23,35 @@ pub(crate) const BUILTIN_MANIFEST: &str = include_str!("../resources/templates/c
 const BUILTIN_PREAMBLE: &str =
     include_str!("../resources/templates/charte-maths/preamble.tex.tmpl");
 
+pub const EXERCISES_ID: &str = "charte-exercices";
+pub(crate) const EXERCISES_MANIFEST: &str =
+    include_str!("../resources/templates/charte-exercices/template.json");
+const EXERCISES_PREAMBLE: &str =
+    include_str!("../resources/templates/charte-exercices/preamble.tex.tmpl");
+
+/// A template Plume ships, compiled into the binary.
+pub(crate) struct Builtin {
+    pub id: &'static str,
+    pub manifest: &'static str,
+    preamble: &'static str,
+}
+
+/// Every template Plume owns. Each is seeded, upgraded and protected the same
+/// way; a course written by hand and an exercise sheet asked of a model want
+/// different pages, not different rules.
+pub(crate) const BUILTINS: &[Builtin] = &[
+    Builtin { id: BUILTIN_ID, manifest: BUILTIN_MANIFEST, preamble: BUILTIN_PREAMBLE },
+    Builtin { id: EXERCISES_ID, manifest: EXERCISES_MANIFEST, preamble: EXERCISES_PREAMBLE },
+];
+
+/// The manifest as it ships, for the id of a bundled template.
+fn bundled(id: &str) -> Option<Template> {
+    BUILTINS
+        .iter()
+        .find(|builtin| builtin.id == id)
+        .and_then(|builtin| serde_json::from_str(builtin.manifest).ok())
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TemplateKey {
@@ -118,10 +147,17 @@ fn reconcile(
 }
 
 pub fn seed(root: &Path) -> io::Result<()> {
-    let target = dir(root).join(BUILTIN_ID);
+    for builtin in BUILTINS {
+        seed_one(root, builtin)?;
+    }
+    Ok(())
+}
+
+fn seed_one(root: &Path, builtin: &Builtin) -> io::Result<()> {
+    let target = dir(root).join(builtin.id);
     let manifest_path = target.join("template.json");
 
-    let mut bundled: Template = serde_json::from_str(BUILTIN_MANIFEST)
+    let mut bundled: Template = serde_json::from_str(builtin.manifest)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
     // Remember the wording as delivered, so a later upgrade can tell an entry
@@ -175,7 +211,7 @@ pub fn seed(root: &Path) -> io::Result<()> {
                 serde_json::to_string_pretty(&upgraded)
                     .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?,
             )?;
-            fs::write(target.join("preamble.tex.tmpl"), BUILTIN_PREAMBLE)?;
+            fs::write(target.join("preamble.tex.tmpl"), builtin.preamble)?;
 
             logbus::detail(
                 "template",
@@ -196,7 +232,7 @@ pub fn seed(root: &Path) -> io::Result<()> {
         serde_json::to_string_pretty(&bundled)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?,
     )?;
-    fs::write(target.join("preamble.tex.tmpl"), BUILTIN_PREAMBLE)?;
+    fs::write(target.join("preamble.tex.tmpl"), builtin.preamble)?;
     logbus::detail("template", "Modèle livré installé", target.to_string_lossy().to_string());
     Ok(())
 }
@@ -228,7 +264,7 @@ pub fn save(root: &Path, template: &Template) -> Result<(), String> {
     // Key values survive an upgrade; name, description and block mappings do
     // not. Refusing here beats accepting an edit that a future release erases.
     if is_builtin(&template.id) {
-        if let Some(bundled) = load(root, BUILTIN_ID) {
+        if let Some(bundled) = bundled(&template.id) {
             let restructured = template.name != bundled.name
                 || template.description != bundled.description
                 || template.blocks.len() != bundled.blocks.len()
@@ -266,7 +302,7 @@ pub fn save(root: &Path, template: &Template) -> Result<(), String> {
 /// to tell what happened. Key *values* survive, because `seed` carries them
 /// over; nothing else does.
 pub fn is_builtin(id: &str) -> bool {
-    id == BUILTIN_ID
+    BUILTINS.iter().any(|builtin| builtin.id == id)
 }
 
 /// A file-system-safe id derived from a display name.
@@ -326,7 +362,7 @@ pub fn duplicate(root: &Path, source_id: &str, name: &str) -> Result<Template, S
     copy.id = id.clone();
     copy.name = name.to_string();
     // Version 1 and a distinct id keep it clear of `seed`, which only ever
-    // touches BUILTIN_ID. A personal template is never upgraded under the
+    // touches the bundled ids. A personal template is never upgraded under the
     // teacher's feet.
     copy.version = 1;
 
@@ -890,38 +926,82 @@ mod tests {
     /// Every kind the recogniser may emit must have a LaTeX form here, or the
     /// renderer falls back to raw output and the block loses its environment.
     #[test]
-    fn bundled_template_maps_every_block_kind() {
-        let bundled: Template = serde_json::from_str(BUILTIN_MANIFEST).expect("valid manifest");
-        for kind in crate::ir::BLOCK_KINDS {
-            assert!(
-                bundled.blocks.contains_key(*kind),
-                "no LaTeX mapping for block kind `{kind}`"
-            );
+    fn bundled_templates_map_every_block_kind() {
+        for builtin in BUILTINS {
+            let bundled: Template =
+                serde_json::from_str(builtin.manifest).expect("valid manifest");
+            assert_eq!(bundled.id, builtin.id, "the manifest must name its own id");
+            for kind in crate::ir::BLOCK_KINDS {
+                assert!(
+                    bundled.blocks.contains_key(*kind),
+                    "{}: no LaTeX mapping for block kind `{kind}`",
+                    builtin.id
+                );
+            }
         }
     }
 
     /// Every `{{key}}` in the preamble must exist, and every key must be used.
     #[test]
     fn bundled_placeholders_match_bundled_keys() {
-        let bundled: Template = serde_json::from_str(BUILTIN_MANIFEST).expect("valid manifest");
-        for key in &bundled.keys {
-            assert!(
-                BUILTIN_PREAMBLE.contains(&format!("{{{{{}}}}}", key.key)),
-                "key `{}` is never used in the preamble",
-                key.key
-            );
+        for builtin in BUILTINS {
+            let bundled: Template =
+                serde_json::from_str(builtin.manifest).expect("valid manifest");
+            for key in &bundled.keys {
+                assert!(
+                    builtin.preamble.contains(&format!("{{{{{}}}}}", key.key)),
+                    "{}: key `{}` is never used in the preamble",
+                    builtin.id,
+                    key.key
+                );
+            }
+            // A placeholder sits inside LaTeX braces — `\definecolor{mc}{HTML}{{{key}}}`
+            // — so a naive scan for `{{` lands one brace early. Trim the surplus.
+            let leftovers: Vec<&str> = builtin
+                .preamble
+                .match_indices("{{")
+                .filter_map(|(at, _)| {
+                    let rest = &builtin.preamble[at + 2..];
+                    rest.find("}}").map(|end| rest[..end].trim_start_matches('{'))
+                })
+                .filter(|name| !name.is_empty())
+                .filter(|name| !bundled.keys.iter().any(|k| k.key == *name))
+                .collect();
+            assert!(leftovers.is_empty(), "{}: unknown placeholders: {leftovers:?}", builtin.id);
         }
-        // A placeholder sits inside LaTeX braces — `\definecolor{mc}{HTML}{{{key}}}`
-        // — so a naive scan for `{{` lands one brace early. Trim the surplus.
-        let leftovers: Vec<&str> = BUILTIN_PREAMBLE
-            .match_indices("{{")
-            .filter_map(|(at, _)| {
-                let rest = &BUILTIN_PREAMBLE[at + 2..];
-                rest.find("}}").map(|end| rest[..end].trim_start_matches('{'))
-            })
-            .filter(|name| !name.is_empty())
-            .filter(|name| !bundled.keys.iter().any(|k| k.key == *name))
-            .collect();
-        assert!(leftovers.is_empty(), "unknown placeholders: {leftovers:?}");
+    }
+
+    /// Both bundled templates are seeded, and each stays clear of the other.
+    #[test]
+    fn every_bundled_template_is_seeded() {
+        let root = scratch("two-builtins");
+        for builtin in BUILTINS {
+            assert!(is_builtin(builtin.id));
+            let installed = load(&root, builtin.id).expect("seeded");
+            assert_eq!(installed.id, builtin.id);
+            assert!(dir(&root).join(builtin.id).join("preamble.tex.tmpl").is_file());
+        }
+        assert!(
+            read_preamble(&root, EXERCISES_ID).unwrap().contains("exercice"),
+            "the exercise charte must be its own preamble, not a copy of the lesson one"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// A preamble is only ever wrong at compile time. The probe exercises every
+    /// environment the charte declares, and a machine without an engine says so
+    /// rather than passing silently.
+    #[test]
+    fn the_exercise_charte_compiles() {
+        let root = scratch("exercises-compile");
+        let template = load(&root, EXERCISES_ID).expect("seeded");
+        match check(&root, &template) {
+            Ok(()) => {}
+            Err(error) if error.contains("moteur") => {
+                eprintln!("no LaTeX engine on this machine, skipping: {error}");
+            }
+            Err(error) => panic!("the exercise charte does not compile: {error}"),
+        }
+        let _ = fs::remove_dir_all(&root);
     }
 }

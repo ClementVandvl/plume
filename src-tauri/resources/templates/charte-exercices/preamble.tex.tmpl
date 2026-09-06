@@ -1,0 +1,188 @@
+\documentclass[{{page.fontSize}},{{page.paper}}]{article}
+
+%============================================================================
+%  CHARTE "FICHE D'EXERCICES" -- PREAMBULE
+%  Bandeaux de partie, exercices numérotés par la charte, sous-questions en
+%  colonnes, corrections réservées au professeur.
+%============================================================================
+
+% ---------- Encodage, langue, mise en page --------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[french]{babel}
+\usepackage[{{page.paper}},margin={{page.margin}},headheight=14pt]{geometry}
+
+% ---------- Maths ----------------------------------------------------------
+\usepackage{amsmath,amssymb,amsfonts}
+
+% ---------- Graphisme et structure -----------------------------------------
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage[most]{tcolorbox}
+\usepackage{etoolbox}   % \ifblank, \ifdefstring
+\usepackage{enumitem}
+\usepackage{multicol}   % les sous-questions en colonnes
+\usepackage{fancyhdr}
+
+%============================================================================
+%  1. REGISTRE DES COULEURS  --  MODIFIEZ UNIQUEMENT LES CODES HEXA ICI
+%============================================================================
+\definecolor{mcChapitre}{HTML}{{{color.chapter}}}      % Titre de la fiche
+\definecolor{mcPartie}{HTML}{{{color.part}}}           % Bandeau de partie
+\definecolor{mcSousPartie}{HTML}{{{color.subpart}}}    % Sous-partie
+\definecolor{mcParagraphe}{HTML}{{{color.paragraph}}}  % Paragraphe
+\definecolor{mcApp}{HTML}{{{color.application}}}       % « Exercice n »
+\definecolor{mcPiege}{HTML}{{{color.trap}}}            % [piège]
+\definecolor{mcDef}{HTML}{{{color.definition}}}        % Rappel : définition
+\definecolor{mcProp}{HTML}{{{color.property}}}         % Rappel : propriété
+\definecolor{mcTheo}{HTML}{{{color.theorem}}}          % Rappel : théorème
+\definecolor{mcMethode}{HTML}{{{color.method}}}        % Rappel : méthode
+\definecolor{mcExemple}{HTML}{{{color.example}}}       % Exemple
+\definecolor{mcRemarque}{HTML}{{{color.remark}}}       % Remarque
+\definecolor{mcDemo}{HTML}{{{color.proof}}}            % Correction
+\definecolor{mcTexte}{HTML}{{{color.body}}}            % Corps de texte
+
+%============================================================================
+%  2. REGLAGES GLOBAUX
+%============================================================================
+\color{mcTexte}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.4\baselineskip}
+\setlist[itemize]{leftmargin=1.4em, itemsep=2pt, topsep=2pt, parsep=0pt}
+\setlist[enumerate]{leftmargin=1.6em, itemsep=2pt, topsep=2pt, parsep=0pt}
+
+% Raccourcis mathematiques usuels
+\newcommand{\R}{\mathbb{R}}  \newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}  \newcommand{\Q}{\mathbb{Q}}
+\newcommand{\C}{\mathbb{C}}
+
+%============================================================================
+%  3. EN-TETE ET PIED DE PAGE
+%     A gauche le chapitre (posé par \chapitre), à droite le niveau.
+%============================================================================
+\newcommand{\mcRunningTitle}{}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\mcRunningTitle}
+\fancyhead[R]{\small {{page.level}}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+%============================================================================
+%  4. TITRE DE LA FICHE   \chapitre{numéro}{Titre}
+%     Le numéro vient du professeur, jamais d'un compteur. Sans numéro, le
+%     titre seul.
+%============================================================================
+\newcommand{\mcNameLine}{{{page.nameLine}}}
+\newcommand{\chapitre}[2]{%
+  \renewcommand{\mcRunningTitle}{\ifblank{#1}{#2}{Chapitre #1 -- #2}}%
+  \begin{center}
+    {{{size.chapter}}\bfseries\color{mcChapitre}{{label.sheet}} --- #2\par}
+  \end{center}
+  \ifdefstring{\mcNameLine}{oui}{%
+    \par\noindent{\small Nom~: \dotfill\hspace{2em}Classe~: \dotfill}\par
+  }{}%
+  \vspace{0.3\baselineskip}\noindent\rule{\linewidth}{0.4pt}\par
+  \vspace{0.4\baselineskip}}
+
+%============================================================================
+%  5. PARTIES  \partie{lettre}{Titre} : bandeau plein.
+%     Sous-parties et paragraphes : titres colorés, sans bandeau.
+%============================================================================
+\newcommand{\partie}[2]{%
+  \par\vspace{0.9\baselineskip}\noindent
+  \begin{tcolorbox}[enhanced, colback=mcPartie, colframe=mcPartie, boxrule=0pt,
+      sharp corners, left=6pt, right=6pt, top=4pt, bottom=4pt, halign=center]
+    {{size.part}}\bfseries\color{white}%
+    \ifblank{#1}{#2}{{{label.part}} #1 --- #2}
+  \end{tcolorbox}
+  \par\vspace{0.3\baselineskip}}
+
+\newcommand{\souspartie}[2]{%
+  \par\vspace{0.7\baselineskip}\noindent
+  {{{size.subpart}}\bfseries\color{mcSousPartie}\ifblank{#1}{#2}{#1 -- #2}\par}
+  \vspace{0.2\baselineskip}}
+
+\newcommand{\paragraphe}[2]{%
+  \par\vspace{0.5\baselineskip}\noindent
+  {{{size.paragraph}}\itshape\color{mcParagraphe}\ifblank{#1}{#2}{#1) #2}\par}
+  \vspace{0.1\baselineskip}}
+
+%============================================================================
+%  6. EXERCICES   \begin{exercice}[Titre] ... \end{exercice}
+%     Numérotés par la charte : une fiche est écrite d'un trait, et ses
+%     exercices se suivent. \piege en tête du contenu pose l'étiquette
+%     [piège] sur la ligne du titre ; ailleurs, il l'affiche sur place.
+%============================================================================
+\newcounter{exercice}
+\makeatletter
+\newcommand{\mc@piege}{\textcolor{mcPiege}{\small\bfseries\itshape[{{label.trap}}]}}
+\newcommand{\piege}{\mc@piege\ }
+\newcommand{\mc@debut}{\par\nobreak\vspace{0.1\baselineskip}\noindent\ignorespaces}
+\newcommand{\mc@debutpiege}[1]{\quad\mc@piege\mc@debut}
+\newenvironment{exercice}[1][]{%
+  \par\vspace{0.7\baselineskip}\noindent
+  \refstepcounter{exercice}%
+  {{{size.application}}\color{mcApp}\bfseries {{label.application}}~\theexercice}%
+  \ifblank{#1}{}{ {\color{mcApp}\bfseries ---} \textit{#1}}%
+  \@ifnextchar\piege{\mc@debutpiege}{\mc@debut}}%
+  {\par\vspace{0.4\baselineskip}}
+\makeatother
+
+%============================================================================
+%  7. SOUS-QUESTIONS   \begin{questions}[3] \item ... \end{questions}
+%     Étiquettes a) b) c) posées par la charte ; l'option est le nombre de
+%     colonnes, une seule sans option.
+%============================================================================
+\newcounter{mcqcols}
+\newenvironment{questions}[1][1]{%
+  \setcounter{mcqcols}{#1}%
+  \ifnum\value{mcqcols}>1 \begin{multicols}{#1}\fi
+  \begin{enumerate}[label=\textbf{\alph*)}, leftmargin=*, itemsep=3pt, topsep=2pt]}%
+  {\end{enumerate}\ifnum\value{mcqcols}>1 \end{multicols}\fi}
+
+%============================================================================
+%  8. RAPPELS ENCADRES (définition, propriété, théorème, méthode)
+%============================================================================
+\newcommand{\mclabel}[3]{%
+  {\color{#1}\bfseries #2\ifblank{#3}{}{ (#3)}~:}\hspace{0.6em}\ignorespaces}
+
+\newtcolorbox{mcrappel}[1]{%
+  enhanced, breakable, colback=white, colframe=#1, boxrule=0.6pt, sharp corners,
+  left=6pt, right=6pt, top=4pt, bottom=4pt,
+  before skip=0.6\baselineskip, after skip=0.6\baselineskip}
+
+\newenvironment{definition}[1][]%
+  {\begin{mcrappel}{mcDef}\mclabel{mcDef}{{{label.definition}}}{#1}}{\end{mcrappel}}
+\newenvironment{propriete}[1][]%
+  {\begin{mcrappel}{mcProp}\mclabel{mcProp}{{{label.property}}}{#1}}{\end{mcrappel}}
+\newenvironment{theoreme}[1][]%
+  {\begin{mcrappel}{mcTheo}\mclabel{mcTheo}{{{label.theorem}}}{#1}}{\end{mcrappel}}
+\newenvironment{methode}[1][]%
+  {\begin{mcrappel}{mcMethode}\mclabel{mcMethode}{{{label.method}}}{#1}}{\end{mcrappel}}
+
+%============================================================================
+%  9. EXEMPLE, REMARQUE, CORRECTION (texte courant précédé d'une étiquette)
+%============================================================================
+\newenvironment{mcplain}[3]%
+  {\par\vspace{0.35\baselineskip}\noindent\mclabel{#1}{#2}{#3}}%
+  {\par\vspace{0.35\baselineskip}}
+
+\newenvironment{exemple}[1][]   {\begin{mcplain}{mcExemple}{{{label.example}}}{#1}}  {\end{mcplain}}
+\newenvironment{remarque}[1][]  {\begin{mcplain}{mcRemarque}{{{label.remark}}}{#1}} {\end{mcplain}}
+\newenvironment{correction}[1][]{\begin{mcplain}{mcDemo}{{{label.proof}}}{#1}}      {\end{mcplain}}
+
+%============================================================================
+%  10. FIN DE FICHE -- un trait, puis le nombre d'exercices
+%============================================================================
+\AtEndDocument{%
+  \ifnum\value{exercice}>0
+    \par\vspace{1.2\baselineskip}\noindent\rule{\linewidth}{0.4pt}\par
+    \vspace{0.3\baselineskip}
+    \centerline{\small\itshape Fin de la fiche --- \arabic{exercice} exercice\ifnum\value{exercice}>1 s\fi}%
+  \fi}
+
+%============================================================================
+%  FIN DU PREAMBULE DE LA CHARTE
+%============================================================================

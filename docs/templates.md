@@ -13,10 +13,13 @@ has been read. It has three parts, and the editor has one tab for each.
 
 Both files sit in `~/Documents/Plume/Templates/<id>/`.
 
-## The bundled template is read-mostly
+## The bundled templates are read-mostly
 
-`charte-maths` ships inside Plume, and [`seed`](../src-tauri/src/templates.rs)
-rewrites its `preamble.tex.tmpl` whenever the bundled version rises. So:
+Two templates ship inside Plume — `charte-maths` for a photographed lesson and
+`charte-exercices` for a sheet asked of a model — and
+[`seed`](../src-tauri/src/templates.rs) rewrites their `preamble.tex.tmpl`
+whenever the bundled version rises. `BUILTINS` lists them; everything below
+applies to each. So:
 
 - **Key values survive an upgrade.** `seed` carries them across, and they stay
   editable. Changing a colour is safe forever.
@@ -159,6 +162,41 @@ The field exists because assuming every installed entry was the teacher's
 stranded a workbook on a superseded instruction while its version number moved
 on, so nothing ever looked again. Corrections therefore ride on the version
 bump, like every other change to the bundled template.
+
+## The exercise charte
+
+`charte-exercices` is the second bundled template, and it exists because the
+same sixteen block kinds want a different page when the document is a sheet of
+exercises rather than a lesson. It was drawn from a real sheet the teacher
+liked, and a sample through it is what the reference looks like: a running
+header (*Chapitre 1 – Calcul littéral* on the left, the level on the right), a
+centred title with a *Nom / Classe* line, full-width navy banners for the
+parts, and exercises headed *Exercice 3 — Vrai ou faux ?* in blue.
+
+Three things are specific to it and worth knowing:
+
+- **Exercises are numbered by the charte.** This is the one place Plume's
+  "never number" rule does not apply: a sheet is written in one go and its
+  exercises follow one another, so a counter is right where a handwritten
+  course's numbering must be preserved. The `application` kind maps to the
+  `exercice` environment, which counts. The convention `exercise-blocks` tells
+  the model not to write "Exercice 3" itself.
+- **Sub-questions live in `questions`.** `\begin{questions}[3]` is an
+  `enumerate` with `a)`, `b)`, `c)` labels inside `multicols`, and the option
+  is the column count. It is the charte's own layout, so it neither trips the
+  layout warning nor asks the model to reach for `multicols` directly.
+- **`\piege` marks a trap.** At the very start of an exercise's content it is
+  pulled up onto the heading line — `\@ifnextchar` looks for it after the
+  heading is set — and anywhere else it is shown in place. The preview renders
+  it too, with the shipped wording, since the template's `label.trap` is not
+  visible from there.
+
+`proof` maps to a *Correction* environment. With the convention
+`correction-for-teacher`, a model writes each correction as a `proof` passage
+restricted to the teacher, so the student export carries none of them.
+
+`the_exercise_charte_compiles` runs the probe document through a real engine
+when one is installed, and says so when it is not, rather than passing.
 
 ## Deleting
 
