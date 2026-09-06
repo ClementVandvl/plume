@@ -970,9 +970,14 @@ textarea.input {
 .meter {
   display: block;
   /* Basis auto, not 0: inside a column the basis becomes the height, and
-     `flex: 1` collapsed the bar to nothing. In a row it still fills. */
+     `flex: 1` collapsed the bar to nothing. In a row it still fills. The
+     min and max pin the height in a column, where the grow that fills a row
+     otherwise fills the height too: a card whose title took one line grew
+     its bar into the space a second line would have used. */
   flex: 1 1 auto;
   height: 7px;
+  min-height: 7px;
+  max-height: 7px;
   border-radius: var(--radius-pill);
   background: var(--color-chip-ground);
   overflow: hidden;
