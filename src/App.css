@@ -640,9 +640,16 @@ body {
   gap: var(--space-sm);
 }
 
-.section-head > :not(.page-head__tools) {
+/* Only the title gives way. `:not(.page-head__tools)` grew every other child
+   too, and a lone « Tout voir » beside a title stretched across the row. */
+.section-head > h2 {
   min-width: 0;
   flex: 1 1 auto;
+}
+
+.section-head > .btn {
+  flex: none;
+  white-space: nowrap;
 }
 
 .muted {
