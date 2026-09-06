@@ -183,6 +183,7 @@
   /* Every interactive control lines up on this height. */
   --control-height: 38px;
   --control-height-sm: 32px;
+  --control-height-lg: 44px;
 
   /* Motion */
   --duration-fast: var(--p-duration-fast);

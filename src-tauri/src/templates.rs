@@ -123,11 +123,22 @@ pub fn dir(root: &Path) -> PathBuf {
 /// A convention the teacher reworded is theirs and survives. One still carrying
 /// Plume's own wording is Plume's to correct: keeping it strands a machine on an
 /// instruction known to be wrong.
+///
+/// A convention Plume shipped and no longer ships is withdrawn, reworded or
+/// not: it was Plume's instruction, and an upgrade that could only ever add
+/// left a withdrawn rule on every machine that had once received it — the
+/// model kept following it long after it had been taken out of the bundle.
+/// A convention the teacher wrote themselves carries no shipped wording, and
+/// is never touched.
 fn reconcile(
     installed: &[crate::settings::Convention],
     bundled: &[crate::settings::Convention],
 ) -> Vec<crate::settings::Convention> {
-    let mut merged = installed.to_vec();
+    let mut merged: Vec<crate::settings::Convention> = installed
+        .iter()
+        .filter(|c| c.shipped.is_empty() || bundled.iter().any(|b| b.id == c.id))
+        .cloned()
+        .collect();
 
     for delivered in bundled {
         match merged.iter_mut().find(|c| c.id == delivered.id) {
@@ -768,6 +779,54 @@ mod tests {
         assert_eq!(read_preamble(&root, &copy.id).unwrap(), "% entièrement le mien\n");
         assert!(read_preamble(&root, BUILTIN_ID).unwrap().contains("chapitre"));
         let _ = fs::remove_dir_all(&root);
+    }
+
+    /// A rule taken out of the bundle must leave every machine, or the model
+    /// keeps following an instruction nobody can see any more.
+    #[test]
+    fn an_upgrade_withdraws_a_shipped_convention_the_bundle_no_longer_has() {
+        let mine = crate::settings::Convention {
+            id: "my-own-rule".into(),
+            enabled: true,
+            title: "La mienne".into(),
+            text: "Toujours en bleu.".into(),
+            shipped: String::new(),
+        };
+        let withdrawn = crate::settings::Convention {
+            id: "trap-tag".into(),
+            enabled: true,
+            title: "Exercice piège".into(),
+            text: "Commence par \\piege.".into(),
+            shipped: "Commence par \\piege.".into(),
+        };
+        let reworded = crate::settings::Convention {
+            id: "gone-but-edited".into(),
+            enabled: true,
+            title: "Retirée".into(),
+            text: "Ma version.".into(),
+            shipped: "La version livrée.".into(),
+        };
+        let kept = crate::settings::Convention {
+            id: "align-equals".into(),
+            enabled: true,
+            title: "Alignés".into(),
+            text: "v1".into(),
+            shipped: "v1".into(),
+        };
+        let bundled = vec![crate::settings::Convention {
+            id: "align-equals".into(),
+            enabled: true,
+            title: "Alignés".into(),
+            text: "v2".into(),
+            shipped: "v2".into(),
+        }];
+
+        let merged = reconcile(&[mine.clone(), withdrawn, reworded, kept], &bundled);
+        let ids: Vec<&str> = merged.iter().map(|c| c.id.as_str()).collect();
+
+        assert_eq!(ids, vec!["my-own-rule", "align-equals"]);
+        assert_eq!(merged[1].text, "v2", "an untouched shipped rule follows the bundle");
+        assert_eq!(merged[0].text, mine.text, "the teacher's own rule is never touched");
     }
 
     /// Conventions are editable precisely because an upgrade keeps them.

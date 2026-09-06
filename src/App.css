@@ -640,8 +640,10 @@ body {
   padding: 0 var(--space-sm);
 }
 
+/* The three button sizes, and nothing outside them: a button that needs a
+   fourth is a sign the layout around it is wrong, not the button. */
 .btn--tall {
-  min-height: 44px;
+  min-height: var(--control-height-lg);
   font-size: var(--font-size-body);
 }
 
@@ -1969,11 +1971,13 @@ textarea.input {
   white-space: nowrap;
 }
 
+/* Side by side at their natural width. The explanation beside them is what
+   wraps: stacking the buttons stretched both to the widest, and they read as
+   a different size from every other button in the app. */
 .setting__actions {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-2xs);
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 /* ---------- Tags: what a document is, in the teacher's words ---------- */
@@ -2033,10 +2037,6 @@ textarea.input {
   gap: var(--space-2xs);
   margin-right: var(--space-xs);
   vertical-align: middle;
-}
-
-.chip--tag {
-  height: 26px;
 }
 
 .tagrow {

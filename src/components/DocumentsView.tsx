@@ -226,7 +226,7 @@ export function DocumentsView({
         <div className="chips" role="group" aria-label={t("documents.tags.label")}>
           <button
             type="button"
-            className={`chip chip--tag ${tag === null ? "chip--on" : ""}`}
+            className={`chip ${tag === null ? "chip--on" : ""}`}
             onClick={() => setTag(null)}
           >
             {t("documents.tags.all")}
@@ -235,7 +235,7 @@ export function DocumentsView({
             <button
               key={entry.tag}
               type="button"
-              className={`chip chip--tag ${tag?.toLowerCase() === entry.tag.toLowerCase() ? "chip--on" : ""}`}
+              className={`chip ${tag?.toLowerCase() === entry.tag.toLowerCase() ? "chip--on" : ""}`}
               onClick={() => setTag(tag?.toLowerCase() === entry.tag.toLowerCase() ? null : entry.tag)}
             >
               {entry.tag} <span className="chip__count">{entry.count}</span>
