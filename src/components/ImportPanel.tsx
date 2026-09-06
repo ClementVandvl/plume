@@ -12,6 +12,7 @@ import { latexToHtml } from "../preview/latexToHtml";
 import { KIND_LABEL, type ImportPlan, type PlumeDocument, type Template } from "../types";
 import { Icon } from "../ui/Icon";
 import { Modal } from "./Modal";
+import { splitTags } from "./TagEditor";
 
 /**
  * Bringing in a course written somewhere other than on paper.
@@ -36,6 +37,7 @@ export function ImportPanel({ templates, onCancel, onImported }: Props) {
   const [json, setJson] = useState("");
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [title, setTitle] = useState("");
+  const [tags, setTagsText] = useState("");
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -47,6 +49,7 @@ export function ImportPanel({ templates, onCancel, onImported }: Props) {
     setPlan(read);
     setJson(read.source);
     setTitle(read.title);
+    setTagsText(read.tags.join(", "));
     setError(null);
   }
 
@@ -98,7 +101,7 @@ export function ImportPanel({ templates, onCancel, onImported }: Props) {
     setBusy(true);
     setError(null);
     try {
-      onImported(await importCourse(json, title, templateId));
+      onImported(await importCourse(json, title, templateId, splitTags(tags)));
     } catch (cause) {
       setError(String(cause));
       logError("workspace", "Import impossible", cause);
@@ -196,6 +199,16 @@ export function ImportPanel({ templates, onCancel, onImported }: Props) {
                 value={title}
                 placeholder={t("import.name.placeholder")}
                 onChange={(event) => setTitle(event.target.value)}
+              />
+            </label>
+            <label className="key">
+              <span className="key__label">{t("import.tags")}</span>
+              <input
+                className="input input--compact"
+                value={tags}
+                placeholder={t("import.tags.placeholder")}
+                title={t("import.tags.hint")}
+                onChange={(event) => setTagsText(event.target.value)}
               />
             </label>
             <label className="key">

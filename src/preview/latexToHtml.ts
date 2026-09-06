@@ -220,6 +220,12 @@ function applyCommands(text: string, colours: Record<string, string>): string {
           : "";
     } else if (DROPPED.has(command)) {
       // Nothing emitted; the arguments were consumed above.
+    } else if (command === "piege") {
+      // The exercise charte's own marker. Its wording is a template key the
+      // preview does not see, so the shipped default stands in; the PDF has
+      // the teacher's own. Dropping it would hide, in the review, the one
+      // thing the model was asked to flag.
+      out += '<span class="tex-tag">[piège]</span>';
     } else if (wrapper && groups.length > wrapper.content) {
       const inner = applyCommands(groups[wrapper.content], colours);
       const named = wrapper.colour !== undefined ? groups[wrapper.colour] : undefined;
@@ -328,16 +334,21 @@ export function latexToHtml(latex: string, colours: Record<string, string> = {})
   let html = escapeHtml(text);
 
   // 3. Structure, before commands are resolved — these read `\begin{...}`.
+  // `questions` is the exercise charte's own list — `a)`, `b)`, `c)` in the
+  // number of columns its option gives. Without it, sub-questions ran together
+  // on one line in the review while the PDF set them in three columns.
   html = html.replace(
-    /\\begin\{(itemize|enumerate)\}([\s\S]*?)\\end\{\1\}/g,
-    (_, kind: string, body: string) => {
+    /\\begin\{(itemize|enumerate|questions)\}(?:\[(\d)\])?([\s\S]*?)\\end\{\1\}/g,
+    (_, kind: string, columns: string | undefined, body: string) => {
       const tag = kind === "itemize" ? "ul" : "ol";
+      const alpha = kind === "questions" ? " tex-list--alpha" : "";
+      const style = columns && Number(columns) > 1 ? ` style="columns:${columns}"` : "";
       const items = body
         .split(/\\item\s*/)
         .slice(1)
         .map((item) => `<li>${itemParagraphs(item)}</li>`)
         .join("");
-      return `<${tag} class="tex-list">${items}</${tag}>`;
+      return `<${tag} class="tex-list${alpha}"${style}>${items}</${tag}>`;
     },
   );
   html = html.replace(

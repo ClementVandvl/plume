@@ -439,8 +439,23 @@ for this to rot.
 
 `plume mcp` is the same door again, opened from a conversation instead of a
 clipboard. [`mcp.rs`](../src-tauri/src/mcp.rs) speaks the Model Context Protocol
-on stdin and stdout, and four tools sit behind it: `list_chartes`,
-`list_courses`, `read_course`, `create_course`.
+on stdin and stdout, and five tools sit behind it: `list_chartes`,
+`list_courses`, `list_tags`, `read_course`, `create_course`.
+
+**Connecting it is one click.** *Réglages → Connexion MCP → Ouvrir dans Claude*
+writes a `.mcpb` bundle — a zip holding one `manifest.json` that names this
+binary and `["mcp"]` — and hands it to the system opener, which Claude Desktop
+owns. Nothing is copied into the bundle: the server is the Plume already on the
+machine, so the bundle stays a few hundred bytes and there is one copy of Plume
+to update. *Copier le réglage* remains for any client that reads a
+configuration file, Claude Code included.
+
+**What cannot work, and why it is not offered.** claude.ai's *Ajouter un
+connecteur personnalisé* asks for a remote HTTPS URL, and Anthropic's own
+documentation is explicit: the connection is made *from Anthropic's cloud
+infrastructure, not from the user's device* — a localhost address is
+unreachable there. Making Plume reachable that way would mean exposing the
+workbook on the internet. The bundle is the local path, and the only one.
 
 **Not a second binary.** `main` branches on `argv[1] == "mcp"` before Tauri
 starts. The command a client has to spawn is then one that is already installed
@@ -452,6 +467,13 @@ it stays right across updates rather than being a path someone typed once.
 client reports a parse failure rather than the print. `logbus` is safe because it
 drops everything until an app handle is set, which never happens in this process;
 stderr stays free.
+
+**Tags come from the model, spelling from the teacher.** A document carries
+`tags` — « cours », « exercices », « DS » — rather than a kind from a fixed
+list, because each teacher sorts their work differently. `create_course`
+accepts them and `list_tags` exists so the model reuses a spelling already in
+use instead of inventing « exos » beside « exercices ». A tag exists by being
+used; a photographed course is tagged « cours » on creation.
 
 **Refusals are results, not protocol errors.** A bad `kind` comes back as content
 with `isError: true`, which means the model *reads* "Passage 3 : « exercice »

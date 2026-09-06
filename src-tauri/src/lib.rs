@@ -333,31 +333,41 @@ fn import_course(
     json: String,
     title: String,
     template_id: String,
+    tags: Vec<String>,
 ) -> Result<workspace::Document, String> {
-    let import = import::parse(&json)?;
-    let title = if title.trim().is_empty() { import.title.clone() } else { title };
+    import::create(&json, &title, &template_id, &tags)
+}
 
-    let document = workspace::create_written(&title, &template_id)?;
-    let transcript = import::transcript_of(import.blocks);
+/// Replaces a document's tags — what it is, in the teacher's words.
+#[tauri::command]
+fn set_tags(id: String, tags: Vec<String>) -> Result<workspace::Document, String> {
+    workspace::set_tags(&id, &tags)
+}
 
-    if let Err(error) = write_transcript(&document.id, &transcript) {
-        // A course folder with no passages in it is worse than no course: it
-        // shows up in the list as something to open, and there is nothing
-        // there. Removed rather than binned, as a failed creation is — the
-        // teacher never had this course, so there is nothing to restore.
-        let _ = fs::remove_dir_all(workspace::document_dir(&document.id));
-        return Err(error);
-    }
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct TagCount {
+    tag: String,
+    count: usize,
+}
 
-    logbus::info(
-        "workspace",
-        format!(
-            "Cours « {} » importé — {} passage(s)",
-            document.title,
-            transcript.pages.iter().map(|p| p.blocks.len()).sum::<usize>()
-        ),
-    );
-    Ok(document)
+/// Every tag in use, most used first.
+#[tauri::command]
+fn list_tags() -> Vec<TagCount> {
+    workspace::all_tags()
+        .into_iter()
+        .map(|(tag, count)| TagCount { tag, count })
+        .collect()
+}
+
+/// Writes the bundle and opens it: Claude Desktop registers the extension.
+#[tauri::command]
+fn mcp_bundle(app: AppHandle) -> Result<String, String> {
+    let path = mcp::bundle()?;
+    app.opener()
+        .open_path(path.to_string_lossy().to_string(), None::<&str>)
+        .map_err(|e| format!("Ouverture de l'extension : {e}"))?;
+    Ok(path.to_string_lossy().to_string())
 }
 
 /// The block to paste into an MCP client's configuration.
@@ -1630,7 +1640,10 @@ pub fn run() {
             inspect_import_file,
             import_course,
             import_instructions,
+            set_tags,
+            list_tags,
             mcp_config,
+            mcp_bundle,
             preview_preamble,
             render_figure,
             install_engine,

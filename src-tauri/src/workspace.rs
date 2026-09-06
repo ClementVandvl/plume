@@ -297,6 +297,71 @@ pub struct Document {
     /// teacher reads it.
     #[serde(default = "photographed")]
     pub origin: String,
+    /// What kind of document this is, in the teacher's own words: « cours »,
+    /// « exercices », « DS », « DM »…
+    ///
+    /// Tags rather than a fixed list, because every teacher sorts their work
+    /// differently and a list Plume chose would be wrong for most of them. A
+    /// tag exists by being used; nothing has to be created first. Normalised
+    /// by `normalise_tags`, so « Cours » and « cours » are one tag.
+    #[serde(default = "course_tags")]
+    pub tags: Vec<String>,
+}
+
+/// Every course predates tags, and a photographed course is a lesson.
+fn course_tags() -> Vec<String> {
+    vec!["cours".into()]
+}
+
+/// Tags as they are stored: trimmed, no blanks, no duplicates.
+///
+/// Duplicates are judged without case — a second « Exercices » beside
+/// « exercices » would split one shelf in two — but the first spelling is
+/// kept as written, because « DS » is what the teacher calls it and « ds » is
+/// not.
+pub fn normalise_tags(tags: &[String]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for tag in tags {
+        let tag = tag.split_whitespace().collect::<Vec<_>>().join(" ");
+        if tag.is_empty() {
+            continue;
+        }
+        if !out.iter().any(|kept| kept.eq_ignore_ascii_case(&tag) || fold(kept) == fold(&tag)) {
+            out.push(tag);
+        }
+    }
+    out
+}
+
+/// Case-folded for comparison, accents included: « Évaluation » and
+/// « évaluation » are one tag.
+fn fold(tag: &str) -> String {
+    tag.to_lowercase()
+}
+
+/// Every tag in use, with how many documents carry it — most used first, so
+/// the shelf a teacher reaches for most sits first.
+pub fn all_tags() -> Vec<(String, usize)> {
+    let mut counts: Vec<(String, usize)> = Vec::new();
+    for document in list() {
+        for tag in &document.tags {
+            match counts.iter_mut().find(|(known, _)| fold(known) == fold(tag)) {
+                Some((_, count)) => *count += 1,
+                None => counts.push((tag.clone(), 1)),
+            }
+        }
+    }
+    counts.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| fold(&a.0).cmp(&fold(&b.0))));
+    counts
+}
+
+/// Replaces a document's tags.
+pub fn set_tags(id: &str, tags: &[String]) -> Result<Document, String> {
+    let mut document = load(id)?;
+    document.tags = normalise_tags(tags);
+    document.updated_at = now_ms();
+    save(&document)?;
+    Ok(document)
 }
 
 /// Every course predates the written kind, and photographs are still the way
@@ -473,6 +538,7 @@ pub fn create(
         cost_usd: 0.0,
         last_pdf: None,
         origin: photographed(),
+        tags: course_tags(),
     };
 
     let manifest = serde_json::to_string_pretty(&document)
@@ -497,7 +563,11 @@ pub fn create(
 /// to a written course later is a normal thing to want — an exercise worked out
 /// by hand, stapled to a generated sheet — and every path that adds one expects
 /// the directory to be there.
-pub fn create_written(title: &str, template_id: &str) -> Result<Document, String> {
+pub fn create_written(
+    title: &str,
+    template_id: &str,
+    tags: &[String],
+) -> Result<Document, String> {
     let title = title.trim();
     if title.is_empty() {
         return Err("Donnez un titre au document.".into());
@@ -523,6 +593,7 @@ pub fn create_written(title: &str, template_id: &str) -> Result<Document, String
         cost_usd: 0.0,
         last_pdf: None,
         origin: "written".into(),
+        tags: normalise_tags(tags),
     };
 
     let manifest = serde_json::to_string_pretty(&document)

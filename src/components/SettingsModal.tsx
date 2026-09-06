@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import {
   installClaude,
   installEngine,
+  mcpBundle,
   mcpConfig,
   openClaudeLogin,
   openUrl,
@@ -48,6 +49,22 @@ export function SettingsModal({
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [mcpCopied, setMcpCopied] = useState(false);
+  const [mcpOpened, setMcpOpened] = useState(false);
+
+  /**
+   * The one-click path: a `.mcpb` bundle naming this binary, handed to the
+   * system opener. Claude Desktop owns the extension and installs it.
+   */
+  async function openMcpBundle() {
+    try {
+      await mcpBundle();
+      setMcpOpened(true);
+      window.setTimeout(() => setMcpOpened(false), 2500);
+    } catch (cause) {
+      setError(String(cause));
+      logError("interface", "Extension MCP impossible à ouvrir", cause);
+    }
+  }
 
   async function copyMcpConfig() {
     try {
@@ -222,13 +239,18 @@ export function SettingsModal({
             <span className="setting__label">{t("settings.mcp.title")}</span>
             <span className="setting__hint">{t("settings.mcp.hint")}</span>
           </div>
-          <button
-            type="button"
-            className="btn btn--outline btn--sm"
-            onClick={copyMcpConfig}
-          >
-            {mcpCopied ? t("settings.mcp.copied") : t("settings.mcp.copy")}
-          </button>
+          <div className="setting__actions">
+            <button type="button" className="btn btn--primary btn--sm" onClick={openMcpBundle}>
+              {mcpOpened ? t("settings.mcp.opened") : t("settings.mcp.open")}
+            </button>
+            <button
+              type="button"
+              className="btn btn--outline btn--sm"
+              onClick={copyMcpConfig}
+            >
+              {mcpCopied ? t("settings.mcp.copied") : t("settings.mcp.copy")}
+            </button>
+          </div>
         </div>
 
         <div className="setting">

@@ -127,6 +127,14 @@ fn tools() -> Value {
             "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
         },
         {
+            "name": "list_tags",
+            "description":
+                "Liste les étiquettes en usage dans le classeur — « cours », « exercices », \
+                 « DS »… — avec le nombre de documents pour chacune. À appeler avant \
+                 create_course, pour reprendre l'orthographe d'une étiquette existante.",
+            "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+        },
+        {
             "name": "read_course",
             "description":
                 "Lit les passages d'un cours existant, pour écrire des exercices qui \
@@ -159,6 +167,15 @@ fn tools() -> Value {
                             "Identifiant de charte donné par list_chartes. Par défaut, \
                              la première du classeur."
                     },
+                    "tags": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description":
+                            "Ce qu'est le document : « exercices », « DS », « DM »… Le \
+                             professeur trie son classeur avec. Reprends une étiquette \
+                             existante (list_tags) quand elle convient ; une nouvelle est \
+                             créée en l'utilisant."
+                    },
                     "blocks": import::schema()
                 }
             }
@@ -177,6 +194,7 @@ fn call(id: Value, message: &Value) -> Value {
     let work = match name {
         "list_chartes" => list_chartes(),
         "list_courses" => list_courses(),
+        "list_tags" => list_tags(),
         "read_course" => read_course(&arguments),
         "create_course" => create_course(&arguments),
         _ => return failure(id, -32602, format!("Outil inconnu : {name}")),
@@ -212,6 +230,7 @@ fn list_courses() -> Result<String, String> {
                 "id": document.id,
                 "title": document.title,
                 "charte": document.template_id,
+                "tags": document.tags,
                 "passages": count_blocks(&document.id),
                 "origin": document.origin,
             })
@@ -219,6 +238,14 @@ fn list_courses() -> Result<String, String> {
         .collect();
 
     Ok(pretty(&json!({ "courses": courses })))
+}
+
+fn list_tags() -> Result<String, String> {
+    let tags: Vec<Value> = workspace::all_tags()
+        .into_iter()
+        .map(|(tag, count)| json!({ "tag": tag, "count": count }))
+        .collect();
+    Ok(pretty(&json!({ "tags": tags })))
 }
 
 fn count_blocks(id: &str) -> usize {
@@ -302,12 +329,19 @@ fn create_course(arguments: &Value) -> Result<String, String> {
             .clone(),
     };
 
-    let document = import::create(&source, &title, &charte)?;
+    let tags: Vec<String> = arguments
+        .get("tags")
+        .and_then(Value::as_array)
+        .map(|tags| tags.iter().filter_map(Value::as_str).map(str::to_string).collect())
+        .unwrap_or_default();
+
+    let document = import::create(&source, &title, &charte, &tags)?;
     let passages = count_blocks(&document.id);
 
     Ok(pretty(&json!({
         "id": document.id,
         "title": document.title,
+        "tags": document.tags,
         "passages": passages,
         "charte": charte,
         "message": format!(
@@ -330,6 +364,64 @@ fn text(arguments: &Value, key: &str) -> Result<String, String> {
 
 fn pretty(value: &Value) -> String {
     serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string())
+}
+
+/// The manifest of a bundle Claude Desktop installs by opening it.
+///
+/// A `.mcpb` is a zip with this file at its root. Nothing else goes in: the
+/// server is the Plume already on this machine, so the bundle only has to say
+/// where. That keeps it a few hundred bytes and, more to the point, keeps one
+/// copy of Plume — a binary zipped into a bundle would stop updating the day
+/// it was made.
+pub fn bundle_manifest() -> Result<Value, String> {
+    let binary = std::env::current_exe()
+        .map_err(|e| format!("Chemin de Plume introuvable : {e}"))?
+        .to_string_lossy()
+        .to_string();
+
+    let tools: Vec<Value> = tools()
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|tool| json!({ "name": tool["name"], "description": tool["description"] }))
+        .collect();
+
+    Ok(json!({
+        "manifest_version": "0.3",
+        "name": "plume",
+        "display_name": "Plume",
+        "version": env!("CARGO_PKG_VERSION"),
+        "description":
+            "Envoie un cours ou une fiche d'exercices dans le classeur Plume, en \
+             passages que le professeur relit un par un.",
+        "author": { "name": "Plume" },
+        "server": {
+            "type": "binary",
+            "entry_point": binary,
+            "mcp_config": { "command": binary, "args": ["mcp"] }
+        },
+        "tools": tools,
+    }))
+}
+
+/// Writes the bundle and says where. Opening the file is the installation.
+pub fn bundle() -> Result<std::path::PathBuf, String> {
+    use std::io::Write as _;
+
+    let manifest = bundle_manifest()?;
+    let path = std::env::temp_dir().join("plume.mcpb");
+    let file = std::fs::File::create(&path)
+        .map_err(|e| format!("Écriture de {} : {e}", path.display()))?;
+
+    let mut zip = zip::ZipWriter::new(file);
+    let stored = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Stored);
+    zip.start_file("manifest.json", stored)
+        .and_then(|()| zip.write_all(pretty(&manifest).as_bytes()).map_err(Into::into))
+        .and_then(|()| zip.finish().map(|_| ()))
+        .map_err(|e| format!("Archive : {e}"))?;
+
+    Ok(path)
 }
 
 /// The block a teacher pastes into their MCP client's configuration.
@@ -392,7 +484,10 @@ mod tests {
         let tools = reply["result"]["tools"].as_array().expect("a list");
 
         let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
-        assert_eq!(names, vec!["list_chartes", "list_courses", "read_course", "create_course"]);
+        assert_eq!(
+            names,
+            vec!["list_chartes", "list_courses", "list_tags", "read_course", "create_course"]
+        );
 
         for tool in tools {
             assert!(
@@ -404,7 +499,7 @@ mod tests {
         }
 
         // The passages carry the same contract the paste path validates.
-        let blocks = &tools[3]["inputSchema"]["properties"]["blocks"];
+        let blocks = &tools[4]["inputSchema"]["properties"]["blocks"];
         let kinds = blocks["items"]["properties"]["kind"]["enum"]
             .as_array()
             .expect("the kinds");
@@ -499,6 +594,38 @@ mod tests {
             std::path::Path::new(command).is_absolute(),
             "a relative command would depend on where the client was started: {command}"
         );
+    }
+
+    /// A bundle is a zip with the manifest at its root, and Claude Desktop
+    /// reads exactly these fields from it.
+    #[test]
+    fn the_bundle_manifest_names_this_binary_and_every_tool() {
+        let manifest = bundle_manifest().expect("a manifest");
+        assert_eq!(manifest["manifest_version"], "0.3");
+        assert_eq!(manifest["name"], "plume");
+        assert_eq!(manifest["server"]["type"], "binary");
+        assert_eq!(manifest["server"]["mcp_config"]["args"], json!(["mcp"]));
+
+        let command = manifest["server"]["mcp_config"]["command"].as_str().expect("a command");
+        assert!(std::path::Path::new(command).is_absolute(), "{command}");
+        assert_eq!(manifest["server"]["entry_point"], command);
+
+        let listed = manifest["tools"].as_array().expect("tools").len();
+        assert_eq!(listed, tools().as_array().unwrap().len());
+    }
+
+    /// The zip has to open, and hold the manifest under the name the client
+    /// looks for.
+    #[test]
+    fn the_bundle_is_a_zip_holding_the_manifest() {
+        let path = bundle().expect("a bundle");
+        let bytes = std::fs::read(&path).expect("readable");
+        let holds = |needle: &[u8]| bytes.windows(needle.len()).any(|w| w == needle);
+        assert_eq!(&bytes[..2], b"PK", "a zip starts with its signature");
+        assert!(holds(b"manifest.json"), "the entry must be named manifest.json");
+        // Stored, not deflated, so the manifest is readable in the archive as
+        // is — and so a client with no inflater still opens it.
+        assert!(holds(b"\"manifest_version\""));
     }
 
     /// A missing id is not a crash, and says what to call instead.

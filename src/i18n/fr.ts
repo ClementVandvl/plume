@@ -101,6 +101,15 @@ export const fr = {
   "courses.new": "Nouveau cours",
   "courses.import": "Importer",
 
+  // Ce qu'est un document, dans les mots du professeur.
+  "tags.title": "Étiquettes",
+  "tags.subtitle": "Ce qu'est « {title} », dans vos mots",
+  "tags.add.placeholder": "cours, exercices, DS…",
+  "tags.add": "Ajouter",
+  "tags.known": "Déjà utilisées",
+  "tags.remove": "Retirer « {tag} »",
+  "tags.empty": "Aucune étiquette : ce document n'apparaîtra que dans « Toutes ».",
+
   // Un cours écrit ailleurs — une fiche demandée à Claude, par exemple — qui
   // arrive sous forme de passages et devient un cours comme un autre.
   "import.title": "Importer un cours",
@@ -121,6 +130,9 @@ export const fr = {
   "import.importing": "Import…",
   "import.passages.one": "1 passage",
   "import.passages.other": "{count} passages",
+  "import.tags": "Étiquettes",
+  "import.tags.placeholder": "exercices, seconde",
+  "import.tags.hint": "Séparées par des virgules. Elles servent à trier le classeur.",
   "import.warnings.one": "1 point à regarder",
   "import.warnings.other": "{count} points à regarder",
   "courses.filter.all": "Tous",
@@ -142,7 +154,10 @@ export const fr = {
   "courses.menu.label": "Autres actions",
   "courses.menu.open": "Ouvrir le cours",
   "courses.menu.rename": "Renommer",
+  "courses.menu.tags": "Étiquettes…",
   "courses.menu.trash": "Mettre à la corbeille",
+  "courses.tags.all": "Toutes",
+  "courses.tags.label": "Étiquettes",
   "courses.empty.none": "Aucun cours pour l'instant.",
   "courses.empty.filtered": "Aucun cours ne correspond à cette recherche.",
 
@@ -508,9 +523,11 @@ export const fr = {
   "settings.general.title": "Général",
   "settings.updates.title": "Prévenir quand une mise à jour existe",
   "settings.updates.hint": "L'installation demande toujours votre accord.",
-  "settings.mcp.title": "Connecter Plume à Claude",
+  "settings.mcp.title": "Connexion MCP",
   "settings.mcp.hint":
-    "Copiez ce réglage dans la configuration de Claude (Réglages → Développeur → Modifier la configuration). Claude pourra alors vous demander d'envoyer un cours directement dans Plume.",
+    "Plume embarque un serveur MCP : Claude peut alors vous proposer d'y envoyer une fiche ou un cours. « Ouvrir dans Claude » l'installe d'un clic dans Claude Desktop ; « Copier le réglage » sert à toute autre application lisant une configuration MCP. Le champ « URL du serveur MCP distant » de claude.ai ne convient pas : il attend un serveur sur internet, et Plume reste sur cette machine.",
+  "settings.mcp.open": "Ouvrir dans Claude",
+  "settings.mcp.opened": "Extension ouverte",
   "settings.mcp.copy": "Copier le réglage",
   "settings.mcp.copied": "Réglage copié",
   "settings.folder.title": "Mes cours sont rangés dans",

@@ -80,7 +80,15 @@ export type PlumeDocument = {
    * passages have nothing to act on.
    */
   origin?: string;
+  /**
+   * What kind of document this is, in the teacher's words: « cours »,
+   * « exercices », « DS »… A tag exists by being used.
+   */
+  tags: string[];
 };
+
+/** One tag and how many documents carry it. */
+export type TagCount = { tag: string; count: number };
 
 /** A course as the list returns it: the document plus its review arithmetic. */
 export type DocumentSummary = PlumeDocument & {
@@ -103,6 +111,8 @@ export type DocumentSummary = PlumeDocument & {
  */
 export type ImportPlan = {
   title: string;
+  /** What the file says the document is; the teacher has the last word. */
+  tags: string[];
   blocks: Block[];
   /** Not refusals: things worth seeing before saying yes. */
   warnings: string[];

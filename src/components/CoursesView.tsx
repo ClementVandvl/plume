@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { deleteDocument, openCoursePdf, renameDocument } from "../api";
+import { deleteDocument, openCoursePdf, renameDocument, setTags } from "../api";
+import { useAdvanced } from "../ui/mode";
+import { TagEditor } from "./TagEditor";
 import { useConfirm } from "../confirm";
 import { formatRelative, t, tn } from "../i18n";
 import { logError } from "../log";
@@ -65,17 +67,54 @@ export function CoursesView({
   onNavigate,
   onChanged,
 }: Props) {
+  const advanced = useAdvanced();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<DocumentStatus | null>(null);
+  const [tag, setTag] = useState<string | null>(null);
+  const [tagging, setTagging] = useState<DocumentSummary | null>(null);
+  const [savingTags, setSavingTags] = useState(false);
   const { confirm, promptFor } = useConfirm();
+
+  const carries = (d: DocumentSummary, wanted: string) =>
+    d.tags.some((mine) => mine.toLowerCase() === wanted.toLowerCase());
+
+  // Every tag in use, most used first: the shelf reached for most sits first.
+  const tags = useMemo(() => {
+    const counts = new Map<string, { tag: string; count: number }>();
+    for (const d of documents) {
+      for (const mine of d.tags) {
+        const key = mine.toLowerCase();
+        const entry = counts.get(key) ?? { tag: mine, count: 0 };
+        entry.count += 1;
+        counts.set(key, entry);
+      }
+    }
+    return [...counts.values()].sort(
+      (a, b) => b.count - a.count || a.tag.localeCompare(b.tag, "fr"),
+    );
+  }, [documents]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return documents
       .filter((d) => !status || d.status === status)
+      .filter((d) => !tag || carries(d, tag))
       .filter((d) => !needle || d.title.toLowerCase().includes(needle))
       .sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [documents, query, status]);
+  }, [documents, query, status, tag]);
+
+  async function saveTags(doc: DocumentSummary, next: string[]) {
+    setSavingTags(true);
+    try {
+      await setTags(doc.id, next);
+      setTagging(null);
+      onChanged();
+    } catch (cause) {
+      logError("workspace", t("error.refresh"), cause);
+    } finally {
+      setSavingTags(false);
+    }
+  }
 
   const countFor = (wanted: DocumentStatus) =>
     documents.filter((d) => d.status === wanted).length;
@@ -146,9 +185,14 @@ export function CoursesView({
               type="search"
             />
           </label>
-          <button type="button" className="btn btn--outline" onClick={onImport}>
-            {t("courses.import")}
-          </button>
+          {/* Importing means asking a model for JSON and bringing it back:
+              a step that presumes some ease with Claude, so it waits behind
+              the advanced mode rather than sit beside "Nouveau cours". */}
+          {advanced && (
+            <button type="button" className="btn btn--outline" onClick={onImport}>
+              {t("courses.import")}
+            </button>
+          )}
           <button type="button" className="btn btn--primary" onClick={onCreate}>
             {t("courses.new")}
           </button>
@@ -175,6 +219,30 @@ export function CoursesView({
           </button>
         ))}
       </div>
+
+      {/* The teacher's own shelves. A second row rather than more chips on the
+          first: what a document is and where it stands are two questions. */}
+      {tags.length > 0 && (
+        <div className="chips" role="group" aria-label={t("courses.tags.label")}>
+          <button
+            type="button"
+            className={`chip chip--tag ${tag === null ? "chip--on" : ""}`}
+            onClick={() => setTag(null)}
+          >
+            {t("courses.tags.all")}
+          </button>
+          {tags.map((entry) => (
+            <button
+              key={entry.tag}
+              type="button"
+              className={`chip chip--tag ${tag?.toLowerCase() === entry.tag.toLowerCase() ? "chip--on" : ""}`}
+              onClick={() => setTag(tag?.toLowerCase() === entry.tag.toLowerCase() ? null : entry.tag)}
+            >
+              {entry.tag} <span className="chip__count">{entry.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {visible.length === 0 ? (
         <p className="muted">
@@ -222,6 +290,15 @@ export function CoursesView({
                 <div className="ctable__identity">
                   <span className="ctable__title">{doc.title}</span>
                   <span className="ctable__meta">
+                    {doc.tags.length > 0 && (
+                      <span className="ctable__tags">
+                        {doc.tags.map((mine) => (
+                          <span key={mine} className="tagpill">
+                            {mine}
+                          </span>
+                        ))}
+                      </span>
+                    )}
                     {tn("common.pages", doc.pageCount)} ·{" "}
                     {t("common.modified", { when: formatRelative(doc.updatedAt) })}
                   </span>
@@ -287,6 +364,11 @@ export function CoursesView({
                         onPick: () => rename(doc),
                       },
                       {
+                        label: t("courses.menu.tags"),
+                        icon: "folder",
+                        onPick: () => setTagging(doc),
+                      },
+                      {
                         label: t("courses.menu.trash"),
                         icon: "trash",
                         danger: true,
@@ -299,6 +381,17 @@ export function CoursesView({
             );
           })}
         </div>
+      )}
+
+      {tagging && (
+        <TagEditor
+          title={tagging.title}
+          tags={tagging.tags}
+          known={tags.map((entry) => entry.tag)}
+          busy={savingTags}
+          onCancel={() => setTagging(null)}
+          onSave={(next) => saveTags(tagging, next)}
+        />
       )}
     </div>
   );

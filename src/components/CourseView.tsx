@@ -24,6 +24,8 @@ import {
   splitBlock,
   setBlockNote,
   setReadingRules,
+  setTags,
+  listTags,
   setTaughtEnd,
   transcribeDocument,
 } from "../api";
@@ -55,6 +57,7 @@ import { AdvancedRow, Meter, OverflowMenu } from "../ui/controls";
 import { BlockPanel } from "./BlockPanel";
 import { PhotoViewer } from "./PhotoViewer";
 import { InsertPanel } from "./InsertPanel";
+import { TagEditor } from "./TagEditor";
 import { latexToHtml } from "../preview/latexToHtml";
 import { DocumentPreview } from "./DocumentPreview";
 import "katex/dist/katex.min.css";
@@ -144,6 +147,9 @@ export function CourseView({
   const [viewing, setViewing] = useState<number | null>(null);
   /** Id the new passage should follow; null when the dialog is closed. */
   const [insertAfter, setInsertAfter] = useState<string | null>(null);
+  /** Every tag in use, loaded when the editor opens; null while closed. */
+  const [tagging, setTagging] = useState<string[] | null>(null);
+  const [savingTags, setSavingTags] = useState(false);
   const [inserting, setInserting] = useState(false);
   /** How many times this screen has built a PDF, to date its preview. */
   const [builds, setBuilds] = useState(0);
@@ -821,6 +827,14 @@ export function CourseView({
             label={t("courses.menu.label")}
             entries={[
               { label: t("courses.menu.rename"), icon: "marker", onPick: rename },
+              {
+                label: t("courses.menu.tags"),
+                icon: "folder",
+                onPick: () =>
+                  listTags()
+                    .then((known) => setTagging(known.map((entry) => entry.tag)))
+                    .catch((cause) => logError("workspace", t("error.refresh"), cause)),
+              },
               {
                 label: t("courses.menu.trash"),
                 icon: "trash",
@@ -1503,6 +1517,29 @@ export function CourseView({
           </div>
         )}
       </div>
+
+      {tagging !== null && document && (
+        <TagEditor
+          title={document.title}
+          tags={document.tags}
+          known={tagging}
+          busy={savingTags}
+          onCancel={() => setTagging(null)}
+          onSave={async (next) => {
+            setSavingTags(true);
+            try {
+              setDocument(await setTags(documentId, next));
+              setTagging(null);
+              onChanged();
+            } catch (cause) {
+              setError(String(cause));
+              logError("workspace", t("error.refresh"), cause);
+            } finally {
+              setSavingTags(false);
+            }
+          }}
+        />
+      )}
 
       {insertAfter !== null && (
         <InsertPanel

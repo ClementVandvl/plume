@@ -33,6 +33,9 @@ pub struct Import {
     /// The title the file proposes. Empty when it names none — the teacher is
     /// asked for one rather than having "Sans titre" chosen for them.
     pub title: String,
+    /// What kind of document it is — « exercices », « DS » — as the file
+    /// proposes. The teacher has the last word on the screen.
+    pub tags: Vec<String>,
     pub blocks: Vec<Block>,
 }
 
@@ -47,6 +50,8 @@ pub struct Import {
 struct Wire {
     #[serde(default)]
     title: String,
+    #[serde(default)]
+    tags: Vec<String>,
     blocks: Vec<WireBlock>,
 }
 
@@ -89,7 +94,11 @@ pub fn parse(json: &str) -> Result<Import, String> {
         blocks.push(convert(raw, index + 1)?);
     }
 
-    Ok(Import { title: wire.title.trim().to_string(), blocks })
+    Ok(Import {
+        title: wire.title.trim().to_string(),
+        tags: crate::workspace::normalise_tags(&wire.tags),
+        blocks,
+    })
 }
 
 /// One wire block into one IR block, or the reason it cannot be.
@@ -178,11 +187,15 @@ pub fn create(
     json: &str,
     title: &str,
     template_id: &str,
+    tags: &[String],
 ) -> Result<crate::workspace::Document, String> {
     let import = parse(json)?;
     let title = if title.trim().is_empty() { import.title.as_str() } else { title };
+    // The screen's choice wins over the file's proposal; an empty choice means
+    // the teacher left the proposal alone.
+    let tags = if tags.iter().all(|t| t.trim().is_empty()) { &import.tags } else { tags };
 
-    let document = crate::workspace::create_written(title, template_id)?;
+    let document = crate::workspace::create_written(title, template_id, tags)?;
     let transcript = transcript_of(import.blocks);
 
     let written = serde_json::to_string_pretty(&transcript)
@@ -268,6 +281,7 @@ sans texte autour et sans bloc de code :
 
 {{
   "title": "Fiche d'exercices — Vecteurs",
+  "tags": ["exercices"],
   "blocks": [
     {{ "kind": "part", "number": "I", "title": "Colinéarité" }},
     {{ "kind": "application", "title": "Exercice 1",
@@ -294,6 +308,10 @@ Règles :
    une réponse. Dans le doute, laisse vide : c'est au professeur de trancher.
 6. Une énumération est un \begin{{enumerate}} ou un \begin{{itemize}}, jamais
    des numéros écrits à la main en début de ligne.
+7. « tags » dit ce qu'est le document — « cours », « exercices », « DS »,
+   « DM », « interrogation »… — et le professeur trie son classeur avec.
+   Reprends l'orthographe d'une étiquette qu'il utilise déjà quand elle
+   convient ; sinon, propose-en une.
 
 N'ajoute aucun autre champ : l'identifiant, la confiance et l'état de relecture
 appartiennent à Plume."#,
@@ -368,6 +386,19 @@ mod tests {
 
         let refused = parse(&sheet(r#"{"kind":"text","latex":"Bonjour.","taughtEnd":true}"#));
         assert!(refused.is_err());
+    }
+
+    /// The file says what the document is; the teacher decides on the screen.
+    #[test]
+    fn tags_travel_with_the_sheet_and_are_normalised() {
+        let import = parse(
+            r#"{"title":"DS","tags":["  DS ","ds","", "Seconde"],"blocks":[{"kind":"text","latex":"x"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(import.tags, vec!["DS".to_string(), "Seconde".to_string()]);
+
+        let none = parse(r#"{"blocks":[{"kind":"text","latex":"x"}]}"#).unwrap();
+        assert!(none.tags.is_empty(), "no proposal is not the same as a default");
     }
 
     #[test]

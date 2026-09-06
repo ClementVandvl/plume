@@ -122,6 +122,7 @@ const documents: DocumentSummary[] = [
     status: "review",
     costUsd: 0.42,
     lastPdf: null,
+    tags: ["cours"],
     blockCount: 41,
     doubtfulCount: 3,
     // A course the class is halfway through, so the card shows how far.
@@ -139,6 +140,7 @@ const documents: DocumentSummary[] = [
     status: "review",
     costUsd: 0.61,
     lastPdf: null,
+    tags: ["cours", "Première"],
     blockCount: 52,
     doubtfulCount: 5,
     // Marked, but no heading above the boundary: the card falls back to a count.
@@ -156,6 +158,7 @@ const documents: DocumentSummary[] = [
     status: "ready",
     costUsd: 0.28,
     lastPdf: "trigo-teacher.pdf",
+    tags: ["cours"],
     blockCount: 24,
     doubtfulCount: 0,
   },
@@ -170,6 +173,7 @@ const documents: DocumentSummary[] = [
     status: "draft",
     costUsd: 0,
     lastPdf: null,
+    tags: ["DS"],
     blockCount: 0,
     doubtfulCount: 0,
   },
@@ -306,7 +310,10 @@ const logs = [
 
 const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   check_environment: () => environment,
-  list_documents: () => documents,
+  // A fresh array of fresh objects, as the real command's JSON round trip
+  // always yields. Handing back the same references let a memo keyed on the
+  // list keep stale tags after an edit — a state the app never has.
+  list_documents: () => documents.map((d) => ({ ...d, tags: [...d.tags] })),
   // One course pretends to be reading, so the activity indicator is visible
   // while working on the layout.
   reading_documents: () => [documents[1]?.id].filter(Boolean),
@@ -396,6 +403,17 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
     ),
   import_instructions: () =>
     "Tu écris un cours pour Plume. Réponds UNIQUEMENT par un objet JSON…",
+  set_tags: (args: Record<string, unknown>) => {
+    const doc = documents.find((d) => d.id === args.id) ?? documents[0];
+    doc.tags = (args.tags as string[]).map((t) => t.trim()).filter(Boolean);
+    return doc;
+  },
+  list_tags: () => {
+    const counts = new Map<string, number>();
+    for (const d of documents) for (const t of d.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+    return [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count);
+  },
+  mcp_bundle: () => "/tmp/plume.mcpb",
   mcp_config: () =>
     JSON.stringify(
       { mcpServers: { plume: { command: "/Applications/Plume.app/Contents/MacOS/plume", args: ["mcp"] } } },
@@ -413,6 +431,7 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
       origin: "written",
       pageCount: 0,
       status: "review",
+      tags: (args.tags as string[] | undefined)?.filter(Boolean) ?? [],
       blockCount: 0,
       doubtfulCount: 0,
       taughtCount: null,
@@ -495,7 +514,13 @@ function inspect(json: string) {
       : [],
   );
 
-  return { title: String(wire.title ?? "").trim(), blocks, warnings, source: json };
+  return {
+    title: String(wire.title ?? "").trim(),
+    tags: ((wire as { tags?: string[] }).tags ?? []).map((t) => t.trim()).filter(Boolean),
+    blocks,
+    warnings,
+    source: json,
+  };
 }
 
 export function installDevMock() {

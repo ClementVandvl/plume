@@ -5,6 +5,7 @@ import type {
   Environment,
   ImportPlan,
   PlumeDocument,
+  TagCount,
   Template,
   Transcript,
   TrashedCourse,
@@ -57,14 +58,28 @@ export const inspectImportFile = (path: string) =>
   invoke<ImportPlan>("inspect_import_file", { path });
 
 /** Turns a read course into a real one. */
-export const importCourse = (json: string, title: string, templateId: string) =>
-  invoke<PlumeDocument>("import_course", { json, title, templateId });
+export const importCourse = (
+  json: string,
+  title: string,
+  templateId: string,
+  tags: string[],
+) => invoke<PlumeDocument>("import_course", { json, title, templateId, tags });
+
+/** Replaces a document's tags — what it is, in the teacher's words. */
+export const setTags = (id: string, tags: string[]) =>
+  invoke<PlumeDocument>("set_tags", { id, tags });
+
+/** Every tag in use, most used first. */
+export const listTags = () => invoke<TagCount[]>("list_tags");
 
 /** What to hand a model so that what comes back will import. */
 export const importInstructions = () => invoke<string>("import_instructions");
 
 /** The block to paste into an MCP client's configuration. */
 export const mcpConfig = () => invoke<string>("mcp_config");
+
+/** Writes the extension bundle and opens it: Claude Desktop installs it. */
+export const mcpBundle = () => invoke<string>("mcp_bundle");
 
 export const revealPath = (path: string) => invoke<void>("reveal_path", { path });
 
