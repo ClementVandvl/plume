@@ -97,6 +97,15 @@ fn warn_about_alignment(block: &Block) {
     }
 }
 
+/// Page layout the block does for itself, which the charte will not reproduce.
+///
+/// Shared with the import check rather than duplicated there: this list and the
+/// preview's `hasLayout` disagreed once already, and a passage reported in one
+/// place and silent in another is how the disagreement stayed hidden.
+pub(crate) fn has_layout(latex: &str) -> bool {
+    LAYOUT_COMMANDS.iter().any(|needle| latex.contains(needle))
+}
+
 fn warn_about_layout(block: &Block) {
     let found: Vec<&str> = LAYOUT_COMMANDS
         .iter()

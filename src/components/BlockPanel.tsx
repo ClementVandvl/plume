@@ -5,11 +5,14 @@ import { useAdvanced } from "../ui/mode";
 import { SplitPanel } from "./SplitPanel";
 import { Icon } from "../ui/Icon";
 import { AdvancedRow } from "../ui/controls";
-import { DOUBT_THRESHOLD, KIND_LABEL, type Block } from "../types";
+import { needsReview } from "../ui/review";
+import { KIND_LABEL, type Block } from "../types";
 
 type Props = {
   block: Block;
   page: number;
+  /** `photo` | `written` — what "still to check" means for this course. */
+  origin?: string;
   /** Where this block sits in the course, 1-based, and how many there are. */
   position: number;
   total: number;
@@ -43,6 +46,7 @@ const WRONG_KEYS = [
 export function BlockPanel({
   block,
   page,
+  origin,
   position,
   total,
   pageSrc,
@@ -70,7 +74,7 @@ export function BlockPanel({
     setSplitting(false);
   }, [block]);
 
-  const flagged = block.confidence < DOUBT_THRESHOLD && !block.reviewed;
+  const flagged = needsReview(block, origin);
   const dirty =
     draft.latex !== block.latex ||
     draft.title !== block.title ||
@@ -123,7 +127,9 @@ export function BlockPanel({
             {t("panel.position", { index: position, total })}
           </span>
           <span className="panel-side__meta">
-            {t("panel.meta", { kind: KIND_LABEL[block.kind] ?? block.kind, page })}
+            {origin === "written"
+              ? (KIND_LABEL[block.kind] ?? block.kind)
+              : t("panel.meta", { kind: KIND_LABEL[block.kind] ?? block.kind, page })}
           </span>
         </div>
         <div className="panel-side__nav">

@@ -12,6 +12,8 @@ type Props = {
   /** Courses being read right now. */
   reading: Set<string>;
   onCreate: () => void;
+  /** A course written elsewhere — an exercise sheet asked of Claude. */
+  onImport: () => void;
   onNavigate: (route: Route) => void;
   onChanged: () => void;
 };
@@ -59,6 +61,7 @@ export function CoursesView({
   documents,
   reading,
   onCreate,
+  onImport,
   onNavigate,
   onChanged,
 }: Props) {
@@ -143,6 +146,9 @@ export function CoursesView({
               type="search"
             />
           </label>
+          <button type="button" className="btn btn--outline" onClick={onImport}>
+            {t("courses.import")}
+          </button>
           <button type="button" className="btn btn--primary" onClick={onCreate}>
             {t("courses.new")}
           </button>

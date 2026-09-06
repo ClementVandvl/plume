@@ -6,8 +6,9 @@ import {
   splitFigures,
 } from "../preview/latexToHtml";
 import { t } from "../i18n";
+import { needsReview } from "../ui/review";
 import { Figure } from "./Figure";
-import { DOUBT_THRESHOLD, KIND_LABEL, type Block, type Template, type Transcript } from "../types";
+import { KIND_LABEL, type Block, type Template, type Transcript } from "../types";
 
 /**
  * The course as a document, not as a list of boxes.
@@ -22,6 +23,8 @@ type Props = {
   transcript: Transcript;
   /** `all` | `doubt` | `teacher` | `student` */
   filter: string;
+  /** `photo` | `written` — what "still to check" means for this course. */
+  origin?: string;
   template: Template | undefined;
   selectedId: string | null;
   onSelect: (blockId: string) => void;
@@ -68,6 +71,7 @@ export function DocumentPreview({
   documentId,
   transcript,
   filter,
+  origin,
   template,
   selectedId,
   onSelect,
@@ -151,8 +155,7 @@ export function DocumentPreview({
     <div className="paper">
       {numbered
         .filter(({ block }) => {
-          if (filter === "doubt")
-            return block.confidence < DOUBT_THRESHOLD && !block.reviewed;
+          if (filter === "doubt") return needsReview(block, origin);
           if (filter === "teacher")
             return block.audience.length > 0 && !block.audience.includes("student");
           if (filter === "student")
@@ -160,7 +163,7 @@ export function DocumentPreview({
           return true;
         })
         .map(({ block, page, number }) => {
-        const flagged = block.confidence < DOUBT_THRESHOLD && !block.reviewed;
+        const flagged = needsReview(block, origin);
         const colour = kindColour(block.kind);
         const label = labels[block.kind];
         const teacherOnly =
@@ -192,10 +195,17 @@ export function DocumentPreview({
           >
             <span className="pblock__tag">
               <span className="pblock__tag-kind">{KIND_LABEL[block.kind] ?? block.kind}</span>
-              <span className="pblock__tag-conf">
-                {Math.round(block.confidence * 100)} %
-              </span>
-              <span className="pblock__tag-page">p.{page}</span>
+              {/* Both answer questions about a photograph. A written course has
+                  none, and "100 %" beside a passage flagged as still to check
+                  reads as a contradiction rather than as an absence. */}
+              {origin !== "written" && (
+                <>
+                  <span className="pblock__tag-conf">
+                    {Math.round(block.confidence * 100)} %
+                  </span>
+                  <span className="pblock__tag-page">p.{page}</span>
+                </>
+              )}
               {block.note && <span className="pblock__tag-note">{t("preview.tag.noted")}</span>}
               {teacherOnly && <span className="pblock__tag-note">{t("preview.tag.teacher")}</span>}
               {studentOnly && <span className="pblock__tag-note">{t("preview.tag.student")}</span>}

@@ -17,6 +17,7 @@ import { CourseView } from "./components/CourseView";
 import { CoursesView } from "./components/CoursesView";
 import { useActiveReadings } from "./ui/reading";
 import { CreateWizard } from "./components/CreateWizard";
+import { ImportPanel } from "./components/ImportPanel";
 import { HomeView } from "./components/HomeView";
 import { InstructionsView } from "./components/InstructionsView";
 import { SettingsModal } from "./components/SettingsModal";
@@ -43,7 +44,7 @@ export default function App() {
   const [trash, setTrash] = useState<TrashedCourse[]>([]);
   const [workspace, setWorkspace] = useState("");
   const [route, setRoute] = useState<Route>({ name: "home" });
-  const [modal, setModal] = useState<null | "create" | "settings">(null);
+  const [modal, setModal] = useState<null | "create" | "import" | "settings">(null);
   /** Photos dropped on the home screen, waiting for the wizard. */
   const [seedPages, setSeedPages] = useState<string[]>([]);
   const [consoleOpen, setConsoleOpen] = useState(false);
@@ -239,6 +240,7 @@ export default function App() {
                 documents={documents}
                 reading={reading}
                 onCreate={() => openWizard()}
+                onImport={() => setModal("import")}
                 onNavigate={setRoute}
                 onChanged={() => refresh().catch(onRefreshError)}
               />
@@ -275,6 +277,20 @@ export default function App() {
             onCreated={(created) => {
               setModal(null);
               setRoute({ name: "course", id: created.id });
+              refresh().catch(onRefreshError);
+            }}
+          />
+        )}
+
+        {modal === "import" && (
+          <ImportPanel
+            templates={templates}
+            onCancel={() => setModal(null)}
+            onImported={(created) => {
+              setModal(null);
+              // Straight to the review: an imported course has nothing to
+              // photograph and nothing to read — what is left is reading it.
+              setRoute({ name: "course", id: created.id, step: "review" });
               refresh().catch(onRefreshError);
             }}
           />

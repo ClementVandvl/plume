@@ -1,3 +1,4 @@
+import type { DocumentSummary, Transcript } from "./types";
 /**
  * A fake backend for layout work.
  *
@@ -106,7 +107,10 @@ const transcript = {
   ],
 };
 
-const documents = [
+/** The course the import created, once it has. */
+let imported: Transcript | null = null;
+
+const documents: DocumentSummary[] = [
   {
     id: "geometrie",
     title: "Géométrie dans le plan",
@@ -321,17 +325,30 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   save_settings: (args) => Object.assign(settings, args.settings as object),
   workspace_path: () => "/Users/vous/Documents/Plume",
   get_document: (args) => documents.find((d) => d.id === args.id) ?? documents[0],
-  // Real-looking page paths, so the full-screen viewer can be worked on.
-  document_page_paths: () => [
-    '/mock/IMG_4021.jpg',
-    '/mock/IMG_4022.jpg',
-    '/mock/IMG_4023.jpg',
-  ],
-  load_transcript: () => transcript,
+  // Real-looking page paths, so the full-screen viewer can be worked on. An
+  // imported course has none — which is what makes its Photos and Lecture
+  // steps disappear, so handing it pages would hide that.
+  document_page_paths: (args: Record<string, unknown>) =>
+    args.id === "fiche-importee"
+      ? []
+      : ['/mock/IMG_4021.jpg', '/mock/IMG_4022.jpg', '/mock/IMG_4023.jpg'],
+  load_transcript: (args: Record<string, unknown>) =>
+    args.id === "fiche-importee" && imported ? imported : transcript,
   logs: () => logs,
   clear_logs: () => undefined,
   log_client: () => undefined,
-  save_block: () => undefined,
+  save_block: (args: Record<string, unknown>) => {
+    // Really marks it read, so the "À vérifier" count can be watched to fall —
+    // the whole point of a written course carrying its own review state.
+    const edited = args.block as { id: string };
+    for (const source of [imported, transcript]) {
+      for (const page of source?.pages ?? []) {
+        const at = page.blocks.findIndex((b) => b.id === edited.id);
+        if (at >= 0) page.blocks[at] = { ...page.blocks[at], ...edited, reviewed: true };
+      }
+    }
+    return undefined;
+  },
   set_block_note: () => undefined,
   set_taught_end: (args: Record<string, unknown>) => {
     for (const page of transcript.pages) {
@@ -354,7 +371,126 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   reveal_path: () => undefined,
   open_url: () => undefined,
   read_template_preamble: () => "\\documentclass{article}\n% {{color.definition}}\n",
+
+  // The import, close enough to the Rust to be worth clicking through: the
+  // same refusals, in the same words, so the panel can be tried on a browser.
+  inspect_import: (args: Record<string, unknown>) => inspect(String(args.json ?? "")),
+  inspect_import_file: () =>
+    inspect(
+      JSON.stringify({
+        title: "Fiche d'exercices — Vecteurs",
+        blocks: [
+          { kind: "part", number: "I", title: "Colinéarité" },
+          {
+            kind: "application",
+            title: "Exercice 1",
+            latex: "Montrer que $\\vec{u}(2;3)$ et $\\vec{v}(4;6)$ sont colinéaires.",
+          },
+          {
+            kind: "proof",
+            latex: "On calcule $2\\times 6-3\\times 4=0$.",
+            audience: ["teacher"],
+          },
+        ],
+      }),
+    ),
+  import_instructions: () =>
+    "Tu écris un cours pour Plume. Réponds UNIQUEMENT par un objet JSON…",
+  import_course: (args: Record<string, unknown>) => {
+    // Kept in the list and given the imported passages, so the whole flow —
+    // land on the review, no Photos step, build the PDF — can be walked
+    // through in the browser.
+    const created: DocumentSummary = {
+      ...documents[0],
+      id: "fiche-importee",
+      title: String(args.title || "Cours importé"),
+      origin: "written",
+      pageCount: 0,
+      status: "review",
+      blockCount: 0,
+      doubtfulCount: 0,
+      taughtCount: null,
+      taughtHeading: null,
+      lastPdf: null,
+    };
+    const read = inspect(String(args.json ?? ""));
+    imported = {
+      version: 1,
+      pages: [
+        {
+          number: 1,
+          sessionId: null,
+          blocks: read.blocks.map((b, index) => ({
+            ...b,
+            id: `p01-b${String(index + 1).padStart(2, "0")}`,
+          })),
+        },
+      ],
+    };
+    created.blockCount = read.blocks.length;
+    documents.unshift(created);
+    return created;
+  },
 };
+
+const KINDS = [
+  "chapter", "part", "subpart", "paragraph", "text", "list", "equation",
+  "definition", "property", "theorem", "method", "example", "application",
+  "remark", "proof", "figure",
+];
+const HEADINGS = ["chapter", "part", "subpart", "paragraph"];
+
+/** The parser's decisions, mirrored closely enough to exercise the panel. */
+function inspect(json: string) {
+  if (!json.trim()) throw "Collez le JSON du cours, ou choisissez un fichier.";
+
+  let wire: { title?: string; blocks?: Record<string, unknown>[] };
+  try {
+    wire = JSON.parse(json);
+  } catch (cause) {
+    throw `Ce n'est pas le format attendu : ${cause}`;
+  }
+  if (!Array.isArray(wire.blocks) || wire.blocks.length === 0) {
+    throw "Ce cours ne contient aucun passage.";
+  }
+
+  const blocks = wire.blocks.map((raw, index) => {
+    const kind = String(raw.kind ?? "").trim().toLowerCase();
+    if (!KINDS.includes(kind)) {
+      throw (
+        `Passage ${index + 1} : « ${raw.kind} » n'est pas un type de passage. ` +
+        `Types acceptés : ${KINDS.join(", ")}.`
+      );
+    }
+    const title = String(raw.title ?? "").trim();
+    const latex = String(raw.latex ?? "").trim();
+    if (HEADINGS.includes(kind) ? !title && !latex : !latex) {
+      throw `Passage ${index + 1} (${kind}) : il est vide.`;
+    }
+    return {
+      id: "",
+      kind,
+      title: title || null,
+      number: String(raw.number ?? "").trim() || null,
+      latex,
+      confidence: 1,
+      doubt: null,
+      audience: (raw.audience as string[]) ?? [],
+      align: null,
+      note: null,
+      taughtEnd: false,
+      reviewed: false,
+    };
+  });
+
+  const warnings = blocks.flatMap((block, index) =>
+    /\\begin\{(minipage|multicols|tabular)\}|\\hfill|\\vspace|\\newpage/.test(block.latex)
+      ? [`Passage ${index + 1} : il contient sa propre mise en page.`]
+      : [],
+  );
+
+  return { title: String(wire.title ?? "").trim(), blocks, warnings, source: json };
+}
 
 export function installDevMock() {
   const internals = {

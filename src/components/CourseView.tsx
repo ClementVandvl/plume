@@ -50,6 +50,7 @@ import { useConfirm } from "../confirm";
 import { useAdvanced } from "../ui/mode";
 import { Icon } from "../ui/Icon";
 import { moved, useDragOrder } from "../ui/dragOrder";
+import { needsReview } from "../ui/review";
 import { AdvancedRow, Meter, OverflowMenu } from "../ui/controls";
 import { BlockPanel } from "./BlockPanel";
 import { PhotoViewer } from "./PhotoViewer";
@@ -300,7 +301,7 @@ export function CourseView({
     taughtOnly &&
     !!lastKept &&
     ["chapter", "part", "subpart", "paragraph"].includes(lastKept.kind);
-  const doubtful = blocks.filter((b) => b.confidence < DOUBT_THRESHOLD && !b.reviewed);
+  const doubtful = blocks.filter((b) => needsReview(b, document?.origin));
   const annotated = blocks.filter((b) => b.note);
   const teacherOnly = blocks.filter(
     (b) => b.audience.length > 0 && !b.audience.includes("student"),
@@ -346,7 +347,7 @@ export function CourseView({
   const sequence = (transcript?.pages ?? [])
     .flatMap((page) => page.blocks.map((block) => ({ block, page: page.number })))
     .filter(({ block }) => {
-      if (filter === "doubt") return block.confidence < DOUBT_THRESHOLD && !block.reviewed;
+      if (filter === "doubt") return needsReview(block, document?.origin);
       if (filter === "teacher")
         return block.audience.length > 0 && !block.audience.includes("student");
       if (filter === "student")
@@ -386,12 +387,34 @@ export function CourseView({
     { id: "student", label: t("review.filter.student"), count: studentOnly.length },
   ];
 
+  /**
+   * The steps this course actually has.
+   *
+   * A written course has no photographs, so the two steps that turn paper into
+   * passages have nothing to act on — and a permanently grey "Photos 1" reads
+   * as something left undone rather than something that does not apply. They
+   * come back the moment a photograph is added to it, which the review's insert
+   * panel can do.
+   */
+  const steps = STEPS.filter(
+    (s) =>
+      !["pages", "read"].includes(s.id) ||
+      document?.origin !== "written" ||
+      pagePaths.length > 0,
+  );
+
   const done: Record<StepId, boolean> = {
     pages: pagePaths.length > 0,
     read: blocks.length > 0,
     review: blocks.length > 0 && doubtful.length === 0 && annotated.length === 0,
     export: (build?.pdfPath ?? document?.lastPdf) != null,
   };
+
+  // Opening a written course from the list asks for "pages", which it has not
+  // got, and the body would come up empty with no step lit.
+  useEffect(() => {
+    if (document && !steps.some((s) => s.id === step)) setStep("review");
+  }, [document, steps, step]);
 
   async function stopReading() {
     try {
@@ -760,7 +783,7 @@ export function CourseView({
             {t("course.back")}
           </button>
           <span className="stepbar__divider" />
-          {STEPS.map((s, index) => (
+          {steps.map((s, index) => (
             <span key={s.id} className="stepbar__unit">
               {index > 0 && <span className="stepbar__sep" />}
               <button
@@ -1253,6 +1276,7 @@ export function CourseView({
                       transcript={transcript}
                       filter={filter}
                       template={template}
+                      origin={document.origin}
                       selectedId={openBlock}
                       onInsertAfter={setInsertAfter}
                       onTaughtEnd={markTaughtEnd}
@@ -1265,6 +1289,7 @@ export function CourseView({
                   <BlockPanel
                     block={selected.block}
                     page={selected.page}
+                    origin={document.origin}
                     position={selectedAt + 1}
                     total={all.length}
                     pageSrc={pagePaths[selected.page - 1]}

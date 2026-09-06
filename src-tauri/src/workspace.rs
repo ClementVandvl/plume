@@ -287,6 +287,22 @@ pub struct Document {
     /// recompiling.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_pdf: Option<String>,
+    /// Where the passages came from: `photo` | `written`.
+    ///
+    /// A written course has no photographs, so the steps that exist to turn
+    /// paper into passages have nothing to act on, and the panel offering to
+    /// enlarge the page has nothing to show. It is also the honest answer to
+    /// "has this been checked": a reading can be doubtful about handwriting,
+    /// while a course someone wrote elsewhere is simply unread until the
+    /// teacher reads it.
+    #[serde(default = "photographed")]
+    pub origin: String,
+}
+
+/// Every course predates the written kind, and photographs are still the way
+/// most of them arrive.
+fn photographed() -> String {
+    "photo".into()
 }
 
 pub fn document_dir(id: &str) -> PathBuf {
@@ -456,6 +472,7 @@ pub fn create(
         reading_rules: String::new(),
         cost_usd: 0.0,
         last_pdf: None,
+        origin: photographed(),
     };
 
     let manifest = serde_json::to_string_pretty(&document)
@@ -470,6 +487,50 @@ pub fn create(
         format!("Document « {title} » créé — {copied} page(s)"),
         dir.to_string_lossy().to_string(),
     );
+
+    Ok(document)
+}
+
+/// Creates a course whose passages come from somewhere other than a camera.
+///
+/// The `pages` directory is made even though it is empty: adding a photograph
+/// to a written course later is a normal thing to want — an exercise worked out
+/// by hand, stapled to a generated sheet — and every path that adds one expects
+/// the directory to be there.
+pub fn create_written(title: &str, template_id: &str) -> Result<Document, String> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("Donnez un titre au document.".into());
+    }
+
+    let courses = ensure_courses_dir().map_err(|e| format!("Classeur inaccessible : {e}"))?;
+    let id = unique_id(&courses, &slugify(title));
+    let dir = courses.join(&id);
+    fs::create_dir_all(dir.join("pages")).map_err(|e| format!("Création du dossier : {e}"))?;
+
+    let now = now_ms();
+    let document = Document {
+        id: id.clone(),
+        title: title.to_string(),
+        template_id: template_id.to_string(),
+        created_at: now,
+        updated_at: now,
+        page_count: 0,
+        // Nothing to read: the passages exist, and what is left is the
+        // teacher's own reading of them.
+        status: "review".into(),
+        reading_rules: String::new(),
+        cost_usd: 0.0,
+        last_pdf: None,
+        origin: "written".into(),
+    };
+
+    let manifest = serde_json::to_string_pretty(&document)
+        .map_err(|e| format!("Sérialisation : {e}"))?;
+    if let Err(e) = fs::write(dir.join("document.json"), manifest) {
+        fs::remove_dir_all(&dir).ok();
+        return Err(format!("Écriture du manifeste : {e}"));
+    }
 
     Ok(document)
 }

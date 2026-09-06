@@ -3,6 +3,7 @@ import type {
   BuildResult,
   DocumentSummary,
   Environment,
+  ImportPlan,
   PlumeDocument,
   Template,
   Transcript,
@@ -47,6 +48,20 @@ export const transcribeDocument = (id: string, model: string) =>
 /** `taughtOnly` stops the document after the passage the class reached. */
 export const buildDocument = (id: string, audience: string, taughtOnly: boolean) =>
   invoke<BuildResult>("build_document", { id, audience, taughtOnly });
+
+/** Reads a course from JSON without creating anything. */
+export const inspectImport = (json: string) =>
+  invoke<ImportPlan>("inspect_import", { json });
+
+export const inspectImportFile = (path: string) =>
+  invoke<ImportPlan>("inspect_import_file", { path });
+
+/** Turns a read course into a real one. */
+export const importCourse = (json: string, title: string, templateId: string) =>
+  invoke<PlumeDocument>("import_course", { json, title, templateId });
+
+/** What to hand a model so that what comes back will import. */
+export const importInstructions = () => invoke<string>("import_instructions");
 
 export const revealPath = (path: string) => invoke<void>("reveal_path", { path });
 

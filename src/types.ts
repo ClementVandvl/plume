@@ -73,6 +73,13 @@ export type PlumeDocument = {
   costUsd: number;
   /** File name of the last compiled PDF, when one exists. */
   lastPdf?: string | null;
+  /**
+   * Where the passages came from: `photo` | `written`.
+   *
+   * A written course has no photographs, so the steps that turn paper into
+   * passages have nothing to act on.
+   */
+  origin?: string;
 };
 
 /** A course as the list returns it: the document plus its review arithmetic. */
@@ -85,6 +92,22 @@ export type DocumentSummary = PlumeDocument & {
   taughtCount?: number | null;
   /** Title of the heading the class stopped under, in the teacher's words. */
   taughtHeading?: string | null;
+};
+
+/**
+ * A course read from JSON, before anything has been created.
+ *
+ * The blocks are already normalised — ids, confidence and review state belong
+ * to Plume and are never taken from the file — so this is what the course will
+ * be, not what was written.
+ */
+export type ImportPlan = {
+  title: string;
+  blocks: Block[];
+  /** Not refusals: things worth seeing before saying yes. */
+  warnings: string[];
+  /** The text it was read from, so the commit parses the same characters. */
+  source: string;
 };
 
 /** A course sitting in the bin. */

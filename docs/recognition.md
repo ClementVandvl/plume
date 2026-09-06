@@ -387,6 +387,54 @@ something the export does not honour is worse than no preview.
 
 ---
 
+## 5b. Courses that were never photographed
+
+A teacher asks Claude for an exercise sheet and then wants to work on it: split a
+statement from its answer, reserve the correction for their own copy, apply their
+charte, send the class the half already covered. Every one of those already works
+on passages — so the sheet only has to arrive as passages.
+
+[`import.rs`](../src-tauri/src/import.rs) is therefore not a second pipeline but a
+second door onto the first. It reads `{ "title", "blocks": [...] }`, refuses
+anything the recogniser could not have produced, and hands the result to the same
+transcript everything else edits.
+
+**What the file may not say.** The wire format is deliberately narrower than
+`Block`: `kind`, `title`, `number`, `latex`, `audience`, and nothing else —
+`deny_unknown_fields` makes an extra key a refusal rather than a silent drop.
+`id`, `confidence`, `reviewed` and `taughtEnd` belong to Plume. A file that could
+set them could arrive pre-marked as reviewed, or claim a taught boundary the
+teacher never placed.
+
+**Why the refusals name a passage.** The JSON comes from outside — pasted out of a
+conversation, saved from who knows where. A course quietly missing half its
+exercises is worse than one that will not import, so every message says which
+passage and what is wrong with it. Layout and stray alignment tabs are reported
+rather than refused: the passage belongs to the teacher, and a `&` outside an
+environment is worth knowing about because it sinks the whole compile.
+
+**"Checked" means two different things.** A photographed passage has a source, and
+`confidence` says how well the handwriting was made out; reading it back is worth
+the teacher's time only where that was low. A written passage has no source.
+Confidence would be 1.0 everywhere and would mean nothing — nothing was read, so
+nothing could be misread. What a generated sheet needs is the teacher deciding the
+mathematics is right, and until they have opened a passage they have not. So the
+document carries an `origin`, and `needsReview` in
+[`src/ui/review.ts`](../src/ui/review.ts) answers differently for each. Without
+that, an imported sheet announces *tout est relu* the second it lands.
+
+For the same reason a written course shows neither its confidence percentages nor
+its page numbers, and loses the Photos and Lecture steps entirely — a permanently
+grey "Photos 1" reads as something left undone rather than something that does not
+apply. They come back the moment a photograph is added to it, which the review's
+insert panel can still do.
+
+**Getting the JSON in the first place** is the other half of the problem, and it is
+solved by *Copier les instructions pour Claude*: `import::instructions()` is the
+prompt to paste above the request. A test parses the example inside those
+instructions, because handing out a sample that will not import is the obvious way
+for this to rot.
+
 ## 6. Compilation
 
 [`latex.rs`](../src-tauri/src/latex.rs) prefers `tectonic` when present (single

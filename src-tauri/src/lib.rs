@@ -2,6 +2,7 @@ mod claude;
 pub mod engine;
 mod env_check;
 mod figures;
+mod import;
 pub mod ir;
 mod latex;
 mod logbus;
@@ -281,6 +282,87 @@ async fn create_document(
     })
     .await
     .map_err(|e| format!("Import interrompu : {e}"))?
+}
+
+/// A course read from JSON, with anything worth a word before it is created.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ImportPlan {
+    #[serde(flatten)]
+    import: import::Import,
+    /// Not refusals: things the teacher should see before saying yes.
+    warnings: Vec<String>,
+    /// The text this was read from, handed back so the commit can parse the
+    /// same characters again. The interface never rebuilds it from the blocks:
+    /// a field added to the format would then be dropped on the way through,
+    /// silently, and only for courses that came from a file.
+    source: String,
+}
+
+fn plan_of(json: &str) -> Result<ImportPlan, String> {
+    let import = import::parse(json)?;
+    let warnings = import::warnings(&import.blocks);
+    Ok(ImportPlan { import, warnings, source: json.to_string() })
+}
+
+/// Reads a course without creating anything.
+///
+/// The preview is the point: a course arriving from outside is the one thing in
+/// Plume the teacher did not write themselves, and seeing the passages before
+/// they land in the workbook is what makes accepting them a decision.
+#[tauri::command]
+fn inspect_import(json: String) -> Result<ImportPlan, String> {
+    plan_of(&json)
+}
+
+#[tauri::command]
+fn inspect_import_file(path: String) -> Result<ImportPlan, String> {
+    let json = fs::read_to_string(&path)
+        .map_err(|e| format!("Lecture de « {path} » impossible : {e}"))?;
+    plan_of(&json)
+}
+
+/// Turns a read course into a real one.
+///
+/// Parses the same text again rather than taking the blocks back from the
+/// interface: the preview is for looking, and validation belongs in one place
+/// so that what is written can never be something `inspect_import` never saw.
+#[tauri::command]
+fn import_course(
+    json: String,
+    title: String,
+    template_id: String,
+) -> Result<workspace::Document, String> {
+    let import = import::parse(&json)?;
+    let title = if title.trim().is_empty() { import.title.clone() } else { title };
+
+    let document = workspace::create_written(&title, &template_id)?;
+    let transcript = import::transcript_of(import.blocks);
+
+    if let Err(error) = write_transcript(&document.id, &transcript) {
+        // A course folder with no passages in it is worse than no course: it
+        // shows up in the list as something to open, and there is nothing
+        // there. Removed rather than binned, as a failed creation is — the
+        // teacher never had this course, so there is nothing to restore.
+        let _ = fs::remove_dir_all(workspace::document_dir(&document.id));
+        return Err(error);
+    }
+
+    logbus::info(
+        "workspace",
+        format!(
+            "Cours « {} » importé — {} passage(s)",
+            document.title,
+            transcript.pages.iter().map(|p| p.blocks.len()).sum::<usize>()
+        ),
+    );
+    Ok(document)
+}
+
+/// The instructions to hand a model, so that what comes back will import.
+#[tauri::command]
+fn import_instructions() -> String {
+    import::instructions()
 }
 
 /// Downloads and runs the official Claude Code installer.
@@ -1537,6 +1619,10 @@ pub fn run() {
             check_template,
             list_templates,
             create_document,
+            inspect_import,
+            inspect_import_file,
+            import_course,
+            import_instructions,
             preview_preamble,
             render_figure,
             install_engine,
