@@ -1,6 +1,6 @@
 {
   "id": "charte-exercices",
-  "version": 5,
+  "version": 6,
   "name": "Charte fiche d'exercices",
   "description": "Bandeaux de partie, exercices numérotés, sous-questions en colonnes, corrections réservées au professeur.",
   "engine": "pdflatex",

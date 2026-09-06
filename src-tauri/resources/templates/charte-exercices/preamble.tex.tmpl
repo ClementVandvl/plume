@@ -166,15 +166,5 @@
 \newenvironment{correction}[1][]{\begin{mcplain}{mcDemo}{{{label.proof}}}{#1}}      {\end{mcplain}}
 
 %============================================================================
-%  10. FIN DE FICHE -- un trait, puis le nombre d'exercices
-%============================================================================
-\AtEndDocument{%
-  \ifnum\value{exercice}>0
-    \par\vspace{1.2\baselineskip}\noindent\rule{\linewidth}{0.4pt}\par
-    \vspace{0.3\baselineskip}
-    \centerline{\small\itshape Fin de la fiche --- \arabic{exercice} exercice\ifnum\value{exercice}>1 s\fi}%
-  \fi}
-
-%============================================================================
 %  FIN DU PREAMBULE DE LA CHARTE
 %============================================================================
