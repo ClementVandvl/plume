@@ -1486,11 +1486,17 @@ struct BuildResult {
 /// handout sent the evening of the lesson. Such a build is a copy taken along
 /// the way, not the document: it writes its own file so it cannot overwrite the
 /// complete PDF, and leaves the document's own state alone.
+///
+/// `per_sheet` — 1, 2 or 4 — lays that many pages on each A4 sheet for
+/// printing, and `repeat` puts the same page in every cell of a sheet rather
+/// than the pages in sequence.
 #[tauri::command]
 async fn build_document(
     id: String,
     audience: String,
     taught_only: bool,
+    per_sheet: u8,
+    repeat: bool,
 ) -> Result<BuildResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let document = workspace::load(&id)?;
@@ -1530,7 +1536,18 @@ async fn build_document(
         let tex_path = dir.join(&name);
         fs::write(&tex_path, tex).map_err(|e| format!("Écriture du .tex : {e}"))?;
 
-        match latex::compile(&dir, &name) {
+        let compiled = latex::compile(&dir, &name).and_then(|pdf| {
+            if per_sheet <= 1 {
+                return Ok(pdf);
+            }
+            let pdf_name = pdf
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .ok_or("PDF sans nom.")?;
+            latex::impose(&dir, &pdf_name, per_sheet, repeat)
+        });
+
+        match compiled {
             Ok(pdf) => {
                 // A compiled PDF is what "ready" means to the document list, and
                 // remembering the file lets "Ouvrir le PDF" skip a rebuild.

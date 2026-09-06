@@ -4,6 +4,7 @@ import type {
   DocumentSummary,
   Environment,
   ImportPlan,
+  PerSheet,
   PlumeDocument,
   TagCount,
   Template,
@@ -50,9 +51,18 @@ export const loadTranscript = (id: string) =>
 export const transcribeDocument = (id: string, model: string) =>
   invoke<Transcript>("transcribe_document", { id, model });
 
-/** `taughtOnly` stops the document after the passage the class reached. */
-export const buildDocument = (id: string, audience: string, taughtOnly: boolean) =>
-  invoke<BuildResult>("build_document", { id, audience, taughtOnly });
+/**
+ * `taughtOnly` stops the document after the passage the class reached;
+ * `perSheet` lays 1, 2 or 4 pages on each A4 sheet, `repeat` the same page in
+ * every cell rather than the pages in sequence.
+ */
+export const buildDocument = (
+  id: string,
+  audience: string,
+  taughtOnly: boolean,
+  perSheet: PerSheet,
+  repeat: boolean,
+) => invoke<BuildResult>("build_document", { id, audience, taughtOnly, perSheet, repeat });
 
 /** Reads a document from JSON without creating anything. */
 export const inspectImport = (json: string) =>

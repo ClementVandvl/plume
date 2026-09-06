@@ -2140,6 +2140,29 @@ textarea.input {
   cursor: default;
 }
 
+/* A labelled switch inside a card: the words on the left, the switch on the
+   right, the way the settings rows do it without the card around them. */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-top: var(--space-xs);
+  border-top: var(--border-width) solid var(--color-border);
+}
+
+.toggle-row__copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggle-row__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
 /* ---------- Tags: what a document is, in the teacher's words ---------- */
 .tagpill {
   display: inline-flex;

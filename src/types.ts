@@ -87,6 +87,9 @@ export type PlumeDocument = {
   tags: string[];
 };
 
+/** Pages laid on one A4 sheet for printing: the counts that make a grid. */
+export type PerSheet = 1 | 2 | 4;
+
 /** One tag and how many documents carry it. */
 export type TagCount = { tag: string; count: number };
 

@@ -507,6 +507,30 @@ whole log, which is unreadable for the target user.
 
 ---
 
+### Pages per sheet
+
+The export step's third question is about paper: 1, 2 or 4 pages on each A4
+sheet. Two go side by side on a landscape sheet, each scaled to fit half of it;
+four go in a grid on a portrait sheet. Those are the only counts that make a
+regular grid of A4 on A4 — three would be strips a third of a page high, and a
+page scaled to fit one is at 0.47, unreadable for mathematics. *Répéter la même
+page* puts one page in every cell of its sheet, for a sheet printed in several
+copies and cut; off, the pages follow one another.
+
+`latex::impose` does it in LaTeX rather than by rewriting the PDF: a one-line
+`pdfpages` wrapper compiled after the document, so no new dependency and the
+same engines. The one delicate part is the page count, which comes from the
+engine's own primitive — `\XeTeXpdfpagecount`, `\pdflastximagepages`,
+`\lastsavedimageresourcepages` — rather than from the PDF, whose objects are
+compressed. XeTeX's file-name scanner swallows a brace that follows the closing
+quote directly; the space after it in the wrapper is load-bearing. And the
+landscape paper is set by `geometry`, not by pdfpages' `landscape` key: under
+Tectonic, whose bundle carries an older pdfpages and driver, that key stacked
+the two pages into one column while a system xelatex put them side by side.
+
+A partial or imposed build never touches `status` or `last_pdf`: both are
+copies taken for a purpose, not the document.
+
 ## 7. What has actually been measured
 
 Page 1 of a real lesson, Sonnet, single shot:

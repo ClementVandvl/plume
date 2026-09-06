@@ -435,6 +435,11 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
     return [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count);
   },
   mcp_bundle: () => "/tmp/plume.mcpb",
+  build_document: (args: Record<string, unknown>) => ({
+    texPath: `/mock/${args.id}-${args.audience}.tex`,
+    pdfPath: null,
+    error: null,
+  }),
   mcp_config: () =>
     JSON.stringify(
       { mcpServers: { plume: { command: "/Applications/Plume.app/Contents/MacOS/plume", args: ["mcp"] } } },

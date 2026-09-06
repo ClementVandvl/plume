@@ -42,6 +42,7 @@ import {
   type Transcript,
   type Template,
   type PageStateEvent,
+  type PerSheet,
   type HeartbeatEvent,
   type ImportProgress,
   type ScanInfo,
@@ -53,7 +54,7 @@ import { useAdvanced } from "../ui/mode";
 import { Icon } from "../ui/Icon";
 import { moved, useDragOrder } from "../ui/dragOrder";
 import { needsReview } from "../ui/review";
-import { AdvancedRow, Meter, OverflowMenu } from "../ui/controls";
+import { AdvancedRow, Meter, OverflowMenu, Toggle } from "../ui/controls";
 import { BlockPanel } from "./BlockPanel";
 import { PhotoViewer } from "./PhotoViewer";
 import { InsertPanel } from "./InsertPanel";
@@ -101,6 +102,9 @@ export function DocumentView({
   const [audience, setAudience] = useState("teacher");
   /** Stop the PDF where the class stopped, rather than at the end. */
   const [taughtOnly, setTaughtOnly] = useState(false);
+  /** Pages on each printed sheet, and whether each sheet repeats one page. */
+  const [perSheet, setPerSheet] = useState<PerSheet>(1);
+  const [repeat, setRepeat] = useState(true);
   const [rules, setRules] = useState("");
   const [progress, setProgress] = useState<TranscriptionProgress | null>(null);
   const [scan, setScan] = useState<Record<number, ScanInfo>>({});
@@ -506,7 +510,7 @@ export function DocumentView({
     setError(null);
     setBuilding(true);
     try {
-      setBuild(await buildDocument(documentId, audience, taughtOnly));
+      setBuild(await buildDocument(documentId, audience, taughtOnly, perSheet, repeat));
       // The PDF is rewritten at the same path, so its URL never changes and the
       // webview kept showing the previous build. Counting them changes it.
       setBuilds((count) => count + 1);
@@ -1416,6 +1420,38 @@ export function DocumentView({
               {taughtOnly && !taughtComplete && (
                 <p className="field__hint">{t("export.partial.note")}</p>
               )}
+
+              {/* The third question, about paper: how many pages each printed
+                  sheet carries. 1, 2 and 4 are the counts that make a regular
+                  grid of A4 on A4; 3 would be strips a third of a page high. */}
+              <div className="panelcard">
+                <span className="panelcard__title">{t("export.sheet.title")}</span>
+                <div className="seg seg--field" role="group" aria-label={t("export.sheet.title")}>
+                  {([1, 2, 4] as const).map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      className={`seg__opt ${perSheet === count ? "seg__opt--on" : ""}`}
+                      onClick={() => setPerSheet(count)}
+                      aria-pressed={perSheet === count}
+                    >
+                      {t(`export.sheet.${count}`)}
+                    </button>
+                  ))}
+                </div>
+                <p className="field__hint">{t(`export.sheet.hint.${perSheet}`)}</p>
+                {perSheet > 1 && (
+                  <div className="toggle-row">
+                    <div className="toggle-row__copy">
+                      <span className="toggle-row__label">{t("export.sheet.repeat")}</span>
+                      <span className="field__hint">
+                        {repeat ? t("export.sheet.repeat.on") : t("export.sheet.repeat.off")}
+                      </span>
+                    </div>
+                    <Toggle checked={repeat} onChange={setRepeat} label={t("export.sheet.repeat")} />
+                  </div>
+                )}
+              </div>
 
               <button
                 type="button"
