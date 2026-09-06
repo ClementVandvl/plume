@@ -1,4 +1,4 @@
-//! An MCP server over stdio, so a conversation can put a course in the workbook.
+//! An MCP server over stdio, so a conversation can put a document in the workbook.
 //!
 //! Run as `plume mcp`. Not a second binary: this is the one already installed,
 //! already signed, at a path that does not move — which is the whole of what a
@@ -11,12 +11,12 @@
 //! drops everything until an app handle is set, which never happens in this
 //! process — stderr stays free for anything that must be said.
 //!
-//! **What this server may do.** It writes courses into the workbook, which is
+//! **What this server may do.** It writes documents into the workbook, which is
 //! the point, and that is a capability handed to any conversation the teacher
 //! has this server connected to — including one where the model has just read a
 //! web page. The client asks before every call, and that confirmation is the
 //! real gate. On this side the guard is narrowness: four tools, no path ever
-//! taken from an argument, and a course arriving unread rather than approved.
+//! taken from an argument, and a document arriving unread rather than approved.
 
 use crate::{import, templates, workspace};
 use serde_json::{json, Value};
@@ -116,14 +116,14 @@ fn tools() -> Value {
             "name": "list_chartes",
             "description":
                 "Liste les chartes (mises en page) du classeur Plume. À appeler avant \
-                 create_course quand le professeur n'a pas dit laquelle utiliser.",
+                 create_document quand le professeur n'a pas dit laquelle utiliser.",
             "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
         },
         {
-            "name": "list_courses",
+            "name": "list_documents",
             "description":
-                "Liste les cours du classeur : identifiant, titre, nombre de passages. \
-                 Utile pour retrouver un cours dont le professeur donne le nom.",
+                "Liste les documents du classeur : identifiant, titre, nombre de passages. \
+                 Utile pour retrouver un document dont le professeur donne le nom.",
             "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
         },
         {
@@ -131,36 +131,36 @@ fn tools() -> Value {
             "description":
                 "Liste les étiquettes en usage dans le classeur — « cours », « exercices », \
                  « DS »… — avec le nombre de documents pour chacune. À appeler avant \
-                 create_course, pour reprendre l'orthographe d'une étiquette existante.",
+                 create_document, pour reprendre l'orthographe d'une étiquette existante.",
             "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
         },
         {
-            "name": "read_course",
+            "name": "read_document",
             "description":
-                "Lit les passages d'un cours existant, pour écrire des exercices qui \
+                "Lit les passages d'un document existant, pour écrire des exercices qui \
                  portent sur cette leçon et en reprennent les notations.",
             "inputSchema": {
                 "type": "object",
                 "required": ["id"],
                 "additionalProperties": false,
                 "properties": {
-                    "id": { "type": "string", "description": "Identifiant donné par list_courses." }
+                    "id": { "type": "string", "description": "Identifiant donné par list_documents." }
                 }
             }
         },
         {
-            "name": "create_course",
+            "name": "create_document",
             "description":
-                "Ajoute un cours au classeur Plume, écrit en passages typés plutôt qu'en \
+                "Ajoute un document au classeur Plume, écrit en passages typés plutôt qu'en \
                  document LaTeX : le professeur pourra ensuite le relire passage par \
                  passage, réserver les corrections à sa version, et lui appliquer sa \
-                 charte. Le cours arrive non relu, à vérifier par le professeur.",
+                 charte. Le document arrive non relu, à vérifier par le professeur.",
             "inputSchema": {
                 "type": "object",
                 "required": ["title", "blocks"],
                 "additionalProperties": false,
                 "properties": {
-                    "title": { "type": "string", "description": "Titre du cours." },
+                    "title": { "type": "string", "description": "Titre du document." },
                     "charte": {
                         "type": "string",
                         "description":
@@ -193,10 +193,10 @@ fn call(id: Value, message: &Value) -> Value {
     // it. Everything a model can act on comes back as `isError` instead.
     let work = match name {
         "list_chartes" => list_chartes(),
-        "list_courses" => list_courses(),
+        "list_documents" => list_documents(),
         "list_tags" => list_tags(),
-        "read_course" => read_course(&arguments),
-        "create_course" => create_course(&arguments),
+        "read_document" => read_document(&arguments),
+        "create_document" => create_document(&arguments),
         _ => return failure(id, -32602, format!("Outil inconnu : {name}")),
     };
 
@@ -222,8 +222,8 @@ fn list_chartes() -> Result<String, String> {
     Ok(pretty(&json!({ "chartes": chartes })))
 }
 
-fn list_courses() -> Result<String, String> {
-    let courses: Vec<Value> = workspace::list()
+fn list_documents() -> Result<String, String> {
+    let documents: Vec<Value> = workspace::list()
         .into_iter()
         .map(|document| {
             json!({
@@ -237,7 +237,7 @@ fn list_courses() -> Result<String, String> {
         })
         .collect();
 
-    Ok(pretty(&json!({ "courses": courses })))
+    Ok(pretty(&json!({ "documents": documents })))
 }
 
 fn list_tags() -> Result<String, String> {
@@ -249,30 +249,30 @@ fn list_tags() -> Result<String, String> {
 }
 
 fn count_blocks(id: &str) -> usize {
-    read_course_transcript(id)
+    read_document_transcript(id)
         .map(|transcript| transcript.pages.iter().map(|p| p.blocks.len()).sum())
         .unwrap_or(0)
 }
 
-fn read_course_transcript(id: &str) -> Option<crate::ir::Transcript> {
+fn read_document_transcript(id: &str) -> Option<crate::ir::Transcript> {
     let raw =
         std::fs::read_to_string(workspace::document_dir(id).join("transcript.json")).ok()?;
     serde_json::from_str(&raw).ok()
 }
 
-fn read_course(arguments: &Value) -> Result<String, String> {
+fn read_document(arguments: &Value) -> Result<String, String> {
     let id = text(arguments, "id")?;
 
     // The id names a folder, so it must not be able to name any other one.
     // Nothing in the workbook has a separator or a dot in its name.
     if id.contains(['/', '\\']) || id.contains("..") {
-        return Err(format!("« {id} » n'est pas un identifiant de cours."));
+        return Err(format!("« {id} » n'est pas un identifiant de document."));
     }
 
     let document = workspace::load(&id)
-        .map_err(|_| format!("Aucun cours « {id} ». Appelez list_courses pour les voir."))?;
-    let transcript = read_course_transcript(&id)
-        .ok_or_else(|| format!("Le cours « {id} » n'a pas encore été transcrit."))?;
+        .map_err(|_| format!("Aucun document « {id} ». Appelez list_documents pour les voir."))?;
+    let transcript = read_document_transcript(&id)
+        .ok_or_else(|| format!("Le document « {id} » n'a pas encore été transcrit."))?;
 
     let passages: Vec<Value> = transcript
         .pages
@@ -297,14 +297,14 @@ fn read_course(arguments: &Value) -> Result<String, String> {
     })))
 }
 
-fn create_course(arguments: &Value) -> Result<String, String> {
+fn create_document(arguments: &Value) -> Result<String, String> {
     let title = text(arguments, "title")?;
     let blocks = arguments
         .get("blocks")
-        .ok_or("Il manque « blocks » : les passages du cours.")?;
+        .ok_or("Il manque « blocks » : les passages du document.")?;
 
     // Back through the same parser the interface uses, from the same text
-    // shape, so a course arriving this way cannot be one the paste path would
+    // shape, so a document arriving this way cannot be one the paste path would
     // have refused.
     let source = json!({ "title": title, "blocks": blocks }).to_string();
 
@@ -392,7 +392,7 @@ pub fn bundle_manifest() -> Result<Value, String> {
         "display_name": "Plume",
         "version": env!("CARGO_PKG_VERSION"),
         "description":
-            "Envoie un cours ou une fiche d'exercices dans le classeur Plume, en \
+            "Envoie un document dans le classeur Plume, en \
              passages que le professeur relit un par un.",
         "author": { "name": "Plume" },
         "server": {
@@ -486,7 +486,7 @@ mod tests {
         let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
         assert_eq!(
             names,
-            vec!["list_chartes", "list_courses", "list_tags", "read_course", "create_course"]
+            vec!["list_chartes", "list_documents", "list_tags", "read_document", "create_document"]
         );
 
         for tool in tools {
@@ -533,7 +533,7 @@ mod tests {
             5,
             "tools/call",
             json!({
-                "name": "create_course",
+                "name": "create_document",
                 "arguments": {
                     "title": "Fiche",
                     "blocks": [{ "kind": "exercice", "latex": "..." }]
@@ -556,7 +556,7 @@ mod tests {
         let reply = handle(&request(
             6,
             "tools/call",
-            json!({ "name": "create_course", "arguments": { "title": "Fiche" } }),
+            json!({ "name": "create_document", "arguments": { "title": "Fiche" } }),
         ))
         .expect("a request");
 
@@ -573,7 +573,7 @@ mod tests {
             let reply = handle(&request(
                 7,
                 "tools/call",
-                json!({ "name": "read_course", "arguments": { "id": id } }),
+                json!({ "name": "read_document", "arguments": { "id": id } }),
             ))
             .expect("a request");
             assert_eq!(reply["result"]["isError"], true, "{id} must be refused");
@@ -634,13 +634,13 @@ mod tests {
         let reply = handle(&request(
             8,
             "tools/call",
-            json!({ "name": "read_course", "arguments": { "id": "pas-un-cours-abcdef" } }),
+            json!({ "name": "read_document", "arguments": { "id": "pas-un-cours-abcdef" } }),
         ))
         .expect("a request");
 
         assert_eq!(reply["result"]["isError"], true);
         assert!(reply["result"]["content"][0]["text"]
             .as_str()
-            .is_some_and(|t| t.contains("list_courses")));
+            .is_some_and(|t| t.contains("list_documents")));
     }
 }

@@ -81,7 +81,7 @@ type Props = {
   onDeleted: () => void;
 };
 
-export function CourseView({
+export function DocumentView({
   documentId,
   initialStep,
   defaultModel,
@@ -317,11 +317,11 @@ export function CourseView({
   );
 
   /**
-   * A marked course proposes stopping there.
+   * A marked document proposes stopping there.
    *
    * The dangerous default is the other one: forgetting to switch sends next
    * week's lesson to the class, and a mail cannot be recalled. Applied once
-   * per course, so it never overrides a choice already made on this screen.
+   * per document, so it never overrides a choice already made on this screen.
    */
   const defaulted = useRef(false);
   useEffect(() => {
@@ -341,7 +341,7 @@ export function CourseView({
 
   // "À vérifier" is the useful filter only while something is flagged. Landing
   // on it empty — or being left staring at it after clearing the last doubt —
-  // shows a blank page where the course should be.
+  // shows a blank page where the document should be.
   useEffect(() => {
     if (step === "review" && filter === "doubt" && blocks.length > 0 && doubtful.length === 0) {
       setFilter("all");
@@ -394,9 +394,9 @@ export function CourseView({
   ];
 
   /**
-   * The steps this course actually has.
+   * The steps this document actually has.
    *
-   * A written course has no photographs, so the two steps that turn paper into
+   * A written document has no photographs, so the two steps that turn paper into
    * passages have nothing to act on — and a permanently grey "Photos 1" reads
    * as something left undone rather than something that does not apply. They
    * come back the moment a photograph is added to it, which the review's insert
@@ -416,7 +416,7 @@ export function CourseView({
     export: (build?.pdfPath ?? document?.lastPdf) != null,
   };
 
-  // Opening a written course from the list asks for "pages", which it has not
+  // Opening a written document from the list asks for "pages", which it has not
   // got, and the body would come up empty with no step lit.
   useEffect(() => {
     if (document && !steps.some((s) => s.id === step)) setStep("review");
@@ -589,11 +589,11 @@ export function CourseView({
 
   async function rename() {
     const title = await promptFor({
-      title: t("course.rename.title"),
-      message: t("course.rename.message"),
-      confirmLabel: t("course.rename.confirm"),
+      title: t("document.rename.title"),
+      message: t("document.rename.message"),
+      confirmLabel: t("document.rename.confirm"),
       input: {
-        label: t("course.rename.field"),
+        label: t("document.rename.field"),
         value: document?.title ?? "",
         placeholder: t("wizard.title.placeholder"),
       },
@@ -611,9 +611,9 @@ export function CourseView({
 
   async function remove() {
     const ok = await confirm({
-      title: t("course.trash.title", { title: document?.title ?? "" }),
-      message: t("course.trash.message"),
-      confirmLabel: t("course.trash.confirm"),
+      title: t("document.trash.title", { title: document?.title ?? "" }),
+      message: t("document.trash.message"),
+      confirmLabel: t("document.trash.confirm"),
       tone: "danger",
     });
     if (!ok) return;
@@ -671,7 +671,7 @@ export function CourseView({
       detail: t("panel.delete.detail"),
       confirmLabel: t("common.delete"),
       tone: "danger",
-      // Shown as it reads in the course: a passage is recognised by its words,
+      // Shown as it reads in the document: a passage is recognised by its words,
       // not by "Passage 7 sur 41".
       preview: (
         <>
@@ -786,7 +786,7 @@ export function CourseView({
         <div className="stepbar__path">
           <button type="button" className="stepbar__back" onClick={onBack}>
             <Icon name="back" size={14} />
-            {t("course.back")}
+            {t("document.back")}
           </button>
           <span className="stepbar__divider" />
           {steps.map((s, index) => (
@@ -824,11 +824,11 @@ export function CourseView({
             </button>
           )}
           <OverflowMenu
-            label={t("courses.menu.label")}
+            label={t("documents.menu.label")}
             entries={[
-              { label: t("courses.menu.rename"), icon: "marker", onPick: rename },
+              { label: t("documents.menu.rename"), icon: "marker", onPick: rename },
               {
-                label: t("courses.menu.tags"),
+                label: t("documents.menu.tags"),
                 icon: "folder",
                 onPick: () =>
                   listTags()
@@ -836,7 +836,7 @@ export function CourseView({
                     .catch((cause) => logError("workspace", t("error.refresh"), cause)),
               },
               {
-                label: t("courses.menu.trash"),
+                label: t("documents.menu.trash"),
                 icon: "trash",
                 danger: true,
                 onPick: remove,
@@ -1368,7 +1368,7 @@ export function CourseView({
               )}
 
               {/* The second, independent question: not who the document is
-                  for, but how much of the course it holds. */}
+                  for, but how much of the document it holds. */}
               <div className="panelcard">
                 <span className="panelcard__title">{t("export.reach.title")}</span>
                 <div className="radios">

@@ -53,7 +53,7 @@ export type Template = {
    *
    * Reading rules and standing conventions describe how the teacher writes,
    * whatever template they use; these describe what the template wants of the
-   * LaTeX, and follow the template when a course changes style.
+   * LaTeX, and follow the template when a document changes style.
    */
   conventions: Convention[];
 };
@@ -69,14 +69,14 @@ export type PlumeDocument = {
   updatedAt: number;
   pageCount: number;
   status: DocumentStatus;
-  /** Every dollar spent reading and correcting this course. */
+  /** Every dollar spent reading and correcting this document. */
   costUsd: number;
   /** File name of the last compiled PDF, when one exists. */
   lastPdf?: string | null;
   /**
    * Where the passages came from: `photo` | `written`.
    *
-   * A written course has no photographs, so the steps that turn paper into
+   * A written document has no photographs, so the steps that turn paper into
    * passages have nothing to act on.
    */
   origin?: string;
@@ -90,9 +90,9 @@ export type PlumeDocument = {
 /** One tag and how many documents carry it. */
 export type TagCount = { tag: string; count: number };
 
-/** A course as the list returns it: the document plus its review arithmetic. */
+/** A document as the list returns it: the document plus its review arithmetic. */
 export type DocumentSummary = PlumeDocument & {
-  /** Blocks in the transcript; 0 when the course has not been read yet. */
+  /** Blocks in the transcript; 0 when the document has not been read yet. */
   blockCount: number;
   /** Blocks below the doubt threshold and not yet confirmed. */
   doubtfulCount: number;
@@ -103,10 +103,10 @@ export type DocumentSummary = PlumeDocument & {
 };
 
 /**
- * A course read from JSON, before anything has been created.
+ * A document read from JSON, before anything has been created.
  *
  * The blocks are already normalised — ids, confidence and review state belong
- * to Plume and are never taken from the file — so this is what the course will
+ * to Plume and are never taken from the file — so this is what the document will
  * be, not what was written.
  */
 export type ImportPlan = {
@@ -120,8 +120,8 @@ export type ImportPlan = {
   source: string;
 };
 
-/** A course sitting in the bin. */
-export type TrashedCourse = {
+/** A document sitting in the bin. */
+export type TrashedDocument = {
   /** Folder name inside the bin — the restore/purge handle. */
   folder: string;
   title: string;
@@ -136,7 +136,7 @@ export type Block = {
   /**
    * For a heading: the number written on the page — "3", "II", "1", "a".
    *
-   * Plume numbers nothing itself. A course photographed from the middle of a
+   * Plume numbers nothing itself. A document photographed from the middle of a
    * notebook opens on "Chapitre 3", and renumbering it would contradict every
    * other document the class holds. Null when the page shows none.
    */
@@ -243,11 +243,11 @@ export const AUDIENCE_LABEL: Record<string, string> = {
 
 export type Route =
   | { name: "home" }
-  | { name: "courses" }
+  | { name: "documents" }
   | { name: "houseStyle" }
   | { name: "instructions" }
   | { name: "trash" }
-  | { name: "course"; id: string; step?: StepId };
+  | { name: "document"; id: string; step?: StepId };
 
 /** Steps of the recognition wizard, in order. Labels live in the dictionary. */
 export const STEPS = [
@@ -298,7 +298,7 @@ export type UiTheme = "light" | "dark" | "system";
 export type Settings = {
   /** Marker conventions: a trigger and an effect. */
   rules: ReadingRule[];
-  /** Standing instructions, applied to every course. */
+  /** Standing instructions, applied to every document. */
   conventions: Convention[];
   defaultModel: string;
   /** Look for a new version at start-up. Installing always needs a click. */

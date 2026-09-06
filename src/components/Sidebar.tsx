@@ -8,7 +8,7 @@ type Props = {
   route: Route;
   onNavigate: (route: Route) => void;
   onSettings: () => void;
-  courseCount: number;
+  documentCount: number;
   trashCount: number;
   environmentReady: boolean;
 };
@@ -17,7 +17,7 @@ const HELP_URL = "https://github.com/ClementVandvl/plume#readme";
 
 const SECTIONS = [
   { name: "home", labelKey: "nav.home", icon: "home" },
-  { name: "courses", labelKey: "nav.courses", icon: "book" },
+  { name: "documents", labelKey: "nav.documents", icon: "book" },
   { name: "houseStyle", labelKey: "nav.houseStyle", icon: "palette" },
   { name: "instructions", labelKey: "nav.instructions", icon: "marker" },
 ] as const;
@@ -26,7 +26,7 @@ export function Sidebar({
   route,
   onNavigate,
   onSettings,
-  courseCount,
+  documentCount,
   trashCount,
   environmentReady,
 }: Props) {
@@ -44,8 +44,8 @@ export function Sidebar({
             >
               <Icon name={section.icon} />
               {t(section.labelKey)}
-              {section.name === "courses" && courseCount > 0 && (
-                <span className="nav-item__count">{courseCount}</span>
+              {section.name === "documents" && documentCount > 0 && (
+                <span className="nav-item__count">{documentCount}</span>
               )}
             </button>
           </li>

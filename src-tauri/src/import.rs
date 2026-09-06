@@ -1,4 +1,4 @@
-//! Reading a course written somewhere other than on paper.
+//! Reading a document written somewhere other than on paper.
 //!
 //! Plume's whole design already turns on one idea: recognition emits typed
 //! blocks, and a deterministic renderer turns those into the teacher's house
@@ -12,7 +12,7 @@
 //! out of the recogniser.
 //!
 //! **Why the refusals are loud.** The JSON arrives from outside — pasted from
-//! a conversation, saved from who knows where — and a course quietly missing
+//! a conversation, saved from who knows where — and a document quietly missing
 //! half its exercises is worse than one that would not import. Every message
 //! names the passage it is about, because "invalid JSON" tells a teacher
 //! nothing they can act on.
@@ -26,7 +26,7 @@ const HEADINGS: &[&str] = &["chapter", "part", "subpart", "paragraph"];
 /// Audiences a block may be restricted to.
 const AUDIENCES: &[&str] = &["teacher", "student"];
 
-/// A course read from JSON and ready to become one.
+/// A document read from JSON and ready to become one.
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Import {
@@ -43,7 +43,7 @@ pub struct Import {
 ///
 /// `Block` carries fields that belong to Plume and not to whoever wrote the
 /// file — the id, how sure a reading was, whether a human has looked. Letting
-/// the file set those would mean a course could arrive pre-marked as reviewed,
+/// the file set those would mean a document could arrive pre-marked as reviewed,
 /// or claim a boundary the teacher never placed.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -69,11 +69,11 @@ struct WireBlock {
     audience: Vec<String>,
 }
 
-/// Reads a course from JSON, or says exactly what is wrong with it.
+/// Reads a document from JSON, or says exactly what is wrong with it.
 pub fn parse(json: &str) -> Result<Import, String> {
     let json = json.trim();
     if json.is_empty() {
-        return Err("Collez le JSON du cours, ou choisissez un fichier.".into());
+        return Err("Collez le JSON du document, ou choisissez un fichier.".into());
     }
 
     let wire: Wire = serde_json::from_str(json).map_err(|error| {
@@ -86,7 +86,7 @@ pub fn parse(json: &str) -> Result<Import, String> {
     })?;
 
     if wire.blocks.is_empty() {
-        return Err("Ce cours ne contient aucun passage.".into());
+        return Err("Ce document ne contient aucun passage.".into());
     }
 
     let mut blocks = Vec::with_capacity(wire.blocks.len());
@@ -174,10 +174,10 @@ pub fn transcript_of(blocks: Vec<Block>) -> Transcript {
     Transcript { version: 1, pages: vec![Page { number: 1, blocks, session_id: None }] }
 }
 
-/// Reads a course from JSON and writes it into the workbook.
+/// Reads a document from JSON and writes it into the workbook.
 ///
 /// Shared by the interface and the MCP server rather than written twice: the
-/// interesting part is not the happy path but the rollback, and a course folder
+/// interesting part is not the happy path but the rollback, and a document folder
 /// that exists with no passages in it shows up in the list as something to open
 /// with nothing inside.
 ///
@@ -210,7 +210,7 @@ pub fn create(
 
     if let Err(error) = written {
         // Removed rather than binned, as a failed creation is: the teacher
-        // never had this course, so there is nothing to restore.
+        // never had this document, so there is nothing to restore.
         let _ = std::fs::remove_dir_all(crate::workspace::document_dir(&document.id));
         return Err(error);
     }
@@ -218,7 +218,7 @@ pub fn create(
     crate::logbus::info(
         "workspace",
         format!(
-            "Cours « {} » importé — {} passage(s)",
+            "Document « {} » importé — {} passage(s)",
             document.title,
             transcript.pages.iter().map(|p| p.blocks.len()).sum::<usize>()
         ),
@@ -232,7 +232,7 @@ pub fn schema() -> serde_json::Value {
     serde_json::json!({
         "type": "array",
         "minItems": 1,
-        "description": "Les passages du cours, dans l'ordre de lecture.",
+        "description": "Les passages du document, dans l'ordre de lecture.",
         "items": {
             "type": "object",
             "required": ["kind"],
@@ -276,7 +276,7 @@ pas partir aux élèves."
 /// what the class does not get to see.
 pub fn instructions() -> String {
     format!(
-        r#"Tu écris un cours pour Plume. Réponds UNIQUEMENT par un objet JSON de cette forme,
+        r#"Tu écris un document pour Plume. Réponds UNIQUEMENT par un objet JSON de cette forme,
 sans texte autour et sans bloc de code :
 
 {{
@@ -319,7 +319,7 @@ appartiennent à Plume."#,
     )
 }
 
-/// Blocks worth flagging before the course is created.
+/// Blocks worth flagging before the document is created.
 ///
 /// Not refusals — the passage is the teacher's to keep — but the two things a
 /// generated sheet gets wrong often enough to be worth a word: a body that
@@ -435,7 +435,7 @@ mod tests {
     }
 
     /// Ids encode position here exactly as they do after a reading, so every
-    /// transcript edit works on an imported course without a special case.
+    /// transcript edit works on an imported document without a special case.
     #[test]
     fn the_layout_numbers_the_passages_as_a_reading_would() {
         let import = parse(&sheet(

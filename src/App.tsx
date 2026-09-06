@@ -13,8 +13,8 @@ import {
 import { t } from "./i18n";
 import { applyTheme, asTheme } from "./theme";
 import { Console } from "./components/Console";
-import { CourseView } from "./components/CourseView";
-import { CoursesView } from "./components/CoursesView";
+import { DocumentView } from "./components/DocumentView";
+import { DocumentsView } from "./components/DocumentsView";
 import { useActiveReadings } from "./ui/reading";
 import { CreateWizard } from "./components/CreateWizard";
 import { ImportPanel } from "./components/ImportPanel";
@@ -33,7 +33,7 @@ import type {
   Route,
   Settings,
   Template,
-  TrashedCourse,
+  TrashedDocument,
 } from "./types";
 import "./App.css";
 
@@ -41,7 +41,7 @@ export default function App() {
   const [environment, setEnvironment] = useState<Environment | null>(null);
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [trash, setTrash] = useState<TrashedCourse[]>([]);
+  const [trash, setTrash] = useState<TrashedDocument[]>([]);
   const [workspace, setWorkspace] = useState("");
   const [route, setRoute] = useState<Route>({ name: "home" });
   const [modal, setModal] = useState<null | "create" | "import" | "settings">(null);
@@ -51,9 +51,9 @@ export default function App() {
   /**
    * False until the workbook has been read once.
    *
-   * Without it the empty course list is indistinguishable from a workbook with
-   * no courses, and the welcome screen flashed for the second or two the disk
-   * took to answer — telling a teacher with forty courses that they had none.
+   * Without it the empty document list is indistinguishable from a workbook with
+   * no documents, and the welcome screen flashed for the second or two the disk
+   * took to answer — telling a teacher with forty documents that they had none.
    */
   const [loaded, setLoaded] = useState(false);
   const [settings, setSettings] = useState<Settings>({
@@ -93,12 +93,12 @@ export default function App() {
   }, [refresh]);
 
   /**
-   * A course can now arrive while Plume sits there: the MCP server writes into
+   * A document can now arrive while Plume sits there: the MCP server writes into
    * the workbook from another process, and nothing in the app would know.
    *
    * Coming back to the window is exactly the moment it happened — the teacher
    * confirmed in a conversation and switched over to look. It is not the only
-   * moment, though: a course landing while Plume already has focus shows up on
+   * moment, though: a document landing while Plume already has focus shows up on
    * the next switch away and back, not immediately.
    */
   useEffect(() => {
@@ -134,7 +134,7 @@ export default function App() {
     );
   }
 
-  // A reading outlives the screen that started it; every list showing courses
+  // A reading outlives the screen that started it; every list showing documents
   // needs to say which ones are working.
   const reading = useActiveReadings();
 
@@ -147,13 +147,13 @@ export default function App() {
   }
 
   const currentCourse =
-    route.name === "course" ? documents.find((d) => d.id === route.id) : undefined;
+    route.name === "document" ? documents.find((d) => d.id === route.id) : undefined;
 
   const titlebarContext =
-    route.name === "course"
+    route.name === "document"
       ? currentCourse?.title
-      : route.name === "courses"
-        ? t("nav.courses")
+      : route.name === "documents"
+        ? t("nav.documents")
         : route.name === "houseStyle"
           ? t("nav.houseStyle")
           : route.name === "instructions"
@@ -162,9 +162,9 @@ export default function App() {
               ? t("nav.trash")
               : undefined;
 
-  // A course is a deep view: it owns the window below the title bar. Navigation
+  // A document is a deep view: it owns the window below the title bar. Navigation
   // chrome would only compete with the document being reviewed.
-  if (route.name === "course") {
+  if (route.name === "document") {
     return (
       <UiModeContext.Provider value={mode}>
         <div className="frame">
@@ -175,7 +175,7 @@ export default function App() {
             onConsole={() => setConsoleOpen((open) => !open)}
           />
           <div className={`deep ${consoleOpen ? "deep--console" : ""}`}>
-            <CourseView
+            <DocumentView
               key={route.id}
               documentId={route.id}
               initialStep={route.step}
@@ -183,10 +183,10 @@ export default function App() {
               concurrentPages={settings.concurrentPages}
               autoPages={environment?.autoPages ?? 1}
               templates={templates}
-              onBack={() => setRoute({ name: "courses" })}
+              onBack={() => setRoute({ name: "documents" })}
               onChanged={() => refresh().catch(onRefreshError)}
               onDeleted={() => {
-                setRoute({ name: "courses" });
+                setRoute({ name: "documents" });
                 refresh().catch(onRefreshError);
               }}
             />
@@ -214,7 +214,7 @@ export default function App() {
     );
   }
 
-  // Before the first course there is nothing to navigate: the home view shows
+  // Before the first document there is nothing to navigate: the home view shows
   // the welcome screen alone, full width, and the sidebar waits its turn.
   const firstLaunch = documents.length === 0 && route.name === "home";
 
@@ -234,7 +234,7 @@ export default function App() {
               route={route}
               onNavigate={setRoute}
               onSettings={() => setModal("settings")}
-              courseCount={documents.length}
+              documentCount={documents.length}
               trashCount={trash.length}
               environmentReady={environment?.ready ?? true}
             />
@@ -252,8 +252,8 @@ export default function App() {
               />
             )}
 
-            {route.name === "courses" && (
-              <CoursesView
+            {route.name === "documents" && (
+              <DocumentsView
                 documents={documents}
                 reading={reading}
                 onCreate={() => openWizard()}
@@ -290,10 +290,11 @@ export default function App() {
           <CreateWizard
             templates={templates}
             initialPages={seedPages}
+            known={[...new Set(documents.flatMap((d) => d.tags))]}
             onCancel={() => setModal(null)}
             onCreated={(created) => {
               setModal(null);
-              setRoute({ name: "course", id: created.id });
+              setRoute({ name: "document", id: created.id });
               refresh().catch(onRefreshError);
             }}
           />
@@ -305,9 +306,9 @@ export default function App() {
             onCancel={() => setModal(null)}
             onImported={(created) => {
               setModal(null);
-              // Straight to the review: an imported course has nothing to
+              // Straight to the review: an imported document has nothing to
               // photograph and nothing to read — what is left is reading it.
-              setRoute({ name: "course", id: created.id, step: "review" });
+              setRoute({ name: "document", id: created.id, step: "review" });
               refresh().catch(onRefreshError);
             }}
           />

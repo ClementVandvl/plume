@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { deleteDocument, openCoursePdf, renameDocument, setTags } from "../api";
+import { deleteDocument, openDocumentPdf, renameDocument, setTags } from "../api";
 import { useAdvanced } from "../ui/mode";
 import { TagEditor } from "./TagEditor";
 import { useConfirm } from "../confirm";
@@ -11,10 +11,10 @@ import { Meter, OverflowMenu, PageSkeleton, ReadingPill } from "../ui/controls";
 
 type Props = {
   documents: DocumentSummary[];
-  /** Courses being read right now. */
+  /** Documents being read right now. */
   reading: Set<string>;
   onCreate: () => void;
-  /** A course written elsewhere — an exercise sheet asked of Claude. */
+  /** A document written elsewhere — an exercise sheet asked of Claude. */
   onImport: () => void;
   onNavigate: (route: Route) => void;
   onChanged: () => void;
@@ -29,37 +29,37 @@ function nextStep(doc: DocumentSummary): {
 } {
   if (doc.doubtfulCount > 0)
     return {
-      phrase: tn("courses.state.doubtful", doc.doubtfulCount),
-      action: t("courses.action.review"),
+      phrase: tn("documents.state.doubtful", doc.doubtfulCount),
+      action: t("documents.action.review"),
       step: "review",
     };
   if (doc.status === "ready")
     return {
-      phrase: t("courses.state.ready"),
-      action: t("courses.action.openPdf"),
+      phrase: t("documents.state.ready"),
+      action: t("documents.action.openPdf"),
       step: "export",
       pdf: true,
     };
   if (doc.blockCount > 0)
     return {
-      phrase: t("courses.state.reviewed"),
+      phrase: t("documents.state.reviewed"),
       action: t("review.makePdf"),
       step: "export",
     };
   if (doc.pageCount > 0)
     return {
-      phrase: t("courses.state.unread"),
-      action: t("courses.action.read"),
+      phrase: t("documents.state.unread"),
+      action: t("documents.action.read"),
       step: "read",
     };
   return {
-    phrase: t("courses.state.empty"),
-    action: t("courses.action.addPages"),
+    phrase: t("documents.state.empty"),
+    action: t("documents.action.addPages"),
     step: "pages",
   };
 }
 
-export function CoursesView({
+export function DocumentsView({
   documents,
   reading,
   onCreate,
@@ -119,17 +119,17 @@ export function CoursesView({
   const countFor = (wanted: DocumentStatus) =>
     documents.filter((d) => d.status === wanted).length;
 
-  // The one course the teacher is most likely here for: the most recently
+  // The one document the teacher is most likely here for: the most recently
   // touched one with doubts left. Its button is the filled one.
   const urgent = visible.find((d) => d.doubtfulCount > 0);
 
   async function rename(doc: DocumentSummary) {
     const title = await promptFor({
-      title: t("course.rename.title"),
-      message: t("course.rename.message"),
-      confirmLabel: t("course.rename.confirm"),
+      title: t("document.rename.title"),
+      message: t("document.rename.message"),
+      confirmLabel: t("document.rename.confirm"),
       input: {
-        label: t("course.rename.field"),
+        label: t("document.rename.field"),
         value: doc.title,
         placeholder: t("wizard.title.placeholder"),
       },
@@ -145,9 +145,9 @@ export function CoursesView({
 
   async function trash(doc: DocumentSummary) {
     const ok = await confirm({
-      title: t("course.trash.title", { title: doc.title }),
-      message: t("course.trash.message"),
-      confirmLabel: t("course.trash.confirm"),
+      title: t("document.trash.title", { title: doc.title }),
+      message: t("document.trash.message"),
+      confirmLabel: t("document.trash.confirm"),
       tone: "danger",
     });
     if (!ok) return;
@@ -162,18 +162,18 @@ export function CoursesView({
   function act(doc: DocumentSummary) {
     const next = nextStep(doc);
     if (next.pdf) {
-      openCoursePdf(doc.id).catch(() =>
-        onNavigate({ name: "course", id: doc.id, step: "export" }),
+      openDocumentPdf(doc.id).catch(() =>
+        onNavigate({ name: "document", id: doc.id, step: "export" }),
       );
       return;
     }
-    onNavigate({ name: "course", id: doc.id, step: next.step });
+    onNavigate({ name: "document", id: doc.id, step: next.step });
   }
 
   return (
     <div className="stack">
       <header className="page-head">
-        <h1 className="page-title">{t("courses.title")}</h1>
+        <h1 className="page-title">{t("documents.title")}</h1>
         <div className="page-head__tools">
           <label className="search">
             <Icon name="search" size={15} />
@@ -181,7 +181,7 @@ export function CoursesView({
               className="search__input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("courses.search")}
+              placeholder={t("documents.search")}
               type="search"
             />
           </label>
@@ -190,11 +190,11 @@ export function CoursesView({
               the advanced mode rather than sit beside "Nouveau cours". */}
           {advanced && (
             <button type="button" className="btn btn--outline" onClick={onImport}>
-              {t("courses.import")}
+              {t("documents.import")}
             </button>
           )}
           <button type="button" className="btn btn--primary" onClick={onCreate}>
-            {t("courses.new")}
+            {t("documents.new")}
           </button>
         </div>
       </header>
@@ -205,7 +205,7 @@ export function CoursesView({
           className={`chip ${status === null ? "chip--on" : ""}`}
           onClick={() => setStatus(null)}
         >
-          {t("courses.filter.all")} <span className="chip__count">{documents.length}</span>
+          {t("documents.filter.all")} <span className="chip__count">{documents.length}</span>
         </button>
         {(["review", "ready", "draft"] as const).map((id) => (
           <button
@@ -223,13 +223,13 @@ export function CoursesView({
       {/* The teacher's own shelves. A second row rather than more chips on the
           first: what a document is and where it stands are two questions. */}
       {tags.length > 0 && (
-        <div className="chips" role="group" aria-label={t("courses.tags.label")}>
+        <div className="chips" role="group" aria-label={t("documents.tags.label")}>
           <button
             type="button"
             className={`chip chip--tag ${tag === null ? "chip--on" : ""}`}
             onClick={() => setTag(null)}
           >
-            {t("courses.tags.all")}
+            {t("documents.tags.all")}
           </button>
           {tags.map((entry) => (
             <button
@@ -246,15 +246,15 @@ export function CoursesView({
 
       {visible.length === 0 ? (
         <p className="muted">
-          {documents.length === 0 ? t("courses.empty.none") : t("courses.empty.filtered")}
+          {documents.length === 0 ? t("documents.empty.none") : t("documents.empty.filtered")}
         </p>
       ) : (
         <div className="ctable">
           <div className="ctable__head">
             <span />
-            <span>{t("courses.column.course")}</span>
-            <span>{t("courses.column.state")}</span>
-            <span>{t("courses.column.next")}</span>
+            <span>{t("documents.column.document")}</span>
+            <span>{t("documents.column.state")}</span>
+            <span>{t("documents.column.next")}</span>
             <span />
           </div>
 
@@ -279,11 +279,11 @@ export function CoursesView({
               <div
                 key={doc.id}
                 className={`ctable__row ${doc.id === urgent?.id ? "ctable__row--urgent" : ""}`}
-                onClick={() => onNavigate({ name: "course", id: doc.id })}
+                onClick={() => onNavigate({ name: "document", id: doc.id })}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) =>
-                  e.key === "Enter" && onNavigate({ name: "course", id: doc.id })
+                  e.key === "Enter" && onNavigate({ name: "document", id: doc.id })
                 }
               >
                 <PageSkeleton size="sm" />
@@ -303,7 +303,7 @@ export function CoursesView({
                     {t("common.modified", { when: formatRelative(doc.updatedAt) })}
                   </span>
                   {/* Where the class got to — the question a Sunday evening
-                      asks of a course being taught over several weeks. The
+                      asks of a document being taught over several weeks. The
                       heading when there is one, since that is how a teacher
                       names the place; a count otherwise. */}
                   {doc.taughtCount != null && (
@@ -333,43 +333,43 @@ export function CoursesView({
                   className={`btn ${doc.id === urgent?.id ? "btn--primary" : "btn--outline"} btn--sm`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Offering to read a course already being read would start
+                    // Offering to read a document already being read would start
                     // a second reading over the first, and bill for it. Going
                     // to watch it is the only useful thing left to do.
                     if (reading.has(doc.id)) {
-                      onNavigate({ name: "course", id: doc.id });
+                      onNavigate({ name: "document", id: doc.id });
                       return;
                     }
                     act(doc);
                   }}
                 >
                   {reading.has(doc.id)
-                    ? t("courses.action.watch")
+                    ? t("documents.action.watch")
                     : doc.id === urgent?.id || doc.doubtfulCount === 0
                       ? next.action
-                      : t("courses.action.reread")}
+                      : t("documents.action.reread")}
                 </button>
                 <div onClick={(e) => e.stopPropagation()}>
                   <OverflowMenu
-                    label={t("courses.menu.label")}
+                    label={t("documents.menu.label")}
                     entries={[
                       {
-                        label: t("courses.menu.open"),
+                        label: t("documents.menu.open"),
                         icon: "book",
-                        onPick: () => onNavigate({ name: "course", id: doc.id }),
+                        onPick: () => onNavigate({ name: "document", id: doc.id }),
                       },
                       {
-                        label: t("courses.menu.rename"),
+                        label: t("documents.menu.rename"),
                         icon: "marker",
                         onPick: () => rename(doc),
                       },
                       {
-                        label: t("courses.menu.tags"),
+                        label: t("documents.menu.tags"),
                         icon: "folder",
                         onPick: () => setTagging(doc),
                       },
                       {
-                        label: t("courses.menu.trash"),
+                        label: t("documents.menu.trash"),
                         icon: "trash",
                         danger: true,
                         onPick: () => trash(doc),

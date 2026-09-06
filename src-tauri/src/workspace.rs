@@ -4,7 +4,7 @@
 //!
 //! ```text
 //! Plume/
-//!   Courses/
+//!   Documents/
 //!     vecteurs/
 //!       document.json      metadata
 //!       pages/01.jpg ...   the photos, upright and size-capped
@@ -96,7 +96,7 @@ const NO_CONVERTER_HINT: &str =
 const NO_CONVERTER_HINT: &str =
     "Installez ImageMagick, ou exportez vos photos en JPEG depuis votre iPhone.";
 
-/// Brings one photo into a course: HEIC conversion if needed, then rotation and
+/// Brings one photo into a document: HEIC conversion if needed, then rotation and
 /// resizing, so every stored page is an upright JPEG of a sane size.
 ///
 /// One entry point for both import paths, because a page added later must go
@@ -195,48 +195,56 @@ pub fn ensure_root() -> io::Result<PathBuf> {
     Ok(dir)
 }
 
-/// Where courses live, kept apart from `Templates` so the workbook stays
+/// Where documents live, kept apart from `Templates` so the workbook stays
 /// readable as it fills up.
-pub fn courses_dir() -> PathBuf {
-    root().join("Courses")
+pub fn documents_dir() -> PathBuf {
+    root().join("Documents")
 }
 
-pub fn ensure_courses_dir() -> io::Result<PathBuf> {
-    let dir = courses_dir();
+pub fn ensure_documents_dir() -> io::Result<PathBuf> {
+    let dir = documents_dir();
     fs::create_dir_all(&dir)?;
     Ok(dir)
 }
 
-/// Moves courses that predate the `Courses/` folder into it.
+/// Moves documents that predate the `Documents/` folder into it.
 ///
 /// Only folders holding a `document.json` are touched, so `Templates` and any
-/// stray folder of the user's own are left exactly where they are. A course
+/// stray folder of the user's own are left exactly where they are. A document
 /// whose name is already taken is left in place rather than overwritten.
 pub fn migrate_layout() -> io::Result<usize> {
     let root = ensure_root()?;
-    let courses = courses_dir();
+    let documents = documents_dir();
+
+    // The folder was `Courses/` until documents stopped all being lessons. One
+    // rename, once, before anything reads the workbook.
+    let former = root.join("Courses");
+    if former.is_dir() && !documents.exists() {
+        fs::rename(&former, &documents)?;
+        logbus::info("workspace", "Dossier « Courses » renommé en « Documents »");
+    }
 
     let candidates: Vec<PathBuf> = fs::read_dir(&root)?
         .flatten()
         .map(|entry| entry.path())
-        .filter(|path| path.is_dir() && path != &courses)
+        .filter(|path| path.is_dir() && path != &documents)
         .filter(|path| path.join("document.json").is_file())
         .collect();
 
     if candidates.is_empty() {
         return Ok(0);
     }
-    fs::create_dir_all(&courses)?;
+    fs::create_dir_all(&documents)?;
 
     let mut moved = 0;
     for source in candidates {
         let Some(name) = source.file_name() else { continue };
-        let target = courses.join(name);
+        let target = documents.join(name);
         if target.exists() {
             logbus::warn(
                 "workspace",
                 format!(
-                    "« {} » existe déjà dans Courses — laissé en place.",
+                    "« {} » existe déjà dans Documents — laissé en place.",
                     name.to_string_lossy()
                 ),
             );
@@ -247,7 +255,7 @@ pub fn migrate_layout() -> io::Result<usize> {
                 moved += 1;
                 logbus::detail(
                     "workspace",
-                    format!("Cours « {} » déplacé", name.to_string_lossy()),
+                    format!("Document « {} » déplacé", name.to_string_lossy()),
                     target.to_string_lossy().to_string(),
                 );
             }
@@ -277,23 +285,23 @@ pub struct Document {
     /// recogniser's instructions. Empty until they define any.
     #[serde(default)]
     pub reading_rules: String,
-    /// Every dollar this course has cost across reads and corrections. The
+    /// Every dollar this document has cost across reads and corrections. The
     /// events already reported it per run; persisting the total is what lets
-    /// the advanced mode answer "what has this course cost me so far".
+    /// the advanced mode answer "what has this document cost me so far".
     #[serde(default)]
     pub cost_usd: f64,
     /// File name of the most recent successfully compiled PDF, relative to the
-    /// course folder — so "Ouvrir le PDF" works from the course list without
+    /// document folder — so "Ouvrir le PDF" works from the document list without
     /// recompiling.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_pdf: Option<String>,
     /// Where the passages came from: `photo` | `written`.
     ///
-    /// A written course has no photographs, so the steps that exist to turn
+    /// A written document has no photographs, so the steps that exist to turn
     /// paper into passages have nothing to act on, and the panel offering to
     /// enlarge the page has nothing to show. It is also the honest answer to
     /// "has this been checked": a reading can be doubtful about handwriting,
-    /// while a course someone wrote elsewhere is simply unread until the
+    /// while a document someone wrote elsewhere is simply unread until the
     /// teacher reads it.
     #[serde(default = "photographed")]
     pub origin: String,
@@ -304,14 +312,10 @@ pub struct Document {
     /// differently and a list Plume chose would be wrong for most of them. A
     /// tag exists by being used; nothing has to be created first. Normalised
     /// by `normalise_tags`, so « Cours » and « cours » are one tag.
-    #[serde(default = "course_tags")]
+    #[serde(default)]
     pub tags: Vec<String>,
 }
 
-/// Every course predates tags, and a photographed course is a lesson.
-fn course_tags() -> Vec<String> {
-    vec!["cours".into()]
-}
 
 /// Tags as they are stored: trimmed, no blanks, no duplicates.
 ///
@@ -364,14 +368,14 @@ pub fn set_tags(id: &str, tags: &[String]) -> Result<Document, String> {
     Ok(document)
 }
 
-/// Every course predates the written kind, and photographs are still the way
+/// Every document predates the written kind, and photographs are still the way
 /// most of them arrive.
 fn photographed() -> String {
     "photo".into()
 }
 
 pub fn document_dir(id: &str) -> PathBuf {
-    courses_dir().join(id)
+    documents_dir().join(id)
 }
 
 pub fn load(id: &str) -> Result<Document, String> {
@@ -408,12 +412,12 @@ pub fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// Lists courses, most recently updated first.
+/// Lists documents, most recently updated first.
 ///
 /// A sub-folder without a readable `document.json` is skipped silently: a stray
 /// file must not break the dashboard.
 pub fn list() -> Vec<Document> {
-    let Ok(dir) = ensure_courses_dir() else {
+    let Ok(dir) = ensure_documents_dir() else {
         return Vec::new();
     };
     let Ok(entries) = fs::read_dir(&dir) else {
@@ -485,6 +489,7 @@ pub fn create(
     title: &str,
     template_id: &str,
     sources: &[PathBuf],
+    tags: &[String],
     on_progress: &dyn Fn(usize, usize),
 ) -> Result<Document, String> {
     let title = title.trim();
@@ -495,9 +500,9 @@ pub fn create(
         return Err("Ajoutez au moins une photo.".into());
     }
 
-    let courses = ensure_courses_dir().map_err(|e| format!("Classeur inaccessible : {e}"))?;
-    let id = unique_id(&courses, &slugify(title));
-    let dir = courses.join(&id);
+    let documents = ensure_documents_dir().map_err(|e| format!("Classeur inaccessible : {e}"))?;
+    let id = unique_id(&documents, &slugify(title));
+    let dir = documents.join(&id);
     let pages = dir.join("pages");
     fs::create_dir_all(&pages).map_err(|e| format!("Création du dossier : {e}"))?;
 
@@ -538,7 +543,7 @@ pub fn create(
         cost_usd: 0.0,
         last_pdf: None,
         origin: photographed(),
-        tags: course_tags(),
+        tags: normalise_tags(tags),
     };
 
     let manifest = serde_json::to_string_pretty(&document)
@@ -557,10 +562,10 @@ pub fn create(
     Ok(document)
 }
 
-/// Creates a course whose passages come from somewhere other than a camera.
+/// Creates a document whose passages come from somewhere other than a camera.
 ///
 /// The `pages` directory is made even though it is empty: adding a photograph
-/// to a written course later is a normal thing to want — an exercise worked out
+/// to a written document later is a normal thing to want — an exercise worked out
 /// by hand, stapled to a generated sheet — and every path that adds one expects
 /// the directory to be there.
 pub fn create_written(
@@ -573,9 +578,9 @@ pub fn create_written(
         return Err("Donnez un titre au document.".into());
     }
 
-    let courses = ensure_courses_dir().map_err(|e| format!("Classeur inaccessible : {e}"))?;
-    let id = unique_id(&courses, &slugify(title));
-    let dir = courses.join(&id);
+    let documents = ensure_documents_dir().map_err(|e| format!("Classeur inaccessible : {e}"))?;
+    let id = unique_id(&documents, &slugify(title));
+    let dir = documents.join(&id);
     fs::create_dir_all(dir.join("pages")).map_err(|e| format!("Création du dossier : {e}"))?;
 
     let now = now_ms();
@@ -606,9 +611,9 @@ pub fn create_written(
     Ok(document)
 }
 
-/// Where deleted courses go.
+/// Where deleted documents go.
 ///
-/// Never a hard delete: a course is weeks of handwriting plus real quota spent
+/// Never a hard delete: a document is weeks of handwriting plus real quota spent
 /// reading it. The folder is moved, and the teacher empties the bin themselves
 /// from the Finder if they mean it.
 pub fn bin_dir() -> PathBuf {
@@ -632,18 +637,18 @@ pub fn delete(id: &str) -> Result<PathBuf, String> {
     fs::rename(&source, &target).map_err(|e| format!("Mise à la corbeille : {e}"))?;
     logbus::detail(
         "workspace",
-        format!("Cours « {id} » mis à la corbeille"),
+        format!("Document « {id} » mis à la corbeille"),
         target.to_string_lossy().to_string(),
     );
     Ok(target)
 }
 
-/// One course sitting in the bin, described from its own manifest.
+/// One document sitting in the bin, described from its own manifest.
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct TrashedCourse {
+pub struct TrashedDocument {
     /// Folder name inside `Corbeille/` — the handle for restore and purge. It
-    /// can differ from the document id when the same course was binned twice.
+    /// can differ from the document id when the same document was binned twice.
     pub folder: String,
     pub title: String,
     pub page_count: usize,
@@ -659,19 +664,19 @@ fn bin_entry(folder: &str) -> Result<PathBuf, String> {
     }
     let path = bin_dir().join(folder);
     if !path.is_dir() {
-        return Err("Ce cours n'est plus dans la corbeille.".into());
+        return Err("Ce document n'est plus dans la corbeille.".into());
     }
     Ok(path)
 }
 
-/// Courses in the bin, most recently binned first. `Modeles` (binned templates)
+/// Documents in the bin, most recently binned first. `Modeles` (binned templates)
 /// and anything without a readable manifest are skipped: the bin is also a
 /// folder the user can drop things into by hand.
-pub fn trashed() -> Vec<TrashedCourse> {
+pub fn trashed() -> Vec<TrashedDocument> {
     let Ok(entries) = fs::read_dir(bin_dir()) else {
         return Vec::new();
     };
-    let mut out: Vec<TrashedCourse> = entries
+    let mut out: Vec<TrashedDocument> = entries
         .flatten()
         .filter(|entry| entry.path().is_dir())
         .filter_map(|entry| {
@@ -684,7 +689,7 @@ pub fn trashed() -> Vec<TrashedCourse> {
                 .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
                 .map(|d| d.as_millis() as u64)
                 .unwrap_or(0);
-            Some(TrashedCourse {
+            Some(TrashedDocument {
                 folder: entry.file_name().to_string_lossy().to_string(),
                 title: document.title,
                 page_count: document.page_count,
@@ -696,10 +701,10 @@ pub fn trashed() -> Vec<TrashedCourse> {
     out
 }
 
-/// Moves a binned course back among the others.
+/// Moves a binned document back among the others.
 ///
 /// The folder may carry a `-n` suffix from a double delete, and the original
-/// id may meanwhile be taken again: the course is restored under the first
+/// id may meanwhile be taken again: the document is restored under the first
 /// free name, and the manifest's id is realigned so `document_dir(id)` keeps
 /// pointing at the folder.
 pub fn restore(folder: &str) -> Result<Document, String> {
@@ -709,7 +714,7 @@ pub fn restore(folder: &str) -> Result<Document, String> {
     let mut document: Document =
         serde_json::from_str(&raw).map_err(|e| format!("Manifeste illisible : {e}"))?;
 
-    let courses = ensure_courses_dir().map_err(|e| format!("Classeur inaccessible : {e}"))?;
+    let documents = ensure_documents_dir().map_err(|e| format!("Classeur inaccessible : {e}"))?;
     let (target, id) = (0..)
         .map(|n| {
             let name = if n == 0 {
@@ -717,7 +722,7 @@ pub fn restore(folder: &str) -> Result<Document, String> {
             } else {
                 format!("{}-{n}", document.id)
             };
-            (courses.join(&name), name)
+            (documents.join(&name), name)
         })
         .find(|(candidate, _)| !candidate.exists())
         .ok_or("Nom libre introuvable dans le classeur.")?;
@@ -731,22 +736,22 @@ pub fn restore(folder: &str) -> Result<Document, String> {
     save(&document)?;
     logbus::detail(
         "workspace",
-        format!("Cours « {} » restauré", document.title),
+        format!("Document « {} » restauré", document.title),
         target.to_string_lossy().to_string(),
     );
     Ok(document)
 }
 
-/// Deletes a binned course from the disk, for good. The only hard delete in
+/// Deletes a binned document from the disk, for good. The only hard delete in
 /// Plume, and it is only reachable from inside the bin, after a confirmation.
 pub fn purge(folder: &str) -> Result<(), String> {
     let path = bin_entry(folder)?;
     fs::remove_dir_all(&path).map_err(|e| format!("Suppression définitive : {e}"))?;
-    logbus::info("workspace", format!("Cours « {folder} » supprimé définitivement"));
+    logbus::info("workspace", format!("Document « {folder} » supprimé définitivement"));
     Ok(())
 }
 
-/// Renames the course for display. The folder keeps its identifier, because
+/// Renames the document for display. The folder keeps its identifier, because
 /// the transcript, the figure cache and the produced files all hang off it.
 pub fn rename(id: &str, title: &str) -> Result<Document, String> {
     let title = title.trim();
@@ -848,7 +853,7 @@ pub fn add_pages(
 /// A requested order must be a permutation of the pages that exist.
 ///
 /// Checked before a single file moves: a half-applied reorder would leave the
-/// pages under temporary names, and the course unreadable.
+/// pages under temporary names, and the document unreadable.
 fn check_order(order: &[usize], count: usize) -> Result<(), String> {
     if order.len() != count {
         return Err("L'ordre demandé ne couvre pas toutes les pages.".into());
@@ -868,7 +873,7 @@ fn check_order(order: &[usize], count: usize) -> Result<(), String> {
 /// Rewrites the page order. `order` lists the current page numbers, in the
 /// sequence they should end up in: `[2, 1, 3]` promotes page 2 to first.
 ///
-/// The photographs decide the order of the course, and a teacher who drops a
+/// The photographs decide the order of the document, and a teacher who drops a
 /// batch in the wrong order should not have to delete and re-import it.
 pub fn reorder_pages(id: &str, order: &[usize]) -> Result<Document, String> {
     let names = page_files(id);

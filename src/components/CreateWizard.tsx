@@ -9,6 +9,7 @@ import type { ImportProgress, PlumeDocument, Template } from "../types";
 import { Icon } from "../ui/Icon";
 import { moved, useDragOrder } from "../ui/dragOrder";
 import { Modal } from "./Modal";
+import { splitTags } from "./TagEditor";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "heic", "heif", "webp", "tif", "tiff"];
 
@@ -22,13 +23,16 @@ type Props = {
   templates: Template[];
   /** Photos dropped before the wizard opened — straight to step 2. */
   initialPages?: string[];
+  /** Every tag in use, offered so a spelling is reused rather than invented. */
+  known: string[];
   onCancel: () => void;
   onCreated: (document: PlumeDocument) => void;
 };
 
-export function CreateWizard({ templates, initialPages = [], onCancel, onCreated }: Props) {
+export function CreateWizard({ templates, initialPages = [], known, onCancel, onCreated }: Props) {
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
+  const [tags, setTags] = useState("");
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
   const [pages, setPages] = useState<string[]>(initialPages);
   const [dragging, setDragging] = useState(false);
@@ -86,7 +90,7 @@ export function CreateWizard({ templates, initialPages = [], onCancel, onCreated
     else if (typeof picked === "string") addPages([picked]);
   }
 
-  // Shared with the course view, which reorders the same photographs later.
+  // Shared with the document view, which reorders the same photographs later.
   const { held, grab } = useDragOrder(listRef, (from, to) =>
     setPages((current) => moved(current, from, to)),
   );
@@ -105,7 +109,7 @@ export function CreateWizard({ templates, initialPages = [], onCancel, onCreated
     setBusy(true);
     setError(null);
     try {
-      onCreated(await createDocument(title, templateId, pages));
+      onCreated(await createDocument(title, templateId, pages, splitTags(tags)));
     } catch (cause) {
       setError(String(cause));
       logError("workspace", t("error.refresh"), cause);
@@ -192,6 +196,47 @@ export function CreateWizard({ templates, initialPages = [], onCancel, onCreated
               autoFocus
             />
           </label>
+
+          {/* What the document is, asked rather than assumed: a photographed
+              document is usually a lesson and sometimes a test, and only the
+              teacher knows which. */}
+          <label className="field">
+            <span className="field__label">{t("wizard.tags.label")}</span>
+            <input
+              className="input"
+              value={tags}
+              list="wizard-tag-suggestions"
+              placeholder={t("wizard.tags.placeholder")}
+              onChange={(e) => setTags(e.target.value)}
+            />
+            <datalist id="wizard-tag-suggestions">
+              {known.map((tag) => (
+                <option key={tag} value={tag} />
+              ))}
+            </datalist>
+            <span className="field__hint">{t("wizard.tags.hint")}</span>
+          </label>
+          {known.length > 0 && (
+            <div className="tagrow">
+              {known
+                .filter(
+                  (tag) => !splitTags(tags).some((mine) => mine.toLowerCase() === tag.toLowerCase()),
+                )
+                .map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    className="tagpill tagpill--suggest"
+                    onClick={() =>
+                      setTags(tags.trim() ? `${tags.trim().replace(/,\s*$/, "")}, ${tag}` : tag)
+                    }
+                  >
+                    <Icon name="plus" size={10} />
+                    {tag}
+                  </button>
+                ))}
+            </div>
+          )}
 
           {templates.length > 1 && (
             <div className="field">

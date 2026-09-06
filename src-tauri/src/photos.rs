@@ -2,7 +2,7 @@
 //!
 //! Measured, not assumed: given a JPEG carrying `EXIF Orientation = 6`, Claude
 //! Code reads the pixels as stored and reports *"la page est couchée / pivotée
-//! de 90 degrés"*. A phone writes that tag constantly, so a course photographed
+//! de 90 degrés"*. A phone writes that tag constantly, so a document photographed
 //! in portrait arrives sideways and the transcription collapses — 25 % to 52 %
 //! confidence, invented content, doubts blaming "l'inclinaison de la page".
 //!

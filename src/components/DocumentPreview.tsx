@@ -11,10 +11,10 @@ import { Figure } from "./Figure";
 import { KIND_LABEL, type Block, type Template, type Transcript } from "../types";
 
 /**
- * The course as a document, not as a list of boxes.
+ * The document as a document, not as a list of boxes.
  *
  * Every block is a real element here, so hovering and selecting come for free —
- * which is the point: the teacher reads the course, and the blocks that need
+ * which is the point: the teacher reads the document, and the blocks that need
  * attention stand out inside it rather than beside it.
  */
 
@@ -23,7 +23,7 @@ type Props = {
   transcript: Transcript;
   /** `all` | `doubt` | `teacher` | `student` */
   filter: string;
-  /** `photo` | `written` — what "still to check" means for this course. */
+  /** `photo` | `written` — what "still to check" means for this document. */
   origin?: string;
   template: Template | undefined;
   selectedId: string | null;
@@ -107,7 +107,7 @@ export function DocumentPreview({
   // reads here matches the PDF rather than the handwritten numbering.
   const numbered = useMemo(() => {
     // The number comes from the page, never from a counter here: Plume does
-    // not renumber, so a course that opens on "Chapitre 3" stays chapter 3 and
+    // not renumber, so a document that opens on "Chapitre 3" stays chapter 3 and
     // an unnumbered heading shows no number at all.
     const out: { block: Block; page: number; number: string | null }[] = [];
 
@@ -195,7 +195,7 @@ export function DocumentPreview({
           >
             <span className="pblock__tag">
               <span className="pblock__tag-kind">{KIND_LABEL[block.kind] ?? block.kind}</span>
-              {/* Both answer questions about a photograph. A written course has
+              {/* Both answer questions about a photograph. A written document has
                   none, and "100 %" beside a passage flagged as still to check
                   reads as a contradiction rather than as an absence. */}
               {origin !== "written" && (
@@ -287,7 +287,7 @@ export function DocumentPreview({
             </div>
           </div>
 
-            {/* Where the class stopped, drawn across the course. Always
+            {/* Where the class stopped, drawn across the document. Always
                 visible, unlike the gap actions: it is the answer to "how far
                 did we get", and it has to be readable without hunting. */}
             {block.taughtEnd && (

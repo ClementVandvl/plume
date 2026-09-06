@@ -71,10 +71,10 @@ export function StatusPill({ status }: { status: DocumentStatus }) {
 }
 
 /**
- * Shown in place of the status while a course is being read.
+ * Shown in place of the status while a document is being read.
  *
  * A reading takes minutes and continues after the screen that started it is
- * closed. Without this, a course in full flight looked exactly like one sitting
+ * closed. Without this, a document in full flight looked exactly like one sitting
  * idle, and the only honest reading of that was "it stopped".
  */
 export function ReadingPill() {

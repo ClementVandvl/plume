@@ -13,7 +13,7 @@ import { Modal } from "./Modal";
  * or the missing part is still on paper, and photographing it is faster than
  * typing it.
  *
- * The photograph is not an aside: it joins the course's pages, at the position
+ * The photograph is not an aside: it joins the document's pages, at the position
  * the gap is in, and is read like any other. Pages and transcription have to
  * stay in step — every part of the app relies on it.
  */

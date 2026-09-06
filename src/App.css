@@ -160,7 +160,7 @@ body {
 
 /* ---------- Adding a passage ---------- */
 /* A thin gap between two passages, quiet until the pointer comes near: the
-   review is for reading the course, not for looking at controls. */
+   review is for reading the document, not for looking at controls. */
 /* The gap between two passages, where both things that happen between them
    are offered: adding one, and marking where the lesson ended. */
 .pgap {
@@ -204,7 +204,7 @@ body {
 }
 
 /* Where the class stopped. Not hover-revealed like the gap actions: this one
-   is a fact about the course, and it has to be findable by scrolling. */
+   is a fact about the document, and it has to be findable by scrolling. */
 .pbound {
   display: flex;
   align-items: center;
@@ -240,7 +240,7 @@ body {
   cursor: pointer;
 }
 
-/* Past the boundary: still the same course, not yet taught. Faded rather than
+/* Past the boundary: still the same document, not yet taught. Faded rather than
    hidden — the teacher needs to see what is waiting there before deciding the
    lesson really ended where they think it did. */
 .pblock--beyond {
@@ -359,7 +359,7 @@ body {
 /* ---------- Boot ---------- */
 /* Held until the workbook has answered once: an empty list and an unread one
    look identical, and the welcome screen flashing at someone with forty
-   courses tells them they have none. */
+   documents tells them they have none. */
 .booting {
   flex: 1;
   display: flex;
@@ -999,7 +999,7 @@ textarea.input {
   background: currentcolor;
 }
 
-/* A course being read: the pulse says work is happening even when the numbers
+/* A document being read: the pulse says work is happening even when the numbers
    have not moved for a minute. */
 .status-pill--reading {
   color: var(--color-info);
@@ -1605,7 +1605,7 @@ textarea.input {
   color: var(--color-strong-success);
 }
 
-/* ---------- Course table ---------- */
+/* ---------- Document table ---------- */
 .ctable {
   background: var(--color-surface);
   border: var(--border-width) solid var(--color-border);
@@ -2264,7 +2264,7 @@ textarea.input {
 }
 
 /* ---------- Template keys ---------- */
-/* One line per element of the course: its name on the left, everything that
+/* One line per element of the document: its name on the left, everything that
    describes it on the right. A grid of one box per key put the colour of a
    chapter and its size in different cells, and sometimes different sections.
 
@@ -2669,7 +2669,7 @@ textarea.code-area {
   padding-left: var(--space-md);
 }
 
-/* ---------- Importing a written course ---------- */
+/* ---------- Importing a written document ---------- */
 .import__ways {
   display: flex;
   gap: var(--space-xs);
@@ -2946,7 +2946,7 @@ textarea.code-area {
   color: var(--color-console-muted);
 }
 
-/* ---------- Deep view (a course owns the window) ---------- */
+/* ---------- Deep view (a document owns the window) ---------- */
 /* Explicit flex sizing rather than implicit grid rows: the review section has a
    variable number of children, and an auto row silently lets it grow past the
    window instead of scrolling. */
@@ -2975,7 +2975,7 @@ textarea.code-area {
   overflow-x: hidden;
 }
 
-/* ---------- Step bar (course breadcrumb) ---------- */
+/* ---------- Step bar (document breadcrumb) ---------- */
 .stepbar {
   flex: none;
   display: flex;
@@ -3140,7 +3140,7 @@ textarea.code-area {
   color: var(--color-text-faint);
 }
 
-/* ---------- Course body ---------- */
+/* ---------- Document body ---------- */
 .workspace__body {
   flex: 1;
   min-height: 0;
@@ -3857,15 +3857,6 @@ textarea.code-area {
   font-weight: var(--font-weight-semibold);
 }
 
-/* The exercise charte's [piège] marker, as the PDF sets it. */
-.tex-tag {
-  color: var(--color-strong-warning);
-  font-style: italic;
-  font-weight: var(--font-weight-semibold);
-  font-size: 0.85em;
-  margin: 0 0.25em;
-}
-
 .tex-layout-note {
   margin: 0 0 var(--space-xs);
   font-family: var(--font-ui);
@@ -4012,7 +4003,7 @@ textarea.code-area {
 }
 
 /* The pieces are shown typeset, on paper, because the teacher is deciding
-   about their course and not about markup. */
+   about their document and not about markup. */
 .split-choice__piece {
   padding: var(--space-xs) var(--space-sm);
   background: var(--color-paper);

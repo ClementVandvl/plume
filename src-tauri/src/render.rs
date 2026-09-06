@@ -239,7 +239,7 @@ fn keeps(block: &Block, audience: &str) -> bool {
 /// out — neither the answers reserved for the teacher, nor next week's lesson
 /// commented out at the end of the file.
 ///
-/// `taught_only` on a course nobody has marked keeps everything. The command
+/// `taught_only` on a document nobody has marked keeps everything. The command
 /// refuses that combination before reaching this point, because "as far as the
 /// class has got" has no answer then, and quietly answering "all of it" is the
 /// one mistake that cannot be taken back once the mail is sent.
@@ -291,7 +291,7 @@ pub fn render_document(
         out.push_str("\n\n");
     }
 
-    // A course without a recognised chapter heading still deserves a title.
+    // A document without a recognised chapter heading still deserves a title.
     if !wrote_chapter {
         let heading = format!("\\chapitre{{{title}}}\n\n");
         if let Some(at) = out.find("\\begin{document}\n\n") {
@@ -343,7 +343,7 @@ mod tests {
         }
     }
 
-    fn course(blocks: Vec<Block>) -> Transcript {
+    fn document(blocks: Vec<Block>) -> Transcript {
         Transcript {
             version: 1,
             pages: vec![crate::ir::Page { number: 1, blocks, session_id: None }],
@@ -353,7 +353,7 @@ mod tests {
     /// The marked passage is the last one taught, not the first one to come.
     #[test]
     fn the_boundary_keeps_the_passage_it_sits_on() {
-        let mut transcript = course(vec![
+        let mut transcript = document(vec![
             passage("p01-b01", "un", &[]),
             passage("p01-b02", "deux", &[]),
             passage("p01-b03", "trois", &[]),
@@ -366,17 +366,17 @@ mod tests {
             .collect();
         assert_eq!(bodies, vec!["un", "deux"]);
 
-        // The same course, whole, when the teacher asks for all of it.
+        // The same document, whole, when the teacher asks for all of it.
         assert_eq!(kept(&transcript, AUDIENCE_ALL, false).len(), 3);
     }
 
     /// The two filters are independent, and the order matters: a boundary
     /// sitting on a teacher-only passage still ends the student handout. Read
     /// the other way round the student version would run on to the end of the
-    /// course — the exact mistake the feature exists to prevent.
+    /// document — the exact mistake the feature exists to prevent.
     #[test]
     fn a_teacher_only_boundary_still_ends_the_student_export() {
-        let mut transcript = course(vec![
+        let mut transcript = document(vec![
             passage("p01-b01", "énoncé", &[]),
             passage("p01-b02", "correction", &["teacher"]),
             passage("p01-b03", "semaine suivante", &[]),
@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn a_boundary_on_the_last_passage_keeps_everything() {
         let mut transcript =
-            course(vec![passage("p01-b01", "un", &[]), passage("p01-b02", "deux", &[])]);
+            document(vec![passage("p01-b01", "un", &[]), passage("p01-b02", "deux", &[])]);
         crate::ir::mark_taught_end(&mut transcript, Some("p01-b02")).unwrap();
 
         assert_eq!(kept(&transcript, AUDIENCE_ALL, true).len(), 2);
@@ -410,7 +410,7 @@ mod tests {
         serde_json::from_str(crate::templates::BUILTIN_MANIFEST).expect("valid manifest")
     }
 
-    /// The number belongs to the page. A course photographed from the middle of
+    /// The number belongs to the page. A document photographed from the middle of
     /// a notebook opens on "Chapitre 3" and must stay chapter 3.
     #[test]
     fn a_heading_carries_the_number_read_on_the_page() {

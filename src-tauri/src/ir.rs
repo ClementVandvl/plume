@@ -53,7 +53,7 @@ pub struct Block {
     pub title: Option<String>,
     /// For a heading: the number written on the page — "3", "II", "1", "a".
     ///
-    /// Plume does not number anything itself. A course photographed from the
+    /// Plume does not number anything itself. A document photographed from the
     /// middle of a notebook opens on "Chapitre 3", and renumbering it to 1
     /// would contradict every other document the class holds. Empty when the
     /// page shows no number, in which case none is invented.
@@ -121,7 +121,7 @@ pub struct Transcript {
 /// Below this, the UI flags the block as needing a look.
 pub const DOUBT_THRESHOLD: f32 = 0.85;
 
-/// The passage the class stopped on, when the course has been marked.
+/// The passage the class stopped on, when the document has been marked.
 pub fn taught_end(transcript: &Transcript) -> Option<&Block> {
     transcript
         .pages
@@ -145,7 +145,7 @@ pub fn taught_count(transcript: &Transcript) -> Option<usize> {
 /// Moves the mark onto one passage, or clears it entirely with `None`.
 ///
 /// Every block is rewritten rather than just the two that change, because the
-/// invariant is what matters: exactly one mark, or none. A course carrying two
+/// invariant is what matters: exactly one mark, or none. A document carrying two
 /// boundaries has no boundary at all, and the export would honour whichever
 /// came first — silently, and differently after every reordering.
 pub fn mark_taught_end(

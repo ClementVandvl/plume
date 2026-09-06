@@ -37,7 +37,7 @@ export const fr = {
   // -------------------------------------------------------------- navigation
   "nav.section": "Mon classeur",
   "nav.home": "Accueil",
-  "nav.courses": "Mes cours",
+  "nav.documents": "Mes documents",
   "nav.houseStyle": "Mes chartes",
   "nav.instructions": "Mes consignes",
   "nav.trash": "Corbeille",
@@ -47,7 +47,7 @@ export const fr = {
 
   // ------------------------------------------------------------------ status
   "boot.title": "Plume prépare votre classeur",
-  "boot.hint": "Lecture de vos cours et de vos chartes…",
+  "boot.hint": "Lecture de vos documents et de vos chartes…",
   "status.draft": "Pas encore lu",
   "status.review": "À vérifier",
   "status.ready": "PDF prêt",
@@ -61,7 +61,7 @@ export const fr = {
 
   // ------------------------------------------------------------------- home
   "home.greeting": "Bonjour",
-  "home.subtitle.review": "Vous avez un cours en cours de relecture.",
+  "home.subtitle.review": "Vous avez un document en cours de relecture.",
   "home.subtitle.reading": "Une lecture est prête à être lancée.",
   "home.subtitle.idle": "Photographiez une page, Plume la réécrit dans votre charte.",
   "home.resume.overline": "Reprendre",
@@ -70,11 +70,11 @@ export const fr = {
   "home.resume.left.other": "{count} passages à vérifier",
   "home.resume.progress": "{reviewed} sur {blocks} relus",
   "home.resume.continue": "Continuer la relecture",
-  "home.resume.open": "Voir le cours",
+  "home.resume.open": "Voir le document",
   "home.engine.banner":
     "Le moteur de mise en page n'est pas encore installé. Sans lui, Plume peut lire vos pages mais pas fabriquer le PDF.",
   "home.engine.install": "Installer maintenant",
-  "home.drop.title": "Nouveau cours",
+  "home.drop.title": "Nouveau document",
   "home.drop.text": "Glissez les photos de vos pages ici, ou {browse}. L'ordre des photos donne l'ordre des pages.",
   "home.drop.browse": "parcourez vos fichiers",
   "home.howto.title": "Comment ça marche",
@@ -82,24 +82,24 @@ export const fr = {
   "home.howto.step2": "Plume les lit et les remet dans votre charte.",
   "home.howto.step3": "Vous vérifiez les passages dont elle n'est pas sûre.",
   "home.howto.step4": "Vous obtenez le PDF, version prof ou version élève.",
-  "home.others.title": "Vos autres cours",
+  "home.others.title": "Vos autres documents",
   "home.others.all": "Tout voir",
 
   // -------------------------------------------------------- first launch
   "welcome.title": "Bienvenue dans Plume",
   "welcome.text":
-    "Photographiez vos pages de cours manuscrites. Plume les lit, les remet dans votre charte, et vous rend un PDF prof et un PDF élève.",
+    "Photographiez vos pages manuscrites. Plume les lit, les remet dans votre charte, et vous rend un PDF prof et un PDF élève.",
   "welcome.check.title": "Vérification de votre machine",
-  "welcome.drop.title": "Déposez les photos de votre premier cours",
+  "welcome.drop.title": "Déposez les photos de votre premier document",
   "welcome.drop.browse": "ou {browse}",
   "welcome.engine.hint":
     "Vous pouvez commencer sans le moteur de mise en page : la lecture fonctionne déjà.",
 
-  // ----------------------------------------------------------------- courses
-  "courses.title": "Mes cours",
-  "courses.search": "Rechercher un cours",
-  "courses.new": "Nouveau cours",
-  "courses.import": "Importer",
+  // ----------------------------------------------------------------- documents
+  "documents.title": "Mes documents",
+  "documents.search": "Rechercher un document",
+  "documents.new": "Nouveau document",
+  "documents.import": "Importer",
 
   // Ce qu'est un document, dans les mots du professeur.
   "tags.title": "Étiquettes",
@@ -110,20 +110,20 @@ export const fr = {
   "tags.remove": "Retirer « {tag} »",
   "tags.empty": "Aucune étiquette : ce document n'apparaîtra que dans « Toutes ».",
 
-  // Un cours écrit ailleurs — une fiche demandée à Claude, par exemple — qui
-  // arrive sous forme de passages et devient un cours comme un autre.
-  "import.title": "Importer un cours",
-  "import.subtitle.paste": "Collez le cours, ou choisissez un fichier",
+  // Un document écrit ailleurs — une fiche demandée à Claude, par exemple — qui
+  // arrive sous forme de passages et devient un document comme un autre.
+  "import.title": "Importer un document",
+  "import.subtitle.paste": "Collez le document, ou choisissez un fichier",
   "import.subtitle.check": "Vérifiez avant de l'ajouter au classeur",
   "import.explain":
     "Plume attend une liste de passages, pas un document LaTeX. Copiez les instructions ci-dessous, collez-les à Claude avec votre demande, puis rapportez sa réponse ici.",
   "import.copy": "Copier les instructions pour Claude",
   "import.copied": "Instructions copiées",
   "import.pick": "Choisir un fichier…",
-  "import.paste": "Le cours, en JSON",
+  "import.paste": "Le document, en JSON",
   "import.paste.placeholder": "{ \"title\": \"Fiche d'exercices\", \"blocks\": [ … ] }",
   "import.reading": "Lecture…",
-  "import.name": "Titre du cours",
+  "import.name": "Titre du document",
   "import.name.placeholder": "Fiche d'exercices — Vecteurs",
   "import.charte": "Charte",
   "import.commit": "Ajouter au classeur",
@@ -135,47 +135,47 @@ export const fr = {
   "import.tags.hint": "Séparées par des virgules. Elles servent à trier le classeur.",
   "import.warnings.one": "1 point à regarder",
   "import.warnings.other": "{count} points à regarder",
-  "courses.filter.all": "Tous",
-  "courses.column.course": "Cours",
-  "courses.column.state": "Où en est-on",
-  "courses.column.next": "Prochaine étape",
-  "courses.state.doubtful.one": "{count} passage à vérifier",
-  "courses.state.doubtful.other": "{count} passages à vérifier",
-  "courses.state.ready": "Tout est relu, PDF prêt",
-  "courses.state.reviewed": "Tout est relu",
-  "courses.state.unread": "Photos importées, lecture non lancée",
-  "courses.state.empty": "Aucune photo pour l'instant",
-  "courses.action.review": "Continuer la relecture",
-  "courses.action.reread": "Relire",
-  "courses.action.watch": "Voir la lecture",
-  "courses.action.openPdf": "Ouvrir le PDF",
-  "courses.action.read": "Lire les pages",
-  "courses.action.addPages": "Ajouter des photos",
-  "courses.menu.label": "Autres actions",
-  "courses.menu.open": "Ouvrir le cours",
-  "courses.menu.rename": "Renommer",
-  "courses.menu.tags": "Étiquettes…",
-  "courses.menu.trash": "Mettre à la corbeille",
-  "courses.tags.all": "Toutes",
-  "courses.tags.label": "Étiquettes",
-  "courses.empty.none": "Aucun cours pour l'instant.",
-  "courses.empty.filtered": "Aucun cours ne correspond à cette recherche.",
+  "documents.filter.all": "Tous",
+  "documents.column.document": "Document",
+  "documents.column.state": "Où en est-on",
+  "documents.column.next": "Prochaine étape",
+  "documents.state.doubtful.one": "{count} passage à vérifier",
+  "documents.state.doubtful.other": "{count} passages à vérifier",
+  "documents.state.ready": "Tout est relu, PDF prêt",
+  "documents.state.reviewed": "Tout est relu",
+  "documents.state.unread": "Photos importées, lecture non lancée",
+  "documents.state.empty": "Aucune photo pour l'instant",
+  "documents.action.review": "Continuer la relecture",
+  "documents.action.reread": "Relire",
+  "documents.action.watch": "Voir la lecture",
+  "documents.action.openPdf": "Ouvrir le PDF",
+  "documents.action.read": "Lire les pages",
+  "documents.action.addPages": "Ajouter des photos",
+  "documents.menu.label": "Autres actions",
+  "documents.menu.open": "Ouvrir le document",
+  "documents.menu.rename": "Renommer",
+  "documents.menu.tags": "Étiquettes…",
+  "documents.menu.trash": "Mettre à la corbeille",
+  "documents.tags.all": "Toutes",
+  "documents.tags.label": "Étiquettes",
+  "documents.empty.none": "Aucun document pour l'instant.",
+  "documents.empty.filtered": "Aucun document ne correspond à cette recherche.",
 
-  // ---------------------------------------------------------------- course
-  "course.back": "Mes cours",
-  "course.rename.title": "Renommer le cours",
-  "course.rename.message":
+  // ---------------------------------------------------------------- document
+  "document.back": "Mes documents",
+  "document.rename.title": "Renommer le document",
+  "document.rename.message":
     "Le dossier sur le disque garde son nom ; seul le titre affiché change.",
-  "course.rename.field": "Titre",
-  "course.rename.confirm": "Renommer",
-  "course.trash.title": "Mettre « {title} » à la corbeille ?",
-  "course.trash.message":
-    "Le cours est retiré de la liste mais reste sur votre disque, avec ses photos et ses PDF. Vous pourrez le restaurer depuis la corbeille.",
-  "course.trash.confirm": "Mettre à la corbeille",
+  "document.rename.field": "Titre",
+  "document.rename.confirm": "Renommer",
+  "document.trash.title": "Mettre « {title} » à la corbeille ?",
+  "document.trash.message":
+    "Le document est retiré de la liste mais reste sur votre disque, avec ses photos et ses PDF. Vous pourrez le restaurer depuis la corbeille.",
+  "document.trash.confirm": "Mettre à la corbeille",
 
-  // ----------------------------------------------------------- course/photos
-  "pages.title.one": "{count} page dans ce cours",
-  "pages.title.other": "{count} pages dans ce cours",
+  // ----------------------------------------------------------- document/photos
+  "pages.title.one": "{count} page dans ce document",
+  "pages.title.other": "{count} pages dans ce document",
   "viewer.title": "Photo de la page {number}",
   "viewer.of": "Page {number} sur {total}",
   "viewer.zoom": "Taille réelle",
@@ -188,12 +188,12 @@ export const fr = {
   "pages.page": "Page {number}",
   "pages.remove.title": "Retirer la page {number} ?",
   "pages.remove.message":
-    "La photo est supprimée du cours. Votre photothèque n'est pas touchée.",
+    "La photo est supprimée du document. Votre photothèque n'est pas touchée.",
   "pages.remove.detail":
     "La transcription de cette page est supprimée et les pages suivantes sont renumérotées. Les autres pages sont conservées.",
   "pages.remove.confirm": "Retirer la page",
   "pages.remove.aria": "Retirer la page {number}",
-  "pages.rules.title": "Vos consignes pour ce cours",
+  "pages.rules.title": "Vos consignes pour ce document",
   "pages.rules.hint":
     "Dites-le comme à un collègue qui recopie vos pages. Vos mots passent avant les règles générales.",
   "pages.rules.placeholder":
@@ -207,17 +207,17 @@ export const fr = {
   "pages.rules.example3": "Écrit au crayon = brouillon",
   "pages.rules.example3.text": "Ce qui est écrit au crayon est du brouillon, à ignorer.",
   "pages.rules.global":
-    "Les consignes valables pour tous vos cours se règlent dans {page}.",
+    "Les consignes valables pour tous vos documents se règlent dans {page}.",
   "pages.start.one": "Lancer la lecture de la page",
   "pages.start.other": "Lancer la lecture des {count} pages",
 
-  // ------------------------------------------------------------- course/read
+  // ------------------------------------------------------------- document/read
   "read.running.title": "Plume lit vos pages",
   "read.idle.title": "Lecture des pages",
   "read.progress": "Page {done} sur {total}",
   "read.stop": "Arrêter la lecture",
   "read.reassurance":
-    "Vous pouvez changer d'écran : la lecture continue, et le cours est marqué « lecture en cours » dans vos listes.",
+    "Vous pouvez changer d'écran : la lecture continue, et le document est marqué « lecture en cours » dans vos listes.",
   "read.list.title": "Page par page",
   "read.state.done.one": "Lue — {count} passage trouvé",
   "read.state.done.other": "Lue — {count} passages trouvés",
@@ -249,13 +249,13 @@ export const fr = {
   "read.failedPage": "Page {page} : {message}",
   "read.pageProgress": "Page {page} sur {total} — {cost} cumulés.",
 
-  // ----------------------------------------------------------- course/review
+  // ----------------------------------------------------------- document/review
   "review.filter.doubt": "À vérifier",
-  "review.filter.all": "Tout le cours",
+  "review.filter.all": "Tout le document",
   "review.filter.teacher": "Réservé au prof",
   "review.filter.student": "Réservé aux élèves",
   "review.makePdf": "Fabriquer le PDF",
-  "review.unread": "Ce cours n'a pas encore été lu. Revenez à l'étape « Lecture ».",
+  "review.unread": "Ce document n'a pas encore été lu. Revenez à l'étape « Lecture ».",
   "review.correct.one": "Corriger {count} passage",
   "review.correct.other": "Corriger {count} passages",
   "review.correct.stop": "Annuler la correction",
@@ -294,7 +294,7 @@ export const fr = {
   "insert.title": "Ajouter un passage",
   "insert.here": "Ajouter ici",
 
-  // Où la classe en est. Une marque sur le cours, posée après la séance, que
+  // Où la classe en est. Une marque sur le document, posée après la séance, que
   // chaque fabrication relit ensuite.
   "taught.here": "La classe s'arrête ici",
   "taught.boundary": "Vu en classe jusqu'ici",
@@ -314,7 +314,7 @@ export const fr = {
   "insert.preview": "Aperçu",
   "insert.add": "Ajouter le passage",
   "insert.photo.hint":
-    "La photo rejoint les pages du cours, juste après celle où vous ajoutez, et Plume la lit comme les autres. Elle apparaîtra dans l'onglet Photos.",
+    "La photo rejoint les pages du document, juste après celle où vous ajoutez, et Plume la lit comme les autres. Elle apparaîtra dans l'onglet Photos.",
   "insert.photo.pick": "Choisir une photo",
   "insert.photo.reading": "Lecture en cours…",
   "panel.align.title": "Alignement",
@@ -344,7 +344,7 @@ export const fr = {
   "panel.save": "Enregistrer",
   "panel.shortcuts": "Raccourci : Entrée pour valider, ↓ pour le passage suivant.",
 
-  // ----------------------------------------------------------- course/export
+  // ----------------------------------------------------------- document/export
   "export.choice.title": "Quelle version voulez-vous ?",
   "export.teacher.title": "Version professeur",
   "export.teacher.hint.one": "Le passage, commentaires compris.",
@@ -359,7 +359,7 @@ export const fr = {
   "export.reach.taught": "Jusqu'où la classe en est",
   "export.reach.taught.hint.one": "1 passage sur {total} — s'arrête après {last}.",
   "export.reach.taught.hint.other": "{count} passages sur {total} — s'arrête après {last}.",
-  "export.reach.whole": "Tout le cours",
+  "export.reach.whole": "Tout le document",
   "export.reach.whole.hint.one": "Le passage, du début à la fin.",
   "export.reach.whole.hint.other": "Les {count} passages, du début à la fin.",
   "export.reach.unmarked":
@@ -367,7 +367,7 @@ export const fr = {
   "export.reach.dangling":
     "Le dernier passage retenu est un titre : le PDF se terminerait sur un titre sans contenu.",
   "export.reach.complete": "Le point d'arrêt est sur le dernier passage : le PDF sera complet.",
-  "export.partial.note": "Fabrication partielle : elle n'écrase pas le PDF complet du cours.",
+  "export.partial.note": "Fabrication partielle : elle n'écrase pas le PDF complet du document.",
   "export.build": "Fabriquer le PDF",
   "export.building": "Fabrication…",
   "export.ready": "PDF prêt",
@@ -376,7 +376,7 @@ export const fr = {
   "export.texRow": "Fichier source .tex et journal de compilation",
   "export.noTex": "Fabriquez d'abord le PDF : le fichier .tex apparaîtra ici.",
   "figure.compiling": "Compilation du schéma…",
-  "figure.alt": "Schéma du cours",
+  "figure.alt": "Schéma du document",
   "export.openTex": "Ouvrir le .tex",
   "export.failed": "Le .tex est écrit, mais la compilation a échoué : {error}",
   "export.preview.title": "Aperçu — {audience}",
@@ -387,8 +387,8 @@ export const fr = {
   "houseStyle.title": "Mes chartes",
   "houseStyle.subtitle.builtin": "Charte livrée avec Plume",
   "houseStyle.subtitle.copy": "Copie de « {name} »",
-  "houseStyle.usedBy.one": "utilisée par {count} cours",
-  "houseStyle.usedBy.other": "utilisée par {count} cours",
+  "houseStyle.usedBy.one": "utilisée par {count} document",
+  "houseStyle.usedBy.other": "utilisée par {count} documents",
   "houseStyle.builtin.notice":
     "Modèle livré avec Plume. Ses couleurs et ses règles vous appartiennent : vos modifications survivent aux mises à jour. Son squelette LaTeX, lui, est remplacé à chaque nouvelle version — dupliquez-le pour en changer la structure.",
   "houseStyle.tab.keys": "Apparence",
@@ -406,7 +406,7 @@ export const fr = {
   "houseStyle.preview.substituted": "Voir valeurs substituées",
   "houseStyle.preview.refresh": "Rafraîchir le rendu",
   "houseStyle.preamble.hint":
-    "Les {syntax} sont remplacés par les valeurs de l'onglet Apparence. « Vérifier » compile la charte seule : une erreur se voit ici plutôt qu'au moment d'exporter un cours.",
+    "Les {syntax} sont remplacés par les valeurs de l'onglet Apparence. « Vérifier » compile la charte seule : une erreur se voit ici plutôt qu'au moment d'exporter un document.",
   "houseStyle.blocks.title": "Écriture des blocs",
   "houseStyle.blocks.hint":
     "Comment chaque type de passage reconnu est écrit en LaTeX. Un passage sans correspondance sort tel quel, sans son environnement.",
@@ -428,7 +428,7 @@ export const fr = {
   "houseStyle.duplicate.field": "Nom de la nouvelle charte",
   "houseStyle.duplicate.default": "{name} (copie)",
   "houseStyle.delete.title": "Supprimer « {name} » ?",
-  "houseStyle.delete.message": "Les cours qui l'utilisent devront en choisir un autre.",
+  "houseStyle.delete.message": "Les documents qui l'utilisent devront en choisir un autre.",
   "houseStyle.delete.detail": "La charte part à la corbeille du classeur, elle n'est pas effacée.",
   "houseStyle.danger.title": "Zone sensible",
   "houseStyle.danger.text": "Supprimer « {name} » — la charte part à la corbeille du classeur.",
@@ -438,7 +438,7 @@ export const fr = {
   // ------------------------------------------------------------- consignes
   "instructions.title": "Mes consignes",
   "instructions.subtitle":
-    "Ce que Plume doit savoir avant de lire, et qui vaut pour tous vos cours. Une consigne propre à un seul cours se règle dans le cours.",
+    "Ce que Plume doit savoir avant de lire, et qui vaut pour tous vos documents. Une consigne propre à un seul document se règle dans le document.",
   "instructions.tab.marks": "Mes annotations",
   "instructions.tab.conventions": "Mes consignes",
   "instructions.marks.about":
@@ -494,7 +494,7 @@ export const fr = {
   // ------------------------------------------------------------------ trash
   "trash.title": "Corbeille",
   "trash.subtitle":
-    "Ces cours sont retirés de la liste mais toujours sur votre disque, avec leurs photos et leurs PDF. Plume ne supprime un fichier que sur votre ordre, ici.",
+    "Ces documents sont retirés de la liste mais toujours sur votre disque, avec leurs photos et leurs PDF. Plume ne supprime un fichier que sur votre ordre, ici.",
   "trash.empty": "La corbeille est vide.",
   "trash.meta": "{pages} · mis à la corbeille {when}",
   "trash.restore": "Restaurer",
@@ -505,7 +505,7 @@ export const fr = {
   "trash.purge.message.other":
     "Les {count} photos, la transcription et les fichiers produits seront effacés de votre disque. Cette action ne peut pas être annulée.",
   "trash.purge.confirm": "Supprimer définitivement",
-  "trash.purge.keep": "Garder le cours",
+  "trash.purge.keep": "Garder le document",
 
   // --------------------------------------------------------------- settings
   "settings.title": "Réglages",
@@ -524,17 +524,16 @@ export const fr = {
   "settings.updates.title": "Prévenir quand une mise à jour existe",
   "settings.updates.hint": "L'installation demande toujours votre accord.",
   "settings.mcp.title": "Connexion MCP",
-  "settings.mcp.hint":
-    "Plume embarque un serveur MCP : Claude peut alors vous proposer d'y envoyer une fiche ou un cours. « Ouvrir dans Claude » l'installe d'un clic dans Claude Desktop ; « Copier le réglage » sert à toute autre application lisant une configuration MCP. Le champ « URL du serveur MCP distant » de claude.ai ne convient pas : il attend un serveur sur internet, et Plume reste sur cette machine.",
+  "settings.mcp.hint": "Claude pourra vous proposer d'envoyer un document dans Plume.",
   "settings.mcp.open": "Ouvrir dans Claude",
   "settings.mcp.opened": "Extension ouverte",
   "settings.mcp.copy": "Copier le réglage",
   "settings.mcp.copied": "Réglage copié",
-  "settings.folder.title": "Mes cours sont rangés dans",
+  "settings.folder.title": "Mes documents sont rangés dans",
   "settings.advanced.row": "Modèle de lecture, pages en parallèle, journal technique",
   "settings.advanced.title": "Lecture",
   "settings.model.label": "Modèle par défaut",
-  "settings.model.hint": "Modifiable cours par cours au moment de la lecture.",
+  "settings.model.hint": "Modifiable document par document au moment de la lecture.",
   "settings.parallel.label": "Pages lues en parallèle",
   "settings.parallel.auto": "Automatique — selon la mémoire de la machine",
   "settings.parallel.autoAt":
@@ -594,7 +593,7 @@ export const fr = {
   "advanced.banner": "MODE AVANCÉ",
   "advanced.banner.hint": "Les détails techniques sont visibles dans tout l'écran.",
   "advanced.model": "Modèle",
-  "advanced.model.change": "Changer pour ce cours",
+  "advanced.model.change": "Changer pour ce document",
   "advanced.cost": "Coût cumulé",
   "advanced.cost.meta.one": "{pages} · {count} passage",
   "advanced.cost.meta.other": "{pages} · {count} passages",
@@ -603,17 +602,20 @@ export const fr = {
   "advanced.doubt": "Seuil de doute",
   "advanced.doubt.meta.one": "{count} passage sous le seuil",
   "advanced.doubt.meta.other": "{count} passages sous le seuil",
-  "advanced.openFolder": "Ouvrir le dossier du cours",
+  "advanced.openFolder": "Ouvrir le dossier du document",
   "advanced.openTex": "Voir le fichier .tex",
 
   // ----------------------------------------------------------------- wizard
-  "wizard.title": "Nouveau cours",
+  "wizard.title": "Nouveau document",
   "wizard.subtitle": "Étape {step} sur {total} — {name}",
   "wizard.step.title": "Le titre",
   "wizard.step.pages": "Les photos",
   "wizard.step.check": "Vérification",
-  "wizard.title.label": "Titre du cours",
+  "wizard.title.label": "Titre du document",
   "wizard.title.placeholder": "Vecteurs",
+  "wizard.tags.label": "Étiquettes",
+  "wizard.tags.placeholder": "cours, exercices, DS…",
+  "wizard.tags.hint": "Ce qu'est ce document, séparé par des virgules. Facultatif.",
   "wizard.template.label": "Mise en page",
   "wizard.template.meta.one": "{count} réglage · {engine}",
   "wizard.template.meta.other": "{count} réglages · {engine}",
@@ -633,7 +635,7 @@ export const fr = {
   "wizard.recap.pages": "Pages",
   "wizard.recap.first": "Première page",
   "wizard.footer.template": "Mise en page : {name} · modifiable plus tard",
-  "wizard.create": "Créer le cours",
+  "wizard.create": "Créer le document",
   "wizard.creating": "Création…",
   "wizard.importing": "Import {done} / {total}…",
 

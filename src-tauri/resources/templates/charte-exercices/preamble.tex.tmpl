@@ -33,7 +33,6 @@
 \definecolor{mcSousPartie}{HTML}{{{color.subpart}}}    % Sous-partie
 \definecolor{mcParagraphe}{HTML}{{{color.paragraph}}}  % Paragraphe
 \definecolor{mcApp}{HTML}{{{color.application}}}       % « Exercice n »
-\definecolor{mcPiege}{HTML}{{{color.trap}}}            % [piège]
 \definecolor{mcDef}{HTML}{{{color.definition}}}        % Rappel : définition
 \definecolor{mcProp}{HTML}{{{color.property}}}         % Rappel : propriété
 \definecolor{mcTheo}{HTML}{{{color.theorem}}}          % Rappel : théorème
@@ -112,23 +111,16 @@
 %============================================================================
 %  6. EXERCICES   \begin{exercice}[Titre] ... \end{exercice}
 %     Numérotés par la charte : une fiche est écrite d'un trait, et ses
-%     exercices se suivent. \piege en tête du contenu pose l'étiquette
-%     [piège] sur la ligne du titre ; ailleurs, il l'affiche sur place.
+%     exercices se suivent.
 %============================================================================
 \newcounter{exercice}
-\makeatletter
-\newcommand{\mc@piege}{\textcolor{mcPiege}{\small\bfseries\itshape[{{label.trap}}]}}
-\newcommand{\piege}{\mc@piege\ }
-\newcommand{\mc@debut}{\par\nobreak\vspace{0.1\baselineskip}\noindent\ignorespaces}
-\newcommand{\mc@debutpiege}[1]{\quad\mc@piege\mc@debut}
 \newenvironment{exercice}[1][]{%
   \par\vspace{0.7\baselineskip}\noindent
   \refstepcounter{exercice}%
   {{{size.application}}\color{mcApp}\bfseries {{label.application}}~\theexercice}%
   \ifblank{#1}{}{ {\color{mcApp}\bfseries ---} \textit{#1}}%
-  \@ifnextchar\piege{\mc@debutpiege}{\mc@debut}}%
+  \par\nobreak\vspace{0.1\baselineskip}\noindent\ignorespaces}%
   {\par\vspace{0.4\baselineskip}}
-\makeatother
 
 %============================================================================
 %  7. SOUS-QUESTIONS   \begin{questions}[3] \item ... \end{questions}

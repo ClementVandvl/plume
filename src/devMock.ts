@@ -107,7 +107,7 @@ const transcript = {
   ],
 };
 
-/** The course the import created, once it has. */
+/** The document the import created, once it has. */
 let imported: Transcript | null = null;
 
 const documents: DocumentSummary[] = [
@@ -125,7 +125,7 @@ const documents: DocumentSummary[] = [
     tags: ["cours"],
     blockCount: 41,
     doubtfulCount: 3,
-    // A course the class is halfway through, so the card shows how far.
+    // A document the class is halfway through, so the card shows how far.
     taughtCount: 7,
     taughtHeading: "Vecteurs du plan",
   },
@@ -314,7 +314,28 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   // always yields. Handing back the same references let a memo keyed on the
   // list keep stale tags after an edit — a state the app never has.
   list_documents: () => documents.map((d) => ({ ...d, tags: [...d.tags] })),
-  // One course pretends to be reading, so the activity indicator is visible
+  create_document: (args: Record<string, unknown>) => {
+    const created: DocumentSummary = {
+      ...documents[0],
+      id: `nouveau-${documents.length + 1}`,
+      title: String(args.title || "Sans titre"),
+      templateId: String(args.templateId || "charte-maths"),
+      origin: "photo",
+      status: "draft",
+      pageCount: (args.sources as string[] | undefined)?.length ?? 0,
+      tags: (args.tags as string[] | undefined)?.map((t) => t.trim()).filter(Boolean) ?? [],
+      blockCount: 0,
+      doubtfulCount: 0,
+      taughtCount: null,
+      taughtHeading: null,
+      lastPdf: null,
+      updatedAt: Date.now(),
+      createdAt: Date.now(),
+    };
+    documents.unshift(created);
+    return created;
+  },
+  // One document pretends to be reading, so the activity indicator is visible
   // while working on the layout.
   reading_documents: () => [documents[1]?.id].filter(Boolean),
   reorder_pages: () => documents[0],
@@ -333,7 +354,7 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   workspace_path: () => "/Users/vous/Documents/Plume",
   get_document: (args) => documents.find((d) => d.id === args.id) ?? documents[0],
   // Real-looking page paths, so the full-screen viewer can be worked on. An
-  // imported course has none — which is what makes its Photos and Lecture
+  // imported document has none — which is what makes its Photos and Lecture
   // steps disappear, so handing it pages would hide that.
   document_page_paths: (args: Record<string, unknown>) =>
     args.id === "fiche-importee"
@@ -346,7 +367,7 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   log_client: () => undefined,
   save_block: (args: Record<string, unknown>) => {
     // Really marks it read, so the "À vérifier" count can be watched to fall —
-    // the whole point of a written course carrying its own review state.
+    // the whole point of a written document carrying its own review state.
     const edited = args.block as { id: string };
     for (const source of [imported, transcript]) {
       for (const page of source?.pages ?? []) {
@@ -373,7 +394,7 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   set_reading_rules: () => undefined,
   updates_configured: () => false,
   os_platform: () => "macos",
-  open_course_pdf: () => undefined,
+  open_document_pdf: () => undefined,
   reveal_workspace: () => undefined,
   reveal_path: () => undefined,
   open_url: () => undefined,

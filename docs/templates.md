@@ -82,7 +82,7 @@ Each IR block kind maps to one of four forms:
 | `raw` | the block's LaTeX, unchanged |
 | `centered` | wrapped in `center` |
 
-`numbered` exists because **Plume numbers nothing itself**. A course
+`numbered` exists because **Plume numbers nothing itself**. A document
 photographed from the middle of a notebook opens on "Chapitre 3", and
 renumbering it to 1 would contradict every other document the class holds. The
 number read from the page is passed through as written — "3", "II", "1", "a" —
@@ -99,10 +99,10 @@ does that.
 
 A template carries its own typesetting instructions, compiled into the
 recogniser's prompt after the teacher's standing conventions and before
-anything specific to the course. The distinction is scope: marker rules and
+anything specific to the document. The distinction is scope: marker rules and
 standing conventions describe *how this teacher writes* whatever template they
 use; these describe *what this house style wants of the LaTeX*, and follow the
-template when a course changes style.
+template when a document changes style.
 
 The bundled one ships a single rule, `align-equals`. A calculation continued
 over several lines must be grouped in one `aligned` environment with `&=`
@@ -173,23 +173,18 @@ header (*Chapitre 1 – Calcul littéral* on the left, the level on the right), 
 centred title with a *Nom / Classe* line, full-width navy banners for the
 parts, and exercises headed *Exercice 3 — Vrai ou faux ?* in blue.
 
-Three things are specific to it and worth knowing:
+Two things are specific to it and worth knowing:
 
 - **Exercises are numbered by the charte.** This is the one place Plume's
   "never number" rule does not apply: a sheet is written in one go and its
   exercises follow one another, so a counter is right where a handwritten
-  course's numbering must be preserved. The `application` kind maps to the
+  document's numbering must be preserved. The `application` kind maps to the
   `exercice` environment, which counts. The convention `exercise-blocks` tells
   the model not to write "Exercice 3" itself.
 - **Sub-questions live in `questions`.** `\begin{questions}[3]` is an
   `enumerate` with `a)`, `b)`, `c)` labels inside `multicols`, and the option
   is the column count. It is the charte's own layout, so it neither trips the
   layout warning nor asks the model to reach for `multicols` directly.
-- **`\piege` marks a trap.** At the very start of an exercise's content it is
-  pulled up onto the heading line — `\@ifnextchar` looks for it after the
-  heading is set — and anywhere else it is shown in place. The preview renders
-  it too, with the shipped wording, since the template's `label.trap` is not
-  visible from there.
 
 `proof` maps to a *Correction* environment. With the convention
 `correction-for-teacher`, a model writes each correction as a `proof` passage
@@ -201,4 +196,4 @@ when one is installed, and says so when it is not, rather than passing.
 ## Deleting
 
 A deleted template moves to `Corbeille/Modeles/` rather than being erased — the
-same courtesy courses get. Courses referring to it will need another one.
+same courtesy documents get. Documents referring to it will need another one.

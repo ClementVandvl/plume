@@ -100,7 +100,7 @@ export function HouseStyleView({
   }, [selected]);
 
   /**
-   * One row per element of the course, not one box per key.
+   * One row per element of the document, not one box per key.
    *
    * Colour, size and label of the same thing were three cells of a grid, in two
    * different sections. Keys sharing a suffix — `color.chapter`, `size.chapter`

@@ -143,13 +143,13 @@ each narrowing the scope of the last:
 | Marker rules | A visual trigger and its effect — "highlighted orange means bold" | Settings |
 | Standing conventions | How this teacher works, whatever template | Settings |
 | Template conventions | What this house style wants of the LaTeX | The template |
-| Course rules | This one course | The course |
+| Document rules | This one document | The document |
 
 The template level exists because some instructions belong to the typesetting
 rather than to the person: the bundled maths template asks for a continued
 calculation to be grouped in an `aligned` environment, so that a line beginning
 with `=` lands under the `=` above it instead of being centred on its own. Move
-a course to another template and that instruction moves with it.
+a document to another template and that instruction moves with it.
 
 ### Adding a passage after the fact
 
@@ -165,7 +165,7 @@ about.
 position the gap is in, and reads it like any other. Not as an aside: the app
 holds photographs and transcript pages in step everywhere — `page_files` against
 `transcript.pages`, and block ids encoding their page — so an image that fed the
-course has to be one of its pages. Everything numbered after it shifts, block
+document has to be one of its pages. Everything numbered after it shifts, block
 ids included, and the photograph appears in the Photos step where it can be
 reordered or removed.
 
@@ -372,13 +372,13 @@ decision rather than a default:
 | edits the marked passage by hand | survives the round trip | `save_block` restores it, as it does a pending note |
 
 **Refusing the ambiguous case.** Asking for "as far as the class got" on a
-course with no mark has no answer, and `kept()` would happily return the whole
+document with no mark has no answer, and `kept()` would happily return the whole
 thing. `build_document` refuses before rendering: quietly answering *all of it*
 is the one mistake a sent mail cannot take back.
 
-**A partial build is a copy, not the course.** It writes `-partiel.tex` /
+**A partial build is a copy, not the document.** It writes `-partiel.tex` /
 `-partiel.pdf`, and leaves `status` and `last_pdf` alone. Otherwise a handout
-covering a third of the chapter would mark the course finished in the list, and
+covering a third of the chapter would mark the document finished in the list, and
 point *Ouvrir le PDF* at a document that stops halfway through.
 
 The screen mirrors `kept()` in TypeScript to show what a build will contain
@@ -387,7 +387,7 @@ something the export does not honour is worse than no preview.
 
 ---
 
-## 5b. Courses that were never photographed
+## 5b. Documents that were never photographed
 
 A teacher asks Claude for an exercise sheet and then wants to work on it: split a
 statement from its answer, reserve the correction for their own copy, apply their
@@ -407,7 +407,7 @@ set them could arrive pre-marked as reviewed, or claim a taught boundary the
 teacher never placed.
 
 **Why the refusals name a passage.** The JSON comes from outside — pasted out of a
-conversation, saved from who knows where. A course quietly missing half its
+conversation, saved from who knows where. A document quietly missing half its
 exercises is worse than one that will not import, so every message says which
 passage and what is wrong with it. Layout and stray alignment tabs are reported
 rather than refused: the passage belongs to the teacher, and a `&` outside an
@@ -423,7 +423,7 @@ document carries an `origin`, and `needsReview` in
 [`src/ui/review.ts`](../src/ui/review.ts) answers differently for each. Without
 that, an imported sheet announces *tout est relu* the second it lands.
 
-For the same reason a written course shows neither its confidence percentages nor
+For the same reason a written document shows neither its confidence percentages nor
 its page numbers, and loses the Photos and Lecture steps entirely — a permanently
 grey "Photos 1" reads as something left undone rather than something that does not
 apply. They come back the moment a photograph is added to it, which the review's
@@ -440,7 +440,7 @@ for this to rot.
 `plume mcp` is the same door again, opened from a conversation instead of a
 clipboard. [`mcp.rs`](../src-tauri/src/mcp.rs) speaks the Model Context Protocol
 on stdin and stdout, and five tools sit behind it: `list_chartes`,
-`list_courses`, `list_tags`, `read_course`, `create_course`.
+`list_documents`, `list_tags`, `read_document`, `create_document`.
 
 **Connecting it is one click.** *Réglages → Connexion MCP → Ouvrir dans Claude*
 writes a `.mcpb` bundle — a zip holding one `manifest.json` that names this
@@ -470,10 +470,10 @@ stderr stays free.
 
 **Tags come from the model, spelling from the teacher.** A document carries
 `tags` — « cours », « exercices », « DS » — rather than a kind from a fixed
-list, because each teacher sorts their work differently. `create_course`
+list, because each teacher sorts their work differently. `create_document`
 accepts them and `list_tags` exists so the model reuses a spelling already in
 use instead of inventing « exos » beside « exercices ». A tag exists by being
-used; a photographed course is tagged « cours » on creation.
+used; the creation wizard asks for them, and proposes the ones in use.
 
 **Refusals are results, not protocol errors.** A bad `kind` comes back as content
 with `isError: true`, which means the model *reads* "Passage 3 : « exercice »
@@ -486,13 +486,13 @@ played through in tests without spawning anything. The case worth naming: a
 notification carries no `id` and must never be answered, and
 `notifications/initialized` arrives in every session.
 
-**What it may do.** It writes courses into the workbook, which is the point, and
+**What it may do.** It writes documents into the workbook, which is the point, and
 that is a capability given to any conversation the server is connected to —
 including one where the model has just read a web page. The client's confirmation
 is the real gate. On this side the guard is narrowness: four tools, no path ever
-built from an argument, and a course arriving unread rather than approved. Plume
+built from an argument, and a document arriving unread rather than approved. Plume
 refreshes the workbook when its window regains focus, which is exactly when the
-teacher comes back from confirming; a course landing while Plume already has
+teacher comes back from confirming; a document landing while Plume already has
 focus shows on the next switch away and back.
 
 ## 6. Compilation
@@ -576,8 +576,8 @@ same rule as §4: a business decision must not rest on a hallucination.
 **Figures.** A diagram is where a wrong transcription hides best, so the review
 preview compiles each `tikzpicture` on its own with the real engine
 ([`figures.rs`](../src-tauri/src/figures.rs)): a `standalone` document carrying
-the course's own colour definitions, then `pdftocairo -svg`, with `pdftoppm`
-as the raster fallback. Output is cached beside the course, keyed by a hash of
+the document's own colour definitions, then `pdftocairo -svg`, with `pdftoppm`
+as the raster fallback. Output is cached beside the document, keyed by a hash of
 the TikZ source, so an unchanged figure costs nothing and an edited one is
 rebuilt.
 

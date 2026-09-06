@@ -15,14 +15,14 @@ import { Modal } from "./Modal";
 import { splitTags } from "./TagEditor";
 
 /**
- * Bringing in a course written somewhere other than on paper.
+ * Bringing in a document written somewhere other than on paper.
  *
  * A teacher asks Claude for an exercise sheet and wants to keep working on it —
  * split a statement from its answer, reserve a correction, apply their charte,
  * send the class the half they have covered. All of that already works on
  * passages, so the sheet only has to arrive as passages.
  *
- * Two steps on purpose. A course from outside is the one thing in Plume the
+ * Two steps on purpose. A document from outside is the one thing in Plume the
  * teacher did not write, and reading it before it enters the workbook is what
  * makes accepting it a decision rather than a surprise.
  */

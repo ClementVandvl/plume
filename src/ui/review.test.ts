@@ -30,7 +30,7 @@ describe("what still wants the teacher's eye", () => {
    * Left to the photographed rule it would arrive announcing "tout est relu"
    * on mathematics nobody has looked at.
    */
-  it("flags every unopened passage of a written course", () => {
+  it("flags every unopened passage of a written document", () => {
     expect(needsReview(block({ confidence: 1 }), "written")).toBe(true);
     expect(needsReview(block({ confidence: 1, reviewed: true }), "written")).toBe(false);
   });
@@ -39,8 +39,8 @@ describe("what still wants the teacher's eye", () => {
     expect(needsReview(block({ confidence: 0.4, reviewed: true }), "photo")).toBe(false);
   });
 
-  /** A course saved before provenance existed reads as photographed. */
-  it("treats an unstated origin as a photographed course", () => {
+  /** A document saved before provenance existed reads as photographed. */
+  it("treats an unstated origin as a photographed document", () => {
     expect(needsReview(block({ confidence: 1 }))).toBe(false);
     expect(needsReview(block({ confidence: 0.5 }))).toBe(true);
   });

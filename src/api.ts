@@ -8,7 +8,7 @@ import type {
   TagCount,
   Template,
   Transcript,
-  TrashedCourse,
+  TrashedDocument,
   LogEntry,
   Block,
   Settings,
@@ -18,16 +18,20 @@ export const checkEnvironment = () => invoke<Environment>("check_environment");
 export const listDocuments = () => invoke<DocumentSummary[]>("list_documents");
 export const listTemplates = () => invoke<Template[]>("list_templates");
 
-export const listTrash = () => invoke<TrashedCourse[]>("list_trash");
+export const listTrash = () => invoke<TrashedDocument[]>("list_trash");
 export const restoreDocument = (folder: string) =>
   invoke<PlumeDocument>("restore_document", { folder });
 export const purgeDocument = (folder: string) =>
   invoke<void>("purge_document", { folder });
 
-export const openCoursePdf = (id: string) => invoke<void>("open_course_pdf", { id });
+export const openDocumentPdf = (id: string) => invoke<void>("open_document_pdf", { id });
 
-export const createDocument = (title: string, templateId: string, sources: string[]) =>
-  invoke<PlumeDocument>("create_document", { title, templateId, sources });
+export const createDocument = (
+  title: string,
+  templateId: string,
+  sources: string[],
+  tags: string[],
+) => invoke<PlumeDocument>("create_document", { title, templateId, sources, tags });
 
 export const previewPreamble = (templateId: string) =>
   invoke<string>("preview_preamble", { templateId });
@@ -50,14 +54,14 @@ export const transcribeDocument = (id: string, model: string) =>
 export const buildDocument = (id: string, audience: string, taughtOnly: boolean) =>
   invoke<BuildResult>("build_document", { id, audience, taughtOnly });
 
-/** Reads a course from JSON without creating anything. */
+/** Reads a document from JSON without creating anything. */
 export const inspectImport = (json: string) =>
   invoke<ImportPlan>("inspect_import", { json });
 
 export const inspectImportFile = (path: string) =>
   invoke<ImportPlan>("inspect_import_file", { path });
 
-/** Turns a read course into a real one. */
+/** Turns a read document into a real one. */
 export const importCourse = (
   json: string,
   title: string,
@@ -149,7 +153,7 @@ export const splitBlock = (id: string, blockId: string, head: string, tail: stri
 export const reorderPages = (id: string, order: number[]) =>
   invoke<PlumeDocument>("reorder_pages", { id, order });
 
-/** Ids of the courses being read right now. */
+/** Ids of the documents being read right now. */
 export const readingDocuments = () => invoke<string[]>("reading_documents");
 
 export const renderFigure = (id: string, tikz: string) =>

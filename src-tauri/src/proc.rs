@@ -2,7 +2,7 @@
 //!
 //! On Windows, every console-subsystem child — `claude`, `curl`, a LaTeX
 //! engine, even `taskkill` — opens its own terminal window unless the parent
-//! says otherwise. Reading a course put three black consoles on top of the
+//! says otherwise. Reading a document put three black consoles on top of the
 //! app, one per concurrent page; macOS has no such notion, which is why the
 //! problem never showed there.
 //!

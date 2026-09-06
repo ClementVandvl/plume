@@ -37,7 +37,7 @@ pub(crate) struct Builtin {
 }
 
 /// Every template Plume owns. Each is seeded, upgraded and protected the same
-/// way; a course written by hand and an exercise sheet asked of a model want
+/// way; a document written by hand and an exercise sheet asked of a model want
 /// different pages, not different rules.
 pub(crate) const BUILTINS: &[Builtin] = &[
     Builtin { id: BUILTIN_ID, manifest: BUILTIN_MANIFEST, preamble: BUILTIN_PREAMBLE },
@@ -96,7 +96,7 @@ pub struct Template {
     /// Marker rules and standing conventions describe how *this teacher* writes,
     /// whatever template they use. These describe how *this template* wants its
     /// LaTeX shaped -- aligning a continued calculation on its equals sign, for
-    /// instance -- and follow the template when a course changes style.
+    /// instance -- and follow the template when a document changes style.
     #[serde(default)]
     pub conventions: Vec<crate::settings::Convention>,
 }
@@ -393,7 +393,7 @@ pub fn delete(root: &Path, id: &str) -> Result<(), String> {
         return Err("Modèle introuvable.".into());
     }
 
-    // Kept rather than erased, like a deleted course: a template is hours of
+    // Kept rather than erased, like a deleted document: a template is hours of
     // work and the teacher may have meant the other one.
     let bin = root.join("Corbeille").join("Modeles");
     fs::create_dir_all(&bin).map_err(|e| format!("Corbeille inaccessible : {e}"))?;
@@ -622,7 +622,7 @@ mod tests {
         assert!(example.contains("&="), "it must show the alignment point");
     }
 
-    /// A half-written instruction would reach every page of every course.
+    /// A half-written instruction would reach every page of every document.
     #[test]
     fn every_shipped_convention_is_complete() {
         let bundled: Template = serde_json::from_str(BUILTIN_MANIFEST).expect("valid manifest");

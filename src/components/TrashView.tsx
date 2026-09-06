@@ -3,26 +3,26 @@ import { purgeDocument, restoreDocument, revealWorkspace } from "../api";
 import { useConfirm } from "../confirm";
 import { formatRelative, t, tn } from "../i18n";
 import { logError } from "../log";
-import type { TrashedCourse } from "../types";
+import type { TrashedDocument } from "../types";
 import { PageSkeleton } from "../ui/controls";
 
 type Props = {
-  trash: TrashedCourse[];
+  trash: TrashedDocument[];
   onChanged: () => void;
 };
 
 /**
  * The bin. Nothing here is deleted without a second gesture, and restoring is
- * the most visible button — a course is weeks of handwriting.
+ * the most visible button — a document is weeks of handwriting.
  */
 export function TrashView({ trash, onChanged }: Props) {
   const [error, setError] = useState<string | null>(null);
   const { confirm } = useConfirm();
 
-  async function restore(course: TrashedCourse) {
+  async function restore(document: TrashedDocument) {
     setError(null);
     try {
-      await restoreDocument(course.folder);
+      await restoreDocument(document.folder);
       onChanged();
     } catch (cause) {
       setError(String(cause));
@@ -30,10 +30,10 @@ export function TrashView({ trash, onChanged }: Props) {
     }
   }
 
-  async function purge(course: TrashedCourse) {
+  async function purge(document: TrashedDocument) {
     const ok = await confirm({
-      title: t("trash.purge.title", { title: course.title }),
-      message: tn("trash.purge.message", course.pageCount),
+      title: t("trash.purge.title", { title: document.title }),
+      message: tn("trash.purge.message", document.pageCount),
       confirmLabel: t("trash.purge.confirm"),
       cancelLabel: t("trash.purge.keep"),
       tone: "danger",
@@ -41,7 +41,7 @@ export function TrashView({ trash, onChanged }: Props) {
     if (!ok) return;
     setError(null);
     try {
-      await purgeDocument(course.folder);
+      await purgeDocument(document.folder);
       onChanged();
     } catch (cause) {
       setError(String(cause));
@@ -79,29 +79,29 @@ export function TrashView({ trash, onChanged }: Props) {
         <p className="muted">{t("trash.empty")}</p>
       ) : (
         <div className="listcard">
-          {trash.map((course) => (
-            <div key={course.folder} className="listcard__row">
+          {trash.map((document) => (
+            <div key={document.folder} className="listcard__row">
               <PageSkeleton size="sm" />
               <div className="listcard__identity">
-                <span className="listcard__title">{course.title}</span>
+                <span className="listcard__title">{document.title}</span>
                 <span className="listcard__meta">
                   {t("trash.meta", {
-                    pages: tn("common.pages", course.pageCount),
-                    when: formatRelative(course.trashedAt),
+                    pages: tn("common.pages", document.pageCount),
+                    when: formatRelative(document.trashedAt),
                   })}
                 </span>
               </div>
               <button
                 type="button"
                 className="btn btn--primary btn--sm"
-                onClick={() => restore(course)}
+                onClick={() => restore(document)}
               >
                 {t("trash.restore")}
               </button>
               <button
                 type="button"
                 className="btn btn--outline btn--sm"
-                onClick={() => purge(course)}
+                onClick={() => purge(document)}
               >
                 {t("trash.purge")}
               </button>

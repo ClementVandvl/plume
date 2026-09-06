@@ -11,7 +11,7 @@ import { Icon } from "../ui/Icon";
  * review panel. Enlarging in place was never enough: a side panel is a few
  * hundred pixels wide, and that is where a doubtful passage has to be settled.
  *
- * The pages are all here, so the arrows walk the course: the passage before was
+ * The pages are all here, so the arrows walk the document: the passage before was
  * often on the page before.
  */
 export function PhotoViewer({

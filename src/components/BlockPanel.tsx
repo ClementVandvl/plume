@@ -11,9 +11,9 @@ import { KIND_LABEL, type Block } from "../types";
 type Props = {
   block: Block;
   page: number;
-  /** `photo` | `written` — what "still to check" means for this course. */
+  /** `photo` | `written` — what "still to check" means for this document. */
   origin?: string;
-  /** Where this block sits in the course, 1-based, and how many there are. */
+  /** Where this block sits in the document, 1-based, and how many there are. */
   position: number;
   total: number;
   pageSrc?: string;

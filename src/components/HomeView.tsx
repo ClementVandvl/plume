@@ -15,7 +15,7 @@ type Props = {
   /** Opens the wizard, optionally pre-filled with dropped photos. */
   onCreate: (pages?: string[]) => void;
   onNavigate: (route: Route) => void;
-  /** Courses being read right now. */
+  /** Documents being read right now. */
   reading: Set<string>;
   onSettings: () => void;
 };
@@ -43,7 +43,7 @@ export function HomeView({
 }: Props) {
   const [dragging, setDragging] = useState(false);
 
-  // Dropping photos anywhere on this screen starts a course with them.
+  // Dropping photos anywhere on this screen starts a document with them.
   useEffect(() => {
     if (!isTauri()) return;
     let stop: (() => void) | null = null;
@@ -132,14 +132,14 @@ export function HomeView({
             <button
               type="button"
               className="btn btn--primary"
-              onClick={() => onNavigate({ name: "course", id: resume.id, step: "review" })}
+              onClick={() => onNavigate({ name: "document", id: resume.id, step: "review" })}
             >
               {t("home.resume.continue")}
             </button>
             <button
               type="button"
               className="btn btn--ghost"
-              onClick={() => onNavigate({ name: "course", id: resume.id })}
+              onClick={() => onNavigate({ name: "document", id: resume.id })}
             >
               {t("home.resume.open")}
             </button>
@@ -193,7 +193,7 @@ export function HomeView({
             <button
               type="button"
               className="btn btn--link"
-              onClick={() => onNavigate({ name: "courses" })}
+              onClick={() => onNavigate({ name: "documents" })}
             >
               {t("home.others.all")}
             </button>
@@ -204,7 +204,7 @@ export function HomeView({
                 key={doc.id}
                 document={doc}
                 reading={reading.has(doc.id)}
-                onOpen={() => onNavigate({ name: "course", id: doc.id })}
+                onOpen={() => onNavigate({ name: "document", id: doc.id })}
               />
             ))}
           </div>
@@ -214,7 +214,7 @@ export function HomeView({
   );
 }
 
-/** One course tile: title, status pill, a line of facts, its progress. */
+/** One document tile: title, status pill, a line of facts, its progress. */
 function CourseCard({
   document,
   reading,
@@ -241,9 +241,9 @@ function CourseCard({
 
   const facts =
     document.doubtfulCount > 0
-      ? `${tn("common.pages", document.pageCount)} · ${tn("courses.state.doubtful", document.doubtfulCount)}`
+      ? `${tn("common.pages", document.pageCount)} · ${tn("documents.state.doubtful", document.doubtfulCount)}`
       : document.blockCount > 0
-        ? `${tn("common.pages", document.pageCount)} · ${t("courses.state.reviewed").toLowerCase()}`
+        ? `${tn("common.pages", document.pageCount)} · ${t("documents.state.reviewed").toLowerCase()}`
         : tn("common.pages", document.pageCount);
 
   return (

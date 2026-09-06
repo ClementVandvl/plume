@@ -25,7 +25,7 @@ fn with<T>(action: impl FnOnce(&mut HashMap<String, Run>) -> T) -> T {
     action(guard.get_or_insert_with(HashMap::new))
 }
 
-/// Job keys. Reading and correcting a course are separate jobs, so cancelling
+/// Job keys. Reading and correcting a document are separate jobs, so cancelling
 /// one must never stop the other.
 pub fn reading(id: &str) -> String {
     format!("read:{id}")
@@ -51,7 +51,7 @@ pub fn finish(id: &str) {
 /// Documents currently being read.
 ///
 /// The interface needs this on its own: a reading outlives the screen that
-/// started it, so a course view opened afresh — or a dashboard card — has no
+/// started it, so a document view opened afresh — or a dashboard card — has no
 /// other way to know that work is in flight.
 pub fn active_readings() -> Vec<String> {
     with(|runs| {

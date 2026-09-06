@@ -25,7 +25,7 @@ type Ask = {
   /** Present for a rename-style dialog. */
   input?: { label: string; value: string; placeholder?: string };
   /**
-   * What is about to be lost, shown as it appears in the course.
+   * What is about to be lost, shown as it appears in the document.
    *
    * Naming a passage is not enough to recognise it: an id means nothing, and a
    * title is often absent. Seeing the passage itself is the only way to be sure

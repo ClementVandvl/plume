@@ -1,9 +1,9 @@
-//! Application settings, stored beside the courses.
+//! Application settings, stored beside the documents.
 //!
 //! Reading conventions exist at two levels. Most of what a teacher wants is
-//! true of every course they write — how they mark a teacher-only passage, how
-//! they want diagrams drawn — and repeating it per course would guarantee it
-//! drifts. Course-level rules stay, for the exceptions.
+//! true of every document they write — how they mark a teacher-only passage, how
+//! they want diagrams drawn — and repeating it per document would guarantee it
+//! drifts. Document-level rules stay, for the exceptions.
 //!
 //! Both are registries rather than prose. A marker rule pairs a trigger with an
 //! effect — "highlighted in orange means bold". A convention is a standing
@@ -86,17 +86,17 @@ pub struct Convention {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
-    /// Visual conventions, applied to every course.
+    /// Visual conventions, applied to every document.
     #[serde(default)]
     pub rules: Vec<ReadingRule>,
-    /// Standing instructions, applied to every course.
+    /// Standing instructions, applied to every document.
     #[serde(default)]
     pub conventions: Vec<Convention>,
     /// Superseded by `conventions`; kept so an older file still loads, and
     /// migrated on read rather than silently dropped.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub reading_rules: String,
-    /// Model used unless a course overrides it at read time.
+    /// Model used unless a document overrides it at read time.
     #[serde(default = "default_model")]
     pub default_model: String,
     /// Look for a new version at start-up. Only the *check* is automatic —
@@ -277,8 +277,8 @@ fn number(conventions: &[Convention]) -> Vec<String> {
         .collect()
 }
 
-/// The full instruction block, narrowing from the teacher to this one course:
-/// marker rules, standing conventions, the template's own, then the course's.
+/// The full instruction block, narrowing from the teacher to this one document:
+/// marker rules, standing conventions, the template's own, then the document's.
 pub fn combine(
     settings: &Settings,
     template_conventions: &[Convention],
@@ -302,13 +302,13 @@ pub fn combine(
     let from_template = number(template_conventions);
     if !from_template.is_empty() {
         parts.push(format!(
-            "Typesetting conventions of the template this course uses. They \
+            "Typesetting conventions of the template this document uses. They \
              shape the LaTeX you produce.\n{}",
             from_template.join("\n")
         ));
     }
     if !course_rules.trim().is_empty() {
-        parts.push(format!("Specific to this course:\n{}", course_rules.trim()));
+        parts.push(format!("Specific to this document:\n{}", course_rules.trim()));
     }
 
     parts.join("\n\n")
@@ -394,12 +394,12 @@ mod tests {
         let text = combine(&settings, &[], "Ce chapitre utilise des repères.");
         let marker = text.find("Marker conventions").expect("marker block");
         let standing = text.find("Standing conventions").expect("standing block");
-        let course = text.find("Specific to this course").expect("course block");
-        assert!(marker < standing && standing < course);
+        let document = text.find("Specific to this document").expect("document block");
+        assert!(marker < standing && standing < document);
     }
 
     /// The template's own typesetting rules sit between the teacher's standing
-    /// conventions and whatever this one course adds.
+    /// conventions and whatever this one document adds.
     #[test]
     fn template_conventions_are_a_level_of_their_own() {
         let settings = Settings {
@@ -414,8 +414,8 @@ mod tests {
         let text = combine(&settings, &from_template, "Ce chapitre utilise des repères.");
         let standing = text.find("Standing conventions").expect("standing block");
         let template = text.find("Typesetting conventions").expect("template block");
-        let course = text.find("Specific to this course").expect("course block");
-        assert!(standing < template && template < course);
+        let document = text.find("Specific to this document").expect("document block");
+        assert!(standing < template && template < document);
         assert!(text.contains("Aligne les calculs sur le =."));
         assert!(!text.contains("Ne doit pas apparaître"), "disabled entries must be dropped");
     }

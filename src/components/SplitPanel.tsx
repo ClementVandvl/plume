@@ -8,7 +8,7 @@ import { latexToHtml } from "../preview/latexToHtml";
  * The cut points are the blank lines the passage already has — where a worked
  * example separates its statement from its answer, where a diagram stands
  * apart. Offering the raw LaTeX with a caret would be precise and useless: the
- * teacher is deciding about their course, not about markup, so each piece is
+ * teacher is deciding about their document, not about markup, so each piece is
  * shown typeset and the choice is a line between two of them.
  */
 

@@ -19,7 +19,7 @@ export type Box = { top: number; left: number; width: number; height: number };
  * Where an item dragged from `from` should land, given where the pointer is.
  *
  * Pure so the geometry can be tested: a grid wraps, and getting "same row" or
- * "row below" wrong silently sends a page to the far end of the course.
+ * "row below" wrong silently sends a page to the far end of the document.
  */
 export function insertionIndex(
   boxes: Box[],

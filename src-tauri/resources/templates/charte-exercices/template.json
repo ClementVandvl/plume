@@ -1,6 +1,6 @@
 {
   "id": "charte-exercices",
-  "version": 1,
+  "version": 2,
   "name": "Charte fiche d'exercices",
   "description": "Bandeaux de partie, exercices numérotés, sous-questions en colonnes, corrections réservées au professeur.",
   "engine": "pdflatex",
@@ -39,13 +39,6 @@
       "group": "Environnements",
       "type": "color",
       "value": "#1F4E9A"
-    },
-    {
-      "key": "color.trap",
-      "label": "Étiquette [piège]",
-      "group": "Environnements",
-      "type": "color",
-      "value": "#D35400"
     },
     {
       "key": "color.definition",
@@ -158,13 +151,6 @@
       "group": "Intitulés",
       "type": "text",
       "value": "Exercice"
-    },
-    {
-      "key": "label.trap",
-      "label": "Étiquette d'exercice piège",
-      "group": "Intitulés",
-      "type": "text",
-      "value": "piège"
     },
     {
       "key": "label.definition",
@@ -329,12 +315,6 @@
       "enabled": true,
       "title": "Sous-questions en colonnes",
       "text": "Les sous-questions d'un exercice s'écrivent dans l'environnement questions, dont l'option est le nombre de colonnes :\n\\begin{questions}[3]\n\\item $4(3x+2)$\n\\item $-3(2x-5)$\n\\item $2x(x+7)$\n\\end{questions}\nLes lettres a), b), c) sont posées par la charte : n'écris jamais les lettres toi-même. Trois colonnes pour de courts calculs, deux pour des expressions plus longues, et sans option — une seule colonne — pour des questions rédigées ou des équations sur plusieurs lignes."
-    },
-    {
-      "id": "trap-tag",
-      "enabled": true,
-      "title": "Exercice piège",
-      "text": "Un exercice qui cache une difficulté classique commence son contenu par \\piege : l'étiquette [piège] apparaît alors sur la ligne du titre. Écris \\piege au tout début du contenu du passage, jamais dans « title »."
     },
     {
       "id": "correction-for-teacher",

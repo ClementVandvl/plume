@@ -8,7 +8,7 @@ import { OverflowMenu } from "./controls";
 export type UiMode = "simple" | "advanced";
 
 type Props = {
-  /** What the window is about right now — a course title, a view name. */
+  /** What the window is about right now — a document title, a view name. */
   context?: string;
   mode: UiMode;
   onMode: (mode: UiMode) => void;

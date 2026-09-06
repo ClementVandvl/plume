@@ -5,7 +5,7 @@ import katex from "katex";
  *
  * This is an *approximation*, deliberately. The authoritative render is the PDF
  * produced by the real compiler; this exists so the teacher can read their
- * course as a document while reviewing, instead of scanning a list of boxes.
+ * document as a document while reviewing, instead of scanning a list of boxes.
  *
  * Two rules, both earned by bugs:
  *  - every fragment of HTML we inject (maths, figures) is parked in a slot
@@ -220,12 +220,6 @@ function applyCommands(text: string, colours: Record<string, string>): string {
           : "";
     } else if (DROPPED.has(command)) {
       // Nothing emitted; the arguments were consumed above.
-    } else if (command === "piege") {
-      // The exercise charte's own marker. Its wording is a template key the
-      // preview does not see, so the shipped default stands in; the PDF has
-      // the teacher's own. Dropping it would hide, in the review, the one
-      // thing the model was asked to flag.
-      out += '<span class="tex-tag">[piège]</span>';
     } else if (wrapper && groups.length > wrapper.content) {
       const inner = applyCommands(groups[wrapper.content], colours);
       const named = wrapper.colour !== undefined ? groups[wrapper.colour] : undefined;

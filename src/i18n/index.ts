@@ -96,7 +96,7 @@ export function formatMoney(usd: number): string {
 }
 
 /**
- * "il y a 10 minutes", "hier", or the date — how the course list dates a
+ * "il y a 10 minutes", "hier", or the date — how the document list dates a
  * modification.
  */
 export function formatRelative(at: number): string {

@@ -3,11 +3,11 @@ import { listen } from "@tauri-apps/api/event";
 import { readingDocuments } from "../api";
 
 /**
- * The courses being read right now.
+ * The documents being read right now.
  *
  * A reading lives in the backend, not in the screen that started it: leaving
- * the course view does not stop it. The interface had no way to know that,
- * so a course reopened mid-reading showed its "read the pages" button as if
+ * the document view does not stop it. The interface had no way to know that,
+ * so a document reopened mid-reading showed its "read the pages" button as if
  * nothing were happening, and the dashboard showed nothing at all.
  *
  * The backend registry is the single source of truth. Events only say "look

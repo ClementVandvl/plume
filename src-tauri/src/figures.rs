@@ -4,7 +4,7 @@
 //! the block a teacher most needs to check. So each figure is compiled on its
 //! own with the real engine, then rasterised.
 //!
-//! Results are cached next to the course, keyed by a hash of the TikZ source:
+//! Results are cached next to the document, keyed by a hash of the TikZ source:
 //! editing a figure produces a new file, leaving it alone costs nothing.
 
 use crate::logbus;
@@ -35,7 +35,7 @@ fn hash(source: &str) -> String {
     format!("{value:016x}")
 }
 
-/// The colour definitions from the course's own preamble, so a figure drawn in
+/// The colour definitions from the document's own preamble, so a figure drawn in
 /// `mcDef` red looks the same here as in the PDF.
 fn colour_definitions(root: &Path, template: &Template) -> String {
     crate::templates::render_preamble(root, template)

@@ -44,7 +44,7 @@ async fn check_environment() -> env_check::Environment {
         })
 }
 
-/// A course plus what its transcript says is left to do. Computed at list time
+/// A document plus what its transcript says is left to do. Computed at list time
 /// rather than stored: the transcript is the single source of truth for review
 /// state, and a handful of JSON files is cheap to read.
 #[derive(Serialize, Clone)]
@@ -52,11 +52,11 @@ async fn check_environment() -> env_check::Environment {
 struct DocumentSummary {
     #[serde(flatten)]
     document: workspace::Document,
-    /// Blocks in the transcript; 0 when the course has not been read yet.
+    /// Blocks in the transcript; 0 when the document has not been read yet.
     block_count: usize,
     /// Blocks below the doubt threshold and not yet confirmed by the teacher.
     doubtful_count: usize,
-    /// Passages the class has covered, when a boundary is set. What the course
+    /// Passages the class has covered, when a boundary is set. What the document
     /// list answers on a Sunday evening: where did we get to?
     taught_count: Option<usize>,
     /// Title of the heading the class stopped under — the teacher's own words,
@@ -112,7 +112,7 @@ fn list_documents() -> Vec<DocumentSummary> {
 }
 
 #[tauri::command]
-fn list_trash() -> Vec<workspace::TrashedCourse> {
+fn list_trash() -> Vec<workspace::TrashedDocument> {
     workspace::trashed()
 }
 
@@ -200,7 +200,7 @@ fn remove_page(id: String, number: usize) -> Result<workspace::Document, String>
 
 /// Moves the transcript to follow a new page order.
 ///
-/// A partially read course has fewer transcript pages than photographs, so the
+/// A partially read document has fewer transcript pages than photographs, so the
 /// pages that exist are matched by number rather than by position.
 fn reorder_transcript(transcript: &mut ir::Transcript, order: &[usize]) {
     let mut moved = Vec::with_capacity(transcript.pages.len());
@@ -247,7 +247,7 @@ fn document_page_paths(id: String) -> Vec<String> {
         .collect()
 }
 
-/// Stores the teacher's reading conventions for this course.
+/// Stores the teacher's reading conventions for this document.
 ///
 /// They are appended verbatim to the recogniser's instructions, so they take
 /// effect on the next read or correction — no re-import needed.
@@ -274,10 +274,11 @@ async fn create_document(
     title: String,
     template_id: String,
     sources: Vec<String>,
+    tags: Vec<String>,
 ) -> Result<workspace::Document, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let paths: Vec<PathBuf> = sources.into_iter().map(PathBuf::from).collect();
-        workspace::create(&title, &template_id, &paths, &|done, total| {
+        workspace::create(&title, &template_id, &paths, &tags, &|done, total| {
             let _ = app.emit("import", ImportProgress { done, total });
         })
     })
@@ -285,7 +286,7 @@ async fn create_document(
     .map_err(|e| format!("Import interrompu : {e}"))?
 }
 
-/// A course read from JSON, with anything worth a word before it is created.
+/// A document read from JSON, with anything worth a word before it is created.
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct ImportPlan {
@@ -296,7 +297,7 @@ struct ImportPlan {
     /// The text this was read from, handed back so the commit can parse the
     /// same characters again. The interface never rebuilds it from the blocks:
     /// a field added to the format would then be dropped on the way through,
-    /// silently, and only for courses that came from a file.
+    /// silently, and only for documents that came from a file.
     source: String,
 }
 
@@ -306,9 +307,9 @@ fn plan_of(json: &str) -> Result<ImportPlan, String> {
     Ok(ImportPlan { import, warnings, source: json.to_string() })
 }
 
-/// Reads a course without creating anything.
+/// Reads a document without creating anything.
 ///
-/// The preview is the point: a course arriving from outside is the one thing in
+/// The preview is the point: a document arriving from outside is the one thing in
 /// Plume the teacher did not write themselves, and seeing the passages before
 /// they land in the workbook is what makes accepting them a decision.
 #[tauri::command]
@@ -323,7 +324,7 @@ fn inspect_import_file(path: String) -> Result<ImportPlan, String> {
     plan_of(&json)
 }
 
-/// Turns a read course into a real one.
+/// Turns a read document into a real one.
 ///
 /// Parses the same text again rather than taking the blocks back from the
 /// interface: the preview is for looking, and validation belongs in one place
@@ -526,17 +527,17 @@ fn reveal_path(app: AppHandle, path: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Opens the last compiled PDF of a course, straight from the course list —
+/// Opens the last compiled PDF of a document, straight from the document list —
 /// the path is resolved here so the webview never manipulates file paths.
 #[tauri::command]
-fn open_course_pdf(app: AppHandle, id: String) -> Result<(), String> {
+fn open_document_pdf(app: AppHandle, id: String) -> Result<(), String> {
     let document = workspace::load(&id)?;
     let name = document
         .last_pdf
-        .ok_or("Aucun PDF n'a encore été fabriqué pour ce cours.")?;
+        .ok_or("Aucun PDF n'a encore été fabriqué pour ce document.")?;
     let path = workspace::document_dir(&id).join(name);
     if !path.is_file() {
-        return Err("Le PDF n'est plus dans le dossier du cours. Refabriquez-le.".into());
+        return Err("Le PDF n'est plus dans le dossier du document. Refabriquez-le.".into());
     }
     app.opener()
         .open_path(path.to_string_lossy().to_string(), None::<&str>)
@@ -600,7 +601,7 @@ fn log_client(level: String, scope: String, message: String, detail: Option<Stri
 
 const TRANSCRIPT_FILE: &str = "transcript.json";
 
-/// Import can take a while on a course of a dozen phone photos, so it reports
+/// Import can take a while on a document of a dozen phone photos, so it reports
 /// rather than leaving a button spinning.
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -694,7 +695,7 @@ fn load_transcript(id: String) -> Option<ir::Transcript> {
 ///
 /// The teacher's hand always wins: nothing here calls the model, and the block
 /// is marked reviewed so it stops being flagged.
-/// Which courses are being read right now.
+/// Which documents are being read right now.
 #[tauri::command]
 fn reading_documents() -> Vec<String> {
     runs::active_readings()
@@ -713,7 +714,7 @@ fn save_block(id: String, block: ir::Block) -> Result<(), String> {
     let note = target.note.clone();
     // How far the class has got is not part of what the editor shows, so a
     // round trip through it must not quietly clear the boundary and let a
-    // partial export run to the end of the course.
+    // partial export run to the end of the document.
     let taught_end = target.taught_end;
     *target = block;
     // A manual edit does not discard a pending instruction: the teacher may
@@ -806,7 +807,7 @@ fn insert_in_transcript(
         (page_index, at)
     };
 
-    let page = transcript.pages.get_mut(page_index).ok_or("Ce cours n'a aucune page.")?;
+    let page = transcript.pages.get_mut(page_index).ok_or("Ce document n'a aucune page.")?;
     for (offset, block) in fresh.into_iter().enumerate() {
         page.blocks.insert(at + offset, block);
     }
@@ -857,7 +858,7 @@ fn insert_block(
 /// Adds a photograph as a page where the gap is, then reads it.
 ///
 /// The photograph joins the others: it appears in the Photos step and in the
-/// course folder, at the position the teacher chose. Pages and transcript move
+/// document folder, at the position the teacher chose. Pages and transcript move
 /// together — everything numbered after it shifts, block ids included — because
 /// every part of the app relies on the two staying in step.
 #[tauri::command]
@@ -924,7 +925,7 @@ async fn insert_from_photo(
             &dir,
             at,
             &format!("pages/{name}"),
-            &format!("It is page {at} of the course."),
+            &format!("It is page {at} of the document."),
             &model,
             &rules,
             &|label| {
@@ -936,7 +937,7 @@ async fn insert_from_photo(
         );
         runs::finish(&job);
 
-        // The photograph stays whatever the reading did: it is in the course
+        // The photograph stays whatever the reading did: it is in the document
         // now, and a failed reading is retried from the Lecture step.
         let outcome = outcome?;
 
@@ -985,7 +986,7 @@ fn remove_in_transcript(transcript: &mut ir::Transcript, block_id: &str) -> Resu
         .ok_or("Bloc introuvable.")?;
 
     // Deleting the passage the class stopped on would take the boundary with
-    // it, and the next export would run to the end of the course without
+    // it, and the next export would run to the end of the document without
     // saying so. The lesson still ended where it ended: the mark steps back.
     let carried = transcript.pages[page_index].blocks[at].taught_end;
 
@@ -1046,7 +1047,7 @@ fn split_block(id: String, block_id: String, head: String, tail: String) -> Resu
 
 /// Marks the passage the class stopped on, or clears the mark with `None`.
 ///
-/// Not an export setting but a fact about the course, which is why it lives in
+/// Not an export setting but a fact about the document, which is why it lives in
 /// the transcript and is set from the review: it changes once a week, when the
 /// lesson ends, and every export afterwards reads it.
 #[tauri::command]
@@ -1328,7 +1329,7 @@ async fn transcribe_document(
                         &dir,
                         number,
                         &format!("pages/{}", files[index]),
-                        &format!("It is page {number} of the course."),
+                        &format!("It is page {number} of the document."),
                         &model,
                         &rules,
                         &|label| {
@@ -1483,8 +1484,8 @@ struct BuildResult {
 ///
 /// `taught_only` stops the document after the passage the class reached — the
 /// handout sent the evening of the lesson. Such a build is a copy taken along
-/// the way, not the course: it writes its own file so it cannot overwrite the
-/// complete PDF, and leaves the course's own state alone.
+/// the way, not the document: it writes its own file so it cannot overwrite the
+/// complete PDF, and leaves the document's own state alone.
 #[tauri::command]
 async fn build_document(
     id: String,
@@ -1501,12 +1502,12 @@ async fn build_document(
             .and_then(|raw| serde_json::from_str(&raw).ok())
             .ok_or("Ce document n'a pas encore été transcrit.")?;
 
-        // Rendering would happily treat an unmarked course as "all of it", and
+        // Rendering would happily treat an unmarked document as "all of it", and
         // that is the one wrong answer here: the teacher asked for the part
         // already taught, and a mail cannot be recalled.
         if taught_only && ir::taught_end(&transcript).is_none() {
             return Err(
-                "Ce cours n'a pas de point d'arrêt : marquez d'abord où la classe s'est arrêtée."
+                "Ce document n'a pas de point d'arrêt : marquez d'abord où la classe s'est arrêtée."
                     .into(),
             );
         }
@@ -1531,9 +1532,9 @@ async fn build_document(
 
         match latex::compile(&dir, &name) {
             Ok(pdf) => {
-                // A compiled PDF is what "ready" means to the course list, and
+                // A compiled PDF is what "ready" means to the document list, and
                 // remembering the file lets "Ouvrir le PDF" skip a rebuild.
-                // Only a complete one: a partial build would make the course
+                // Only a complete one: a partial build would make the document
                 // read as finished and point "Ouvrir le PDF" at a document
                 // that stops halfway through.
                 if !taught_only {
@@ -1580,13 +1581,13 @@ pub fn run() {
                     Ok(0) => {}
                     Ok(moved) => logbus::info(
                         "workspace",
-                        format!("{moved} cours déplacé(s) dans Courses/"),
+                        format!("{moved} document(s) déplacé(s) dans Documents/"),
                     ),
                     Err(error) => {
                         logbus::error("workspace", format!("Migration impossible : {error}"))
                     }
                 }
-                let _ = workspace::ensure_courses_dir();
+                let _ = workspace::ensure_documents_dir();
                 let _ = templates::seed(&root);
                 logbus::detail("app", "Classeur prêt", root.to_string_lossy().to_string());
             }
@@ -1667,7 +1668,7 @@ pub fn run() {
             workspace_path,
             reveal_workspace,
             reveal_path,
-            open_course_pdf,
+            open_document_pdf,
             open_url,
             updates_configured,
             logs,
@@ -1763,7 +1764,7 @@ mod tests {
 
     /// The boundary is the one piece of state a wrong answer cannot take back:
     /// a handout is mailed to a class. Deleting the passage it sits on must not
-    /// silently leave the course unbounded.
+    /// silently leave the document unbounded.
     #[test]
     fn deleting_the_passage_the_class_stopped_on_steps_the_mark_back() {
         let mut transcript = ir::Transcript { version: 1, pages: vec![page(1, 3)] };
@@ -1845,7 +1846,7 @@ mod tests {
         );
     }
 
-    /// A course reordered by hand carries the mark with the pages.
+    /// A document reordered by hand carries the mark with the pages.
     #[test]
     fn the_mark_survives_reordering_the_pages() {
         let mut transcript =
@@ -1936,7 +1937,7 @@ mod tests {
         assert_eq!(transcript.pages[2].blocks[0].id, "p03-b01");
     }
 
-    /// A course read only in part has fewer transcript pages than photographs.
+    /// A document read only in part has fewer transcript pages than photographs.
     #[test]
     fn a_partial_transcript_follows_the_pages_it_has() {
         let mut transcript = ir::Transcript {

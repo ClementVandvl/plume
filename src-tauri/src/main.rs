@@ -3,7 +3,7 @@
 
 fn main() {
     // `plume mcp` speaks the Model Context Protocol on stdin and stdout, so a
-    // conversation can put a course in the workbook. Branching here rather than
+    // conversation can put a document in the workbook. Branching here rather than
     // shipping a second binary means the command a client has to spawn is one
     // that is already installed and already signed.
     //
