@@ -170,7 +170,7 @@ same sixteen block kinds want a different page when the document is a sheet of
 exercises rather than a lesson. It was drawn from a real sheet the teacher
 liked, and a sample through it is what the reference looks like: a running
 header (*Chapitre 1 – Calcul littéral* on the left, the level on the right), a
-centred title with a *Nom / Classe* line, full-width navy banners for the
+centred title, full-width navy banners for the
 parts, and exercises headed *Exercice 3 — Vrai ou faux ?* in blue.
 
 Two things are specific to it and worth knowing:

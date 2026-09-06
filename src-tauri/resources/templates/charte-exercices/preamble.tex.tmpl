@@ -20,7 +20,7 @@
 \usepackage{xcolor}
 \usepackage{tikz}
 \usepackage[most]{tcolorbox}
-\usepackage{etoolbox}   % \ifblank, \ifdefstring
+\usepackage{etoolbox}   % \ifblank
 \usepackage{enumitem}
 \usepackage{multicol}   % les sous-questions en colonnes
 \usepackage{fancyhdr}
@@ -73,15 +73,11 @@
 %     Le numéro vient du professeur, jamais d'un compteur. Sans numéro, le
 %     titre seul.
 %============================================================================
-\newcommand{\mcNameLine}{{{page.nameLine}}}
 \newcommand{\chapitre}[2]{%
   \renewcommand{\mcRunningTitle}{\ifblank{#1}{#2}{Chapitre #1 -- #2}}%
   \begin{center}
     {{{size.chapter}}\bfseries\color{mcChapitre}{{label.sheet}} --- #2\par}
   \end{center}
-  \ifdefstring{\mcNameLine}{oui}{%
-    \par\noindent{\small Nom~: \dotfill\hspace{2em}Classe~: \dotfill}\par
-  }{}%
   \vspace{0.3\baselineskip}\noindent\rule{\linewidth}{0.4pt}\par
   \vspace{0.4\baselineskip}}
 

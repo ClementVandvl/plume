@@ -1,6 +1,6 @@
 {
   "id": "charte-exercices",
-  "version": 3,
+  "version": 4,
   "name": "Charte fiche d'exercices",
   "description": "Bandeaux de partie, exercices numérotés, sous-questions en colonnes, corrections réservées au professeur.",
   "engine": "pdflatex",
@@ -123,13 +123,6 @@
       "group": "Mise en page",
       "type": "text",
       "value": "Seconde"
-    },
-    {
-      "key": "page.nameLine",
-      "label": "Ligne « Nom / Classe » sous le titre",
-      "group": "Mise en page",
-      "type": "choice:oui|non",
-      "value": "oui"
     },
     {
       "key": "label.sheet",

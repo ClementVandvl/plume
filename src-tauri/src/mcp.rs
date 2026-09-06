@@ -15,7 +15,7 @@
 //! the point, and that is a capability handed to any conversation the teacher
 //! has this server connected to — including one where the model has just read a
 //! web page. The client asks before every call, and that confirmation is the
-//! real gate. On this side the guard is narrowness: four tools, no path ever
+//! real gate. On this side the guard is narrowness: five tools, no path ever
 //! taken from an argument, and a document arriving unread rather than approved.
 
 use crate::{import, templates, workspace};
@@ -94,7 +94,7 @@ fn output(text: String, failed: bool) -> Value {
 }
 
 fn initialize(message: &Value) -> Value {
-    // Echo the version asked for. This server is four tools with no optional
+    // Echo the version asked for. This server is five tools with no optional
     // features, so every version that has existed describes it identically, and
     // refusing one over a date string helps nobody.
     let version = message
