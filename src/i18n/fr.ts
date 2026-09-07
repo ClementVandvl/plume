@@ -524,7 +524,22 @@ export const fr = {
   "settings.tool.install": "Installer",
   "settings.tool.installing": "Préparation…",
   "settings.tool.installExternal": "Installer {name} ↗",
-  "settings.tool.login": "Se connecter dans un terminal ↗",
+  "settings.tool.login": "Se connecter…",
+  "settings.tool.relogin": "Se reconnecter",
+  "settings.tool.loginPending": "Autorisez Plume dans le navigateur qui s'ouvre…",
+  "settings.tool.connected": "Connecté — {email}",
+  "settings.tool.disconnected": "Claude n'est pas connecté : rien ne peut être lu.",
+  "settings.tool.loginHint":
+    "Un terminal s'ouvre avec la commande déjà écrite ; votre navigateur demande une autorisation. Rien à taper.",
+
+  // Une session qui a expiré : la seule panne que l'interface peut réparer.
+  "auth.banner": "Claude n'est pas connecté : Plume ne peut pas lire vos pages.",
+  "auth.login": "Se connecter…",
+  "auth.pending": "Autorisez Plume dans le navigateur qui s'ouvre…",
+  "auth.failed.title": "Claude doit être reconnecté",
+  "auth.failed.text":
+    "Sa session a expiré. Reconnectez-le, puis relancez la lecture : les pages déjà lues sont conservées.",
+  "auth.retry": "Relancer la lecture",
   "settings.appearance.title": "Apparence",
   "settings.theme.light": "Clair",
   "settings.theme.dark": "Sombre",

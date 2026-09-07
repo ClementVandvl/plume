@@ -144,6 +144,36 @@ and a quoting layer between Plume and `claude`, and refuses a newline in an
 argument to a batch file outright — while a file path is the same everywhere.
 The schema stays an argument, compacted to one line for the same reason.
 
+### A lapsed sign-in
+
+The failure a teacher met most was not Plume's: the CLI's session had lapsed,
+and the reading died on its first page with an exit code and — before the
+account above — no message. Three things now stand between them and a terminal.
+
+**Asked before anything is spent.** `claude auth status --json` is local and
+instant, and both a reading and a round of corrections consult it first. Signed
+out, nothing is launched: the failure event carries `reason: "auth"` and the
+screen shows a button, not a message. The status reads the CLI's own stored
+session, so a session revoked on the server side still passes here — which is
+why a reading also watches its own failures, and names the same reason when
+the wording is the CLI saying its session has lapsed (`is_auth_failure`).
+
+**One button, nothing to type.** Everywhere the state shows — the home banner,
+the settings row, the reading's failure — the button opens a terminal with
+`claude auth login` already typed. The browser asks for the authorisation, the
+teacher grants it, and `useClaudeLogin` polls the status every few seconds
+until it turns, then refreshes. The old way opened a bare `claude` and left
+`/login` for the teacher to know about.
+
+**The first page goes alone.** The teacher's failures came after a week
+without a reading, and never mid-session. After such a pause the access token
+has expired, and every `claude` launched at once tried to renew it with the
+same one-shot refresh token: the first won, the rest could leave the session
+broken. So the other pages now wait behind a gate that the first page opens on
+its first sign of life — the renewal happens once, and it costs the seconds
+the first page needed anyway to start. A hypothesis, not a proof; the test is
+whether the failures stop.
+
 ### The instruction block
 
 The system prompt fixes the invariants: body-only `latex`, headings carry their

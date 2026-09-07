@@ -3,6 +3,7 @@ import { formatRelative, t, tn } from "../i18n";
 import { isTauri } from "../platform";
 import type { DocumentSummary, Environment, Route } from "../types";
 import { Icon } from "../ui/Icon";
+import { useClaudeLogin } from "../ui/login";
 import { Meter, PageSkeleton, ReadingPill, StatusPill } from "../ui/controls";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "heic", "heif", "webp", "tif", "tiff"];
@@ -18,6 +19,8 @@ type Props = {
   /** Documents being read right now. */
   reading: Set<string>;
   onSettings: () => void;
+  /** Re-reads the environment — after a sign-in, for one. */
+  onRefresh: () => void;
 };
 
 /** `{placeholder}` in a message, rendered bold — for the one emphasised bit. */
@@ -40,6 +43,7 @@ export function HomeView({
   onCreate,
   onNavigate,
   onSettings,
+  onRefresh,
 }: Props) {
   const [dragging, setDragging] = useState(false);
 
@@ -67,6 +71,9 @@ export function HomeView({
   }, []);
 
   const missingEngine = environment?.tools.some((tool) => !tool.found) ?? false;
+  // Installed but signed out: the one thing the teacher can fix from here.
+  const signedOut = environment?.auth ? !environment.auth.loggedIn : false;
+  const login = useClaudeLogin(onRefresh);
 
   if (documents.length === 0) {
     return (
@@ -145,6 +152,20 @@ export function HomeView({
             </button>
           </div>
         </section>
+      )}
+
+      {signedOut && (
+        <div className="banner banner--warn">
+          <Icon name="warning" />
+          <span className="banner__text">
+            {login.pending ? t("auth.pending") : t("auth.banner")}
+          </span>
+          {!login.pending && (
+            <button type="button" className="btn btn--primary" onClick={login.start}>
+              {t("auth.login")}
+            </button>
+          )}
+        </div>
       )}
 
       {missingEngine && (

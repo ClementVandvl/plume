@@ -8,7 +8,6 @@ import {
   mcpConfig,
   revealFile,
   revealPath,
-  openClaudeLogin,
   openUrl,
   revealWorkspace,
   saveSettings,
@@ -17,6 +16,7 @@ import { t } from "../i18n";
 import { logError } from "../log";
 import { useAdvanced } from "../ui/mode";
 import { detectPlatform } from "../platform";
+import { useClaudeLogin } from "../ui/login";
 import type { Environment, Settings } from "../types";
 import { Icon } from "../ui/Icon";
 import { AdvancedRow, Toggle } from "../ui/controls";
@@ -54,6 +54,7 @@ export function SettingsModal({
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [mcpCopied, setMcpCopied] = useState(false);
   const [mcpSaved, setMcpSaved] = useState(false);
+  const login = useClaudeLogin(onEnvironmentChanged);
   /**
    * What to do next, shown once a button has been used — the moment the
    * question arises. A hint saying it all upfront was cut for length, and
@@ -177,17 +178,27 @@ export function SettingsModal({
                 <span className={`toolrow__hint ${tool.found ? "" : "toolrow__hint--warn"}`}>
                   {tool.found ? tool.role : (tool.hint ?? tool.role)}
                 </span>
-                {tool.found && tool.key === "claude" && (
+                {tool.found && tool.key === "claude" && environment?.auth && (
+                  <span
+                    className={`toolrow__hint ${environment.auth.loggedIn ? "" : "toolrow__hint--warn"}`}
+                  >
+                    {login.pending
+                      ? t("settings.tool.loginPending")
+                      : environment.auth.loggedIn
+                        ? t("settings.tool.connected", {
+                            email: environment.auth.email ?? "",
+                          })
+                        : (environment.auth.detail ?? t("settings.tool.disconnected"))}
+                  </span>
+                )}
+                {tool.found && tool.key === "claude" && !login.pending && (
                   <button
                     type="button"
-                    className="btn btn--link"
-                    onClick={() =>
-                      openClaudeLogin().catch((cause) =>
-                        logError("claude", t("error.refresh"), cause),
-                      )
-                    }
+                    className={`btn btn--sm ${environment?.auth?.loggedIn ? "btn--link" : "btn--primary"}`}
+                    onClick={login.start}
+                    title={t("settings.tool.loginHint")}
                   >
-                    {t("settings.tool.login")}
+                    {environment?.auth?.loggedIn ? t("settings.tool.relogin") : t("settings.tool.login")}
                   </button>
                 )}
               </div>

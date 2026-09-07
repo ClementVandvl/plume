@@ -107,6 +107,14 @@ const transcript = {
   ],
 };
 
+/** Claude Code's sign-in, as the settings and the home banner see it. */
+let auth = {
+  loggedIn: !new URLSearchParams(window.location.search).has("loggedout"),
+  email: "prof@lycee.fr" as string | null,
+  subscription: "max" as string | null,
+  detail: null as string | null,
+};
+
 /** The document the import created, once it has. */
 let imported: Transcript | null = null;
 
@@ -309,7 +317,16 @@ const logs = [
 ];
 
 const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
-  check_environment: () => environment,
+  check_environment: () => ({ ...environment, auth: auth }),
+  // `?mock&loggedout` starts signed out; "signing in" takes a few seconds,
+  // like the real browser round trip.
+  claude_auth_status: () => auth,
+  open_claude_login: () => {
+    window.setTimeout(() => {
+      auth = { loggedIn: true, email: "prof@lycee.fr", subscription: "max", detail: null };
+    }, 4000);
+    return undefined;
+  },
   // A fresh array of fresh objects, as the real command's JSON round trip
   // always yields. Handing back the same references let a memo keyed on the
   // list keep stale tags after an edit — a state the app never has.

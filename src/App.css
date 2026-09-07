@@ -2874,6 +2874,17 @@ textarea.code-area {
   padding-left: var(--space-md);
 }
 
+/* A failure with a button: the sign-in that lapsed. */
+.authnotice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.authnotice__actions {
+  margin-top: var(--space-2xs);
+}
+
 /* ---------- Importing a written document ---------- */
 .import__ways {
   display: flex;

@@ -249,6 +249,7 @@ export default function App() {
                 onCreate={openWizard}
                 onNavigate={setRoute}
                 onSettings={() => setModal("settings")}
+                onRefresh={() => refresh().catch(onRefreshError)}
               />
             )}
 

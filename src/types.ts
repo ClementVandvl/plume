@@ -14,6 +14,15 @@ export type ToolStatus = {
   required: boolean;
 };
 
+/** Whether Claude Code is signed in, as it reports it. */
+export type AuthStatus = {
+  loggedIn: boolean;
+  email: string | null;
+  subscription: string | null;
+  /** Why the answer is "no", when it is not simply "not signed in". */
+  detail: string | null;
+};
+
 export type Environment = {
   tools: ToolStatus[];
   ready: boolean;
@@ -21,6 +30,8 @@ export type Environment = {
   autoPages: number;
   /** Memory found, in gigabytes; null when it could not be measured. */
   memoryGb: number | null;
+  /** Claude Code's sign-in state; null when it is not installed. */
+  auth: AuthStatus | null;
 };
 
 export type TemplateKey = {
@@ -188,6 +199,8 @@ export type TranscriptionProgress = {
   blocks: number;
   costUsd: number;
   message: string | null;
+  /** `auth` when the failure is a lapsed sign-in. */
+  reason?: string | null;
 };
 
 /** Below this, a block is surfaced for review. Mirrors ir::DOUBT_THRESHOLD. */
@@ -237,6 +250,8 @@ export type CorrectionProgress = {
   done: number;
   total: number;
   message: string | null;
+  /** `auth` when the failure is a lapsed sign-in. */
+  reason?: string | null;
 };
 
 export const AUDIENCE_LABEL: Record<string, string> = {

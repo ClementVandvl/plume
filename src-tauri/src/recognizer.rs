@@ -511,6 +511,9 @@ pub fn transcribe_page(
         }
         let detail = failure_detail(&stderr_text, envelope.as_ref(), &stray)
             .unwrap_or_else(|| "il n'a rien dit — ni erreur, ni sortie.".to_string());
+        if crate::claude::is_auth_failure(&detail) {
+            return Err(format!("{} : {detail}", crate::claude::AUTH_REQUIRED));
+        }
         return Err(format!("Claude Code s'est arrêté ({status}) : {detail}"));
     }
 
@@ -734,6 +737,9 @@ pub fn correct_block(
         }
         let detail = failure_detail(&stderr, envelope.as_ref(), &stray)
             .unwrap_or_else(|| "il n'a rien dit — ni erreur, ni sortie.".to_string());
+        if crate::claude::is_auth_failure(&detail) {
+            return Err(format!("{} : {detail}", crate::claude::AUTH_REQUIRED));
+        }
         return Err(format!("La correction a échoué ({}) : {detail}", output.status));
     }
 

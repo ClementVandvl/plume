@@ -41,6 +41,7 @@ async fn check_environment() -> env_check::Environment {
             ready: false,
             auto_pages: 1,
             memory_gb: None,
+            auth: None,
         })
 }
 
@@ -383,6 +384,12 @@ fn reveal_file(app: AppHandle, path: String) -> Result<(), String> {
         .map_err(|e| format!("Affichage du fichier : {e}"))
 }
 
+/// Whether Claude Code is signed in — asked of the CLI, locally.
+#[tauri::command]
+fn claude_auth_status() -> claude::AuthStatus {
+    claude::auth_status()
+}
+
 /// The block to paste into an MCP client's configuration.
 #[tauri::command]
 fn mcp_config() -> String {
@@ -655,6 +662,17 @@ struct Progress {
     blocks: usize,
     cost_usd: f64,
     message: Option<String>,
+    /// `auth` when the failure is a lapsed sign-in, which the interface turns
+    /// into a button rather than a message.
+    reason: Option<String>,
+}
+
+/// The one failure the interface can act on by itself.
+fn reason_of(message: &Option<String>) -> Option<String> {
+    message
+        .as_deref()
+        .filter(|m| m.starts_with(claude::AUTH_REQUIRED))
+        .map(|_| "auth".to_string())
 }
 
 fn read_transcript(id: &str) -> Result<ir::Transcript, String> {
@@ -1103,6 +1121,7 @@ struct CorrectionProgress {
     done: usize,
     total: usize,
     message: Option<String>,
+    reason: Option<String>,
 }
 
 /// Re-runs every annotated block, then saves.
@@ -1140,6 +1159,28 @@ async fn apply_corrections(
         let total = pending.len();
         logbus::info("claude", format!("Correction de {total} bloc(s) annoté(s)"));
 
+        let auth = claude::auth_status();
+        if !auth.logged_in {
+            let message = format!(
+                "{} : {}",
+                claude::AUTH_REQUIRED,
+                auth.detail.unwrap_or_else(|| "sa session a expiré".into())
+            );
+            let _ = app.emit(
+                "correction",
+                CorrectionProgress {
+                    document_id: id.clone(),
+                    phase: "failed".into(),
+                    block_id: String::new(),
+                    done: 0,
+                    total,
+                    reason: Some("auth".into()),
+                    message: Some(message.clone()),
+                },
+            );
+            return Err(message);
+        }
+
         let job = runs::correcting(&id);
         runs::begin(&job);
 
@@ -1171,6 +1212,7 @@ async fn apply_corrections(
                     block_id: block.id.clone(),
                     done,
                     total,
+                    reason: None,
                     message: None,
                 },
             );
@@ -1196,6 +1238,7 @@ async fn apply_corrections(
                             block_id: block.id.clone(),
                             done: done + 1,
                             total,
+                            reason: None,
                             message: None,
                         },
                     );
@@ -1214,6 +1257,7 @@ async fn apply_corrections(
                             block_id: block.id.clone(),
                             done: done + 1,
                             total,
+                            reason: reason_of(&Some(error.clone())),
                             message: Some(error),
                         },
                     );
@@ -1244,6 +1288,7 @@ async fn apply_corrections(
                 block_id: String::new(),
                 done: total - failures.len(),
                 total,
+                reason: reason_of(&failures.first().cloned()),
                 message: failures.first().cloned(),
             },
         );
@@ -1278,6 +1323,31 @@ async fn transcribe_document(
 
         let rules = settings::combined_rules(&document.template_id, &document.reading_rules);
         let total = files.len();
+        // Asked before anything is spent: a lapsed session fails every page in
+        // the same second, and the sign-in is the only cure. Local and instant.
+        let auth = claude::auth_status();
+        if !auth.logged_in {
+            let message = format!(
+                "{} : {}",
+                claude::AUTH_REQUIRED,
+                auth.detail.unwrap_or_else(|| "sa session a expiré".into())
+            );
+            let _ = app.emit(
+                "transcription",
+                Progress {
+                    document_id: id.clone(),
+                    phase: "failed".into(),
+                    page: 0,
+                    total,
+                    blocks: 0,
+                    cost_usd: 0.0,
+                    reason: Some("auth".into()),
+                    message: Some(message.clone()),
+                },
+            );
+            return Err(message);
+        }
+
         let job = runs::reading(&id);
         runs::begin(&job);
         // Pages are independent, so they read concurrently — but each `claude`
@@ -1311,6 +1381,21 @@ async fn transcribe_document(
         let next = AtomicUsize::new(0);
         let done = AtomicUsize::new(0);
         let spent = Mutex::new(0.0f64);
+
+        // The first page goes alone, and the others wait until it has begun
+        // to speak. After a week without a reading the access token has
+        // expired, and every `claude` launched at once tried to renew it with
+        // the same one-shot refresh token: the first won, the rest could leave
+        // the session broken — a reading that failed on its first page, and
+        // only ever after a pause. Serialising the first launch lets the
+        // renewal happen once. It costs the seconds the first page needed
+        // anyway to start.
+        let gate = (Mutex::new(false), std::sync::Condvar::new());
+        let open_gate = || {
+            *gate.0.lock().unwrap() = true;
+            gate.1.notify_all();
+        };
+        let auth_lapsed = std::sync::atomic::AtomicBool::new(false);
         let slots: Vec<Mutex<Option<Result<recognizer::PageOutcome, String>>>> =
             (0..total).map(|_| Mutex::new(None)).collect();
 
@@ -1325,6 +1410,16 @@ async fn transcribe_document(
                         break;
                     }
                     let number = index + 1;
+                    if index > 0 {
+                        let mut opened = gate.0.lock().unwrap();
+                        while !*opened && !runs::is_cancelled(&job) {
+                            opened = gate.1.wait(opened).unwrap();
+                        }
+                        drop(opened);
+                        if runs::is_cancelled(&job) {
+                            break;
+                        }
+                    }
                     let _ = app.emit(
                         "page-state",
                         PageState {
@@ -1345,6 +1440,11 @@ async fn transcribe_document(
                         &model,
                         &rules,
                         &|label| {
+                            // The first sign of life from the first page is
+                            // what the others are waiting for.
+                            if index == 0 {
+                                open_gate();
+                            }
                             let _ = app.emit(
                                 "heartbeat",
                                 Heartbeat {
@@ -1356,6 +1456,9 @@ async fn transcribe_document(
                         },
                     );
 
+                    // Whatever happened, nobody stays behind the gate.
+                    open_gate();
+
                     let (phase, blocks, message) = match &outcome {
                         Ok(page) => {
                             *spent.lock().unwrap() += page.cost_usd;
@@ -1364,6 +1467,14 @@ async fn transcribe_document(
                         Err(error) if error == recognizer::CANCELLED => ("cancelled", 0, None),
                         Err(error) => {
                             logbus::error("claude", format!("Page {number} : {error}"));
+                            if error.starts_with(claude::AUTH_REQUIRED) {
+                                // Every other page would fail the same way, a
+                                // few seconds apart, each one spending a
+                                // launch: stop the run here.
+                                auth_lapsed.store(true, Ordering::SeqCst);
+                                runs::cancel(&job);
+                                open_gate();
+                            }
                             ("failed", 0, Some(error.clone()))
                         }
                     };
@@ -1395,6 +1506,7 @@ async fn transcribe_document(
                             total,
                             blocks,
                             cost_usd: *spent.lock().unwrap(),
+                            reason: reason_of(&message),
                             message,
                         },
                     );
@@ -1405,6 +1517,12 @@ async fn transcribe_document(
         let cancelled = runs::is_cancelled(&job);
         runs::finish(&job);
         let pages_read = started.elapsed();
+
+        // A stopped run for a lapsed session is a sign-in problem, not a
+        // cancellation: say so, rather than "annulée avant la première page".
+        if auth_lapsed.load(Ordering::SeqCst) {
+            return Err(format!("{} : sa session a expiré.", claude::AUTH_REQUIRED));
+        }
 
         // Pages already read are kept even when cancelled: they cost real
         // quota, and each page stands on its own.
@@ -1467,6 +1585,7 @@ async fn transcribe_document(
                 total,
                 blocks: transcript.pages.iter().map(|p| p.blocks.len()).sum(),
                 cost_usd: spent,
+                reason: None,
                 message: None,
             },
         );
@@ -1680,6 +1799,7 @@ pub fn run() {
             install_engine,
             install_claude,
             open_claude_login,
+            claude_auth_status,
             remove_engine,
             load_transcript,
             cancel_transcription,

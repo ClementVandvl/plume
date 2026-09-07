@@ -54,6 +54,7 @@ import { useAdvanced } from "../ui/mode";
 import { Icon } from "../ui/Icon";
 import { moved, useDragOrder } from "../ui/dragOrder";
 import { needsReview } from "../ui/review";
+import { useClaudeLogin } from "../ui/login";
 import { AdvancedRow, Meter, OverflowMenu, Toggle } from "../ui/controls";
 import { BlockPanel } from "./BlockPanel";
 import { PhotoViewer } from "./PhotoViewer";
@@ -104,6 +105,12 @@ export function DocumentView({
   const [taughtOnly, setTaughtOnly] = useState(false);
   /** Pages on each printed sheet, and whether each sheet repeats one page. */
   const [perSheet, setPerSheet] = useState<PerSheet>(1);
+  /** A lapsed sign-in, once repaired, wants the reading launched again. */
+  const [signedBackIn, setSignedBackIn] = useState(false);
+  const login = useClaudeLogin(() => {
+    setSignedBackIn(true);
+    onChanged();
+  });
   const [repeat, setRepeat] = useState(true);
   const [rules, setRules] = useState("");
   const [progress, setProgress] = useState<TranscriptionProgress | null>(null);
@@ -1083,7 +1090,27 @@ export function DocumentView({
                 <p className="panelcard__hint">{t("read.reassurance")}</p>
               </div>
 
-              {progress && progress.phase !== "page" && (
+              {progress?.phase === "failed" && progress.reason === "auth" && (
+                <div className="notice notice--error authnotice" role="alert">
+                  <span className="notice__title">{t("auth.failed.title")}</span>
+                  <span>{login.pending ? t("auth.pending") : t("auth.failed.text")}</span>
+                  {!login.pending && (
+                    <div className="authnotice__actions">
+                      {signedBackIn ? (
+                        <button type="button" className="btn btn--primary btn--sm" onClick={read}>
+                          {t("auth.retry")}
+                        </button>
+                      ) : (
+                        <button type="button" className="btn btn--primary btn--sm" onClick={login.start}>
+                          {t("auth.login")}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {progress && progress.phase !== "page" && progress.reason !== "auth" && (
                 <p className={`notice ${progress.phase === "failed" ? "notice--error" : ""}`}>
                   {progress.phase === "failed"
                     ? t("read.failedPage", {

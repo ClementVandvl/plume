@@ -203,6 +203,8 @@ pub struct Environment {
     pub auto_pages: usize,
     /// Memory found, in gigabytes; `None` when it could not be measured.
     pub memory_gb: Option<f64>,
+    /// Whether Claude Code is signed in; `None` when it is not installed.
+    pub auth: Option<crate::claude::AuthStatus>,
 }
 
 pub fn inspect() -> Environment {
@@ -231,11 +233,19 @@ pub fn inspect() -> Environment {
 
     let tools: Vec<ToolStatus> = specs.iter().map(check).collect();
     let ready = tools.iter().all(|t| t.found || !t.required);
+    // Only asked of an installed CLI, and asked before `tools` moves into
+    // the struct.
+    let auth = tools
+        .iter()
+        .find(|tool| tool.key == "claude" && tool.found)
+        .map(|_| crate::claude::auth_status());
+
     Environment {
         tools,
         ready,
         auto_pages: crate::machine::auto_concurrency(),
         memory_gb: crate::machine::total_memory_gb(),
+        auth,
     }
 }
 

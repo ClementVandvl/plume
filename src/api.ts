@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   BuildResult,
   DocumentSummary,
+  AuthStatus,
   Environment,
   ImportPlan,
   PerSheet,
@@ -99,6 +100,9 @@ export const mcpBundle = (path: string | null) => invoke<string>("mcp_bundle", {
 export const revealFile = (path: string) => invoke<void>("reveal_file", { path });
 
 export const revealPath = (path: string) => invoke<void>("reveal_path", { path });
+
+/** Whether Claude Code is signed in — local and instant. */
+export const claudeAuthStatus = () => invoke<AuthStatus>("claude_auth_status");
 
 export const logs = () => invoke<LogEntry[]>("logs");
 export const clearLogs = () => invoke<void>("clear_logs");
