@@ -442,13 +442,18 @@ clipboard. [`mcp.rs`](../src-tauri/src/mcp.rs) speaks the Model Context Protocol
 on stdin and stdout, and five tools sit behind it: `list_chartes`,
 `list_documents`, `list_tags`, `read_document`, `create_document`.
 
-**Connecting it is one click.** *Réglages → Connexion MCP → Ouvrir dans Claude*
-writes a `.mcpb` bundle — a zip holding one `manifest.json` that names this
-binary and `["mcp"]` — and hands it to the system opener, which Claude Desktop
-owns. Nothing is copied into the bundle: the server is the Plume already on the
-machine, so the bundle stays a few hundred bytes and there is one copy of Plume
-to update. *Copier le réglage* remains for any client that reads a
-configuration file, Claude Code included.
+**Connecting it.** *Réglages → Connexion MCP → Installer dans Claude…* writes a
+`.mcpb` bundle — a zip holding one `manifest.json` that names this binary and
+`["mcp"]` — where the teacher chooses. On a Mac it is then opened, and Claude
+Desktop installs it. The Microsoft Store build of Claude on Windows registers
+no file type, so there the file is shown in the Explorer instead and installed
+from Claude's own settings (*Extensions → Paramètres avancés → Installer une
+extension…*). Nothing is copied into the bundle: the server is the Plume already
+on the machine, so the bundle stays a few hundred bytes and there is one copy of
+Plume to update. *Copier le réglage* remains for any client that reads a
+configuration file — Claude Desktop's *Développeur → Modifier la configuration*,
+Claude Code — and each button, once used, shows the steps that follow it. A hint
+that tried to say it all upfront was cut for length, and then said nothing.
 
 **What cannot work, and why it is not offered.** claude.ai's *Ajouter un
 connecteur personnalisé* asks for a remote HTTPS URL, and Anthropic's own

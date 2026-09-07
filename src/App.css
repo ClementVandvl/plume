@@ -2092,6 +2092,16 @@ textarea.input {
   gap: 2px;
 }
 
+/* What to do next, under the row whose button was just used. */
+.setting__steps {
+  margin: calc(-1 * var(--space-2xs)) 0 0;
+  padding: var(--space-xs) var(--space-md);
+  border-left: 2px solid var(--color-info);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+}
+
 /* The row's actions keep their own width. A long enough explanation beside
    them squeezed "Copier le réglage" onto three lines. */
 .setting > .btn,

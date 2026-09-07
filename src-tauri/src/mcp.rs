@@ -404,12 +404,22 @@ pub fn bundle_manifest() -> Result<Value, String> {
     }))
 }
 
-/// Writes the bundle and says where. Opening the file is the installation.
+/// Writes the bundle to the temporary directory and says where.
 pub fn bundle() -> Result<std::path::PathBuf, String> {
+    bundle_to(&std::env::temp_dir().join("plume.mcpb"))
+}
+
+/// Writes the bundle at `path`.
+///
+/// Where it lands matters more than it looks: on a Mac, opening the file is the
+/// installation, but the Microsoft Store build of Claude registers no file type,
+/// and there the teacher installs it from Claude's own settings by picking the
+/// file — so it has to be somewhere they chose and can find again.
+pub fn bundle_to(path: &std::path::Path) -> Result<std::path::PathBuf, String> {
     use std::io::Write as _;
 
     let manifest = bundle_manifest()?;
-    let path = std::env::temp_dir().join("plume.mcpb");
+    let path = path.to_path_buf();
     let file = std::fs::File::create(&path)
         .map_err(|e| format!("Écriture de {} : {e}", path.display()))?;
 

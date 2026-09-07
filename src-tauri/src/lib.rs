@@ -361,14 +361,26 @@ fn list_tags() -> Vec<TagCount> {
         .collect()
 }
 
-/// Writes the bundle and opens it: Claude Desktop registers the extension.
+/// Writes the extension bundle where the teacher chose, and says where.
+///
+/// Opening it is left to the interface, which knows the platform: on a Mac the
+/// system opener hands it to Claude Desktop, on Windows nothing is registered
+/// to receive it and the file is shown instead, for Claude's own picker.
 #[tauri::command]
-fn mcp_bundle(app: AppHandle) -> Result<String, String> {
-    let path = mcp::bundle()?;
+fn mcp_bundle(path: Option<String>) -> Result<String, String> {
+    let written = match path {
+        Some(path) => mcp::bundle_to(std::path::Path::new(&path))?,
+        None => mcp::bundle()?,
+    };
+    Ok(written.to_string_lossy().to_string())
+}
+
+/// Shows a file in the Finder or the Explorer, selected.
+#[tauri::command]
+fn reveal_file(app: AppHandle, path: String) -> Result<(), String> {
     app.opener()
-        .open_path(path.to_string_lossy().to_string(), None::<&str>)
-        .map_err(|e| format!("Ouverture de l'extension : {e}"))?;
-    Ok(path.to_string_lossy().to_string())
+        .reveal_item_in_dir(path)
+        .map_err(|e| format!("Affichage du fichier : {e}"))
 }
 
 /// The block to paste into an MCP client's configuration.
@@ -1662,6 +1674,7 @@ pub fn run() {
             list_tags,
             mcp_config,
             mcp_bundle,
+            reveal_file,
             preview_preamble,
             render_figure,
             install_engine,

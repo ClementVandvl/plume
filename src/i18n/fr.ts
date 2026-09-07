@@ -534,10 +534,14 @@ export const fr = {
   "settings.updates.hint": "L'installation demande toujours votre accord.",
   "settings.mcp.title": "Connexion MCP",
   "settings.mcp.hint": "Claude pourra vous proposer d'envoyer un document dans Plume.",
-  "settings.mcp.open": "Ouvrir dans Claude",
-  "settings.mcp.opened": "Extension ouverte",
+  "settings.mcp.install": "Installer dans Claude…",
+  "settings.mcp.saved": "Extension enregistrée",
   "settings.mcp.copy": "Copier le réglage",
   "settings.mcp.copied": "Réglage copié",
+  "settings.mcp.steps.bundle":
+    "Dans Claude : Réglages → Extensions → Paramètres avancés → Installer une extension…, puis choisissez plume.mcpb. Si Claude s'est ouvert de lui-même, c'est déjà fait.",
+  "settings.mcp.steps.config":
+    "Dans Claude : Réglages → Développeur → Modifier la configuration, puis collez le réglage dans claude_desktop_config.json. Si le fichier liste déjà des serveurs, ajoutez l'entrée « plume » dans « mcpServers ». Relancez Claude.",
   "settings.folder.title": "Mes documents sont rangés dans",
   "settings.advanced.row": "Modèle de lecture, pages en parallèle, journal technique",
   "settings.advanced.title": "Lecture",

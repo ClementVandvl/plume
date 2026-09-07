@@ -434,7 +434,8 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
     for (const d of documents) for (const t of d.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
     return [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count);
   },
-  mcp_bundle: () => "/tmp/plume.mcpb",
+  mcp_bundle: (args: Record<string, unknown>) => String(args.path ?? "/tmp/plume.mcpb"),
+  reveal_file: () => undefined,
   build_document: (args: Record<string, unknown>) => ({
     texPath: `/mock/${args.id}-${args.audience}.tex`,
     pdfPath: null,
@@ -553,6 +554,7 @@ export function installDevMock() {
   const internals = {
     invoke: (command: string, args: Record<string, unknown> = {}) => {
       // The file picker hands back fake photos, so the wizard is walkable.
+      if (command === "plugin:dialog|save") return "/mock/Downloads/plume.mcpb";
       if (command === "plugin:dialog|open")
         return Promise.resolve([
           "/mock/IMG_4021.jpg",

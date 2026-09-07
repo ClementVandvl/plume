@@ -92,8 +92,11 @@ export const importInstructions = () => invoke<string>("import_instructions");
 /** The block to paste into an MCP client's configuration. */
 export const mcpConfig = () => invoke<string>("mcp_config");
 
-/** Writes the extension bundle and opens it: Claude Desktop installs it. */
-export const mcpBundle = () => invoke<string>("mcp_bundle");
+/** Writes the extension bundle at `path` (or a temporary one) and says where. */
+export const mcpBundle = (path: string | null) => invoke<string>("mcp_bundle", { path });
+
+/** Shows a file selected in the Finder or the Explorer. */
+export const revealFile = (path: string) => invoke<void>("reveal_file", { path });
 
 export const revealPath = (path: string) => invoke<void>("reveal_path", { path });
 

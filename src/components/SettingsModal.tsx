@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { save } from "@tauri-apps/plugin-dialog";
 import {
   installClaude,
   installEngine,
   mcpBundle,
   mcpConfig,
+  revealFile,
+  revealPath,
   openClaudeLogin,
   openUrl,
   revealWorkspace,
@@ -13,6 +16,7 @@ import {
 import { t } from "../i18n";
 import { logError } from "../log";
 import { useAdvanced } from "../ui/mode";
+import { detectPlatform } from "../platform";
 import type { Environment, Settings } from "../types";
 import { Icon } from "../ui/Icon";
 import { AdvancedRow, Toggle } from "../ui/controls";
@@ -49,20 +53,39 @@ export function SettingsModal({
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [mcpCopied, setMcpCopied] = useState(false);
-  const [mcpOpened, setMcpOpened] = useState(false);
+  const [mcpSaved, setMcpSaved] = useState(false);
+  /**
+   * What to do next, shown once a button has been used — the moment the
+   * question arises. A hint saying it all upfront was cut for length, and
+   * then said nothing; the teacher copied the block and was stuck.
+   */
+  const [mcpHelp, setMcpHelp] = useState<null | "bundle" | "config">(null);
 
   /**
-   * The one-click path: a `.mcpb` bundle naming this binary, handed to the
-   * system opener. Claude Desktop owns the extension and installs it.
+   * The `.mcpb` bundle, written where the teacher chooses. On a Mac, opening
+   * it is the installation; the Microsoft Store build of Claude registers no
+   * file type, so there the file is shown instead and Claude's own settings
+   * install it from a picker.
    */
-  async function openMcpBundle() {
+  async function installMcp() {
     try {
-      await mcpBundle();
-      setMcpOpened(true);
-      window.setTimeout(() => setMcpOpened(false), 2500);
+      const path = await save({
+        defaultPath: "plume.mcpb",
+        filters: [{ name: "Extension Claude", extensions: ["mcpb"] }],
+      });
+      if (!path) return;
+      const written = await mcpBundle(path);
+      if ((await detectPlatform()) === "macos") {
+        await revealPath(written);
+      } else {
+        await revealFile(written);
+      }
+      setMcpSaved(true);
+      setMcpHelp("bundle");
+      window.setTimeout(() => setMcpSaved(false), 2500);
     } catch (cause) {
       setError(String(cause));
-      logError("interface", "Extension MCP impossible à ouvrir", cause);
+      logError("interface", "Extension MCP impossible à enregistrer", cause);
     }
   }
 
@@ -70,6 +93,7 @@ export function SettingsModal({
     try {
       await navigator.clipboard.writeText(await mcpConfig());
       setMcpCopied(true);
+      setMcpHelp("config");
       window.setTimeout(() => setMcpCopied(false), 2000);
     } catch (cause) {
       setError(String(cause));
@@ -240,8 +264,8 @@ export function SettingsModal({
             <span className="setting__hint">{t("settings.mcp.hint")}</span>
           </div>
           <div className="setting__actions">
-            <button type="button" className="btn btn--primary btn--sm" onClick={openMcpBundle}>
-              {mcpOpened ? t("settings.mcp.opened") : t("settings.mcp.open")}
+            <button type="button" className="btn btn--primary btn--sm" onClick={installMcp}>
+              {mcpSaved ? t("settings.mcp.saved") : t("settings.mcp.install")}
             </button>
             <button
               type="button"
@@ -252,6 +276,11 @@ export function SettingsModal({
             </button>
           </div>
         </div>
+        {mcpHelp && (
+          <p className="setting__steps" role="status">
+            {t(`settings.mcp.steps.${mcpHelp}`)}
+          </p>
+        )}
 
         <div className="setting">
           <div className="setting__copy">
