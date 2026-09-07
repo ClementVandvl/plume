@@ -295,6 +295,75 @@ fn classify(event: &serde_json::Value) -> Option<&'static str> {
     }
 }
 
+/// How many lines of non-protocol output are worth keeping for a diagnosis.
+const STRAY_LINES: usize = 40;
+
+/// The instruction, written where `--system-prompt-file` can read it.
+fn instruction_file(page_number: usize, system: &str) -> Result<std::path::PathBuf, String> {
+    let path = std::env::temp_dir().join(format!(
+        "plume-instruction-{}-{page_number}.txt",
+        std::process::id()
+    ));
+    std::fs::write(&path, system).map_err(|e| format!("Écriture de la consigne : {e}"))?;
+    Ok(path)
+}
+
+/// JSON on a single line, so it can travel as an argument anywhere.
+fn one_line(json: String) -> String {
+    serde_json::from_str::<serde_json::Value>(&json)
+        .map(|value| value.to_string())
+        .unwrap_or(json)
+}
+
+/// The last lines of a text, for a console entry.
+fn tail(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let keep = lines.len().saturating_sub(STRAY_LINES);
+    lines[keep..].join("\n")
+}
+
+/// A text cut to a size a console entry can carry.
+fn clip(text: &str) -> String {
+    const MAX: usize = 2000;
+    if text.len() <= MAX {
+        return text.to_string();
+    }
+    let cut = text.char_indices().map(|(i, _)| i).take_while(|&i| i <= MAX).last().unwrap_or(0);
+    format!("{}…", &text[..cut])
+}
+
+/// The one line that says why Claude Code stopped, wherever it said it.
+///
+/// A CLI has three places to put its last words: stderr, a final `result`
+/// event carrying `is_error`, or plain text on stdout before any event. Only
+/// the first was read, so a sign-in that had lapsed — reported as an error
+/// event — produced "aucun message d'erreur" on the screen and nothing in the
+/// console. Each place is tried in turn.
+fn failure_detail(
+    stderr: &str,
+    envelope: Option<&serde_json::Value>,
+    stray: &[String],
+) -> Option<String> {
+    let said = |text: &str| {
+        text.lines()
+            .map(str::trim)
+            .find(|l| !l.is_empty())
+            .map(str::to_string)
+    };
+
+    said(stderr)
+        .or_else(|| {
+            let event = envelope?;
+            let text = event
+                .get("result")
+                .and_then(|v| v.as_str())
+                .or_else(|| event.get("error").and_then(|v| v.as_str()))
+                .or_else(|| event.get("subtype").and_then(|v| v.as_str()))?;
+            said(text)
+        })
+        .or_else(|| stray.iter().rev().find_map(|l| said(l)))
+}
+
 /// Transcribes `pages/NN.ext` inside `document_dir`.
 ///
 /// `reading_rules` is the user's own natural-language instruction block (their
@@ -333,19 +402,29 @@ pub fn transcribe_page(
     let claude = crate::env_check::resolve_tool("claude")
         .ok_or("Claude Code est introuvable. Vérifiez le panneau « État du système ».")?;
 
+    // The instruction travels as a file, not as an argument. Nearly six
+    // thousand characters of LaTeX and line breaks on a command line is the
+    // kind of thing that survives on one platform and not another — Windows
+    // has a shell shim and a quoting layer between Plume and `claude` that a
+    // Mac has not — and a file path is the same everywhere. The schema stays
+    // an argument, but on one line: a newline in an argument is the one
+    // thing the Windows batch quoting refuses outright.
+    let instruction = instruction_file(page_number, &system)?;
+    let schema = one_line(ir::page_schema());
+
     logbus::debug(
         "claude",
         format!("Page {page_number} — commande"),
         format!(
-            "{} -p --model {model} --output-format json --json-schema <{} o> --system-prompt <{} o> --allowedTools Read",
+            "{} -p --model {model} --output-format stream-json --json-schema <{} o> --system-prompt-file {} --allowedTools Read",
             claude.display(),
-            ir::page_schema().len(),
-            system.len()
+            schema.len(),
+            instruction.display()
         ),
     );
 
     let started = std::time::Instant::now();
-    let mut child = crate::proc::quiet(claude)
+    let mut child = crate::proc::quiet(&claude)
         .current_dir(document_dir)
         .arg("-p")
         .arg("--model")
@@ -354,9 +433,9 @@ pub fn transcribe_page(
         .arg("stream-json")
         .arg("--verbose")
         .arg("--json-schema")
-        .arg(ir::page_schema())
-        .arg("--system-prompt")
-        .arg(&system)
+        .arg(&schema)
+        .arg("--system-prompt-file")
+        .arg(&instruction)
         .arg("--allowedTools")
         .arg("Read")
         .stdin(Stdio::piped())
@@ -381,12 +460,18 @@ pub fn transcribe_page(
     // final `result` line carries the same envelope the one-shot format did.
     let stdout = child.stdout.take().ok_or("Sortie standard indisponible.")?;
     let mut envelope: Option<serde_json::Value> = None;
+    // Lines that were not events: a CLI that dies before the stream starts
+    // says why in plain text, on stdout, and that text was thrown away.
+    let mut stray: Vec<String> = Vec::new();
     for line in BufReader::new(stdout).lines() {
         let Ok(line) = line else { break };
         if line.trim().is_empty() {
             continue;
         }
         let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) else {
+            if stray.len() < STRAY_LINES {
+                stray.push(line.trim().to_string());
+            }
             continue;
         };
         if event.get("type").and_then(|v| v.as_str()) == Some("result") {
@@ -404,22 +489,29 @@ pub fn transcribe_page(
         .wait()
         .map_err(|e| format!("Exécution de Claude Code : {e}"))?;
     crate::runs::unwatch(run_id, pid);
+    let _ = std::fs::remove_file(&instruction);
 
     if crate::runs::is_cancelled(run_id) {
         return Err(CANCELLED.to_string());
     }
 
     if !status.success() {
-        let first = stderr_text.lines().next().unwrap_or("").trim().to_string();
+        // Everything the process said goes to the console, whole, before the
+        // one line the screen gets: "détail dans la console" has to be true.
         logbus::error("claude", format!("Page {page_number} — {status}"));
-        return Err(format!(
-            "Claude Code s'est arrêté ({status}). {}",
-            if first.is_empty() {
-                "Aucun message d'erreur — détail dans la console."
-            } else {
-                &first
-            }
-        ));
+        logbus::detail("claude", "Binaire", claude.display().to_string());
+        if !stderr_text.trim().is_empty() {
+            logbus::detail("claude", "Sortie d'erreur", tail(&stderr_text));
+        }
+        if !stray.is_empty() {
+            logbus::detail("claude", "Sortie hors protocole", stray.join("\n"));
+        }
+        if let Some(event) = &envelope {
+            logbus::detail("claude", "Dernier événement", clip(&event.to_string()));
+        }
+        let detail = failure_detail(&stderr_text, envelope.as_ref(), &stray)
+            .unwrap_or_else(|| "il n'a rien dit — ni erreur, ni sortie.".to_string());
+        return Err(format!("Claude Code s'est arrêté ({status}) : {detail}"));
     }
 
     let envelope = envelope.ok_or("Claude Code n'a renvoyé aucun résultat.")?;
@@ -576,7 +668,7 @@ pub fn correct_block(
     );
 
     let started = std::time::Instant::now();
-    let mut command = crate::proc::quiet(claude);
+    let mut command = crate::proc::quiet(&claude);
     command.current_dir(document_dir).arg("-p");
     if let Some(id) = session_id {
         command.arg("--resume").arg(id);
@@ -587,7 +679,7 @@ pub fn correct_block(
         .arg("--output-format")
         .arg("json")
         .arg("--json-schema")
-        .arg(ir::block_schema())
+        .arg(one_line(ir::block_schema()))
         .arg("--allowedTools")
         .arg("Read")
         .stdin(Stdio::piped())
@@ -618,13 +710,31 @@ pub fn correct_block(
     }
 
     if !output.status.success() {
+        // The same account as a failed page: everything said, in the console,
+        // then the one line that explains it on the screen.
         let stderr = String::from_utf8_lossy(&output.stderr);
-        let first = stderr.lines().next().unwrap_or("").trim().to_string();
-        logbus::error(
-            "claude",
-            format!("Correction du bloc {} échouée ({}) : {first}", block.id, output.status),
-        );
-        return Err(format!("La correction a échoué ({}). {first}", output.status));
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let envelope = serde_json::from_str::<serde_json::Value>(stdout.trim()).ok();
+        let stray: Vec<String> = if envelope.is_some() {
+            Vec::new()
+        } else {
+            stdout.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect()
+        };
+
+        logbus::error("claude", format!("Correction du bloc {} — {}", block.id, output.status));
+        logbus::detail("claude", "Binaire", claude.display().to_string());
+        if !stderr.trim().is_empty() {
+            logbus::detail("claude", "Sortie d'erreur", tail(&stderr));
+        }
+        if !stray.is_empty() {
+            logbus::detail("claude", "Sortie hors protocole", tail(&stray.join("\n")));
+        }
+        if let Some(event) = &envelope {
+            logbus::detail("claude", "Dernier événement", clip(&event.to_string()));
+        }
+        let detail = failure_detail(&stderr, envelope.as_ref(), &stray)
+            .unwrap_or_else(|| "il n'a rien dit — ni erreur, ni sortie.".to_string());
+        return Err(format!("La correction a échoué ({}) : {detail}", output.status));
     }
 
     let envelope: serde_json::Value = serde_json::from_slice(&output.stdout)
@@ -840,6 +950,43 @@ mod tests {
     }
 
     /// Shapes captured from a real `--output-format stream-json` run.
+    /// The regression: a lapsed sign-in comes back as a `result` event with
+    /// `is_error`, nothing on stderr — and the screen said "aucun message".
+    #[test]
+    fn a_failure_is_explained_from_wherever_the_cli_said_it() {
+        let result = event(r#"{"type":"result","is_error":true,"result":"Invalid API key · Please run /login"}"#);
+        assert_eq!(
+            failure_detail("", Some(&result), &[]).as_deref(),
+            Some("Invalid API key · Please run /login")
+        );
+
+        // stderr wins when there is one; it is the more direct account.
+        assert_eq!(
+            failure_detail("\n  boom: no such file\n", Some(&result), &[]).as_deref(),
+            Some("boom: no such file")
+        );
+
+        // Plain text on stdout, before any event: the last line said it.
+        let stray = vec!["Preparing…".to_string(), "Error: git-bash not found".to_string()];
+        assert_eq!(
+            failure_detail("", None, &stray).as_deref(),
+            Some("Error: git-bash not found")
+        );
+
+        assert_eq!(failure_detail("  \n", None, &[]), None);
+    }
+
+    /// The schema has to travel on one line: Windows refuses a newline in an
+    /// argument to a batch shim outright.
+    #[test]
+    fn the_schema_argument_has_no_line_breaks_and_the_same_meaning() {
+        let compact = one_line(ir::page_schema());
+        assert!(!compact.contains('\n'));
+        let a: serde_json::Value = serde_json::from_str(&compact).unwrap();
+        let b: serde_json::Value = serde_json::from_str(&ir::page_schema()).unwrap();
+        assert_eq!(a, b);
+    }
+
     #[test]
     fn classify_covers_the_observed_stream() {
         assert_eq!(

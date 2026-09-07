@@ -126,6 +126,24 @@ docs, and each one cost a debugging round:
    available, none of it is needed — hence `--system-prompt` (which *replaces*)
    rather than `--append-system-prompt`.
 
+### When the CLI stops
+
+A CLI has three places to put its last words: stderr, a final `result` event
+carrying `is_error`, or plain text on stdout before any event. Only the first
+was read, so a sign-in that had lapsed — which Claude Code reports as an error
+event — produced *aucun message d'erreur* on the screen and nothing in the
+console, on a machine where nothing else was wrong. `failure_detail` now tries
+each place in turn for the one line the screen shows, and on any non-zero exit
+the console gets the whole account first: the binary that ran, the full stderr,
+every non-protocol line of stdout, and the last event.
+
+The instruction reaches `claude` through `--system-prompt-file` rather than as
+an argument. Nearly six thousand characters of LaTeX and line breaks on a
+command line survive one platform and not another — Windows puts a shell shim
+and a quoting layer between Plume and `claude`, and refuses a newline in an
+argument to a batch file outright — while a file path is the same everywhere.
+The schema stays an argument, compacted to one line for the same reason.
+
 ### The instruction block
 
 The system prompt fixes the invariants: body-only `latex`, headings carry their
