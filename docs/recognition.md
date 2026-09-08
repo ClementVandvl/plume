@@ -581,8 +581,22 @@ landscape paper is set by `geometry`, not by pdfpages' `landscape` key: under
 Tectonic, whose bundle carries an older pdfpages and driver, that key stacked
 the two pages into one column while a system xelatex put them side by side.
 
-A partial or imposed build never touches `status` or `last_pdf`: both are
-copies taken for a purpose, not the document.
+**Au plus.** Imposing pages shrinks a page that was mostly empty into a cell
+that is then mostly empty too: one short exercise, four to a sheet, was three
+quarters blank in every cell. `latex::fill` recomposes instead. The document is
+compiled on a paper the size of one cell — two columns, R rows, 105 mm by
+297/R — trying R = 4, 3, 2, 1, and the smallest cell in which it still fits on
+a single page wins; 2×R copies then go on the sheet at scale one, with a frame
+as the cut line. Each cell is tried at the charte's type size first, then a
+point smaller at a time down to 9 pt (`scrextend`'s `fontsize`), and only when
+the overflow was a single page: six slips at 10 pt beat four at 11 pt, which
+is what "au plus" was asked for. The cell and the size are injected before
+`\begin{document}`, after the charte's own preamble; a charte that does not
+load geometry is refused with a message, and a document that does not fit
+even a half page at 9 pt keeps the fixed counts.
+
+A partial, imposed or recomposed build never touches `status` or `last_pdf`:
+all are copies taken for a purpose, not the document.
 
 ## 7. What has actually been measured
 

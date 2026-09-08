@@ -112,6 +112,8 @@ export function DocumentView({
     onChanged();
   });
   const [repeat, setRepeat] = useState(true);
+  /** « Au plus »: recompose in the smallest cell that fits, and tile it. */
+  const [fill, setFill] = useState(false);
   const [rules, setRules] = useState("");
   const [progress, setProgress] = useState<TranscriptionProgress | null>(null);
   const [scan, setScan] = useState<Record<number, ScanInfo>>({});
@@ -517,7 +519,7 @@ export function DocumentView({
     setError(null);
     setBuilding(true);
     try {
-      setBuild(await buildDocument(documentId, audience, taughtOnly, perSheet, repeat));
+      setBuild(await buildDocument(documentId, audience, taughtOnly, perSheet, repeat, fill));
       // The PDF is rewritten at the same path, so its URL never changes and the
       // webview kept showing the previous build. Counting them changes it.
       setBuilds((count) => count + 1);
@@ -1458,16 +1460,31 @@ export function DocumentView({
                     <button
                       key={count}
                       type="button"
-                      className={`seg__opt ${perSheet === count ? "seg__opt--on" : ""}`}
-                      onClick={() => setPerSheet(count)}
-                      aria-pressed={perSheet === count}
+                      className={`seg__opt ${!fill && perSheet === count ? "seg__opt--on" : ""}`}
+                      onClick={() => {
+                        setPerSheet(count);
+                        setFill(false);
+                      }}
+                      aria-pressed={!fill && perSheet === count}
                     >
                       {t(`export.sheet.${count}`)}
                     </button>
                   ))}
+                  {/* The fourth answer is not a count: as many as fit, the
+                      document recomposed in a cell rather than shrunk. */}
+                  <button
+                    type="button"
+                    className={`seg__opt ${fill ? "seg__opt--on" : ""}`}
+                    onClick={() => setFill(true)}
+                    aria-pressed={fill}
+                  >
+                    {t("export.sheet.max")}
+                  </button>
                 </div>
-                <p className="field__hint">{t(`export.sheet.hint.${perSheet}`)}</p>
-                {perSheet > 1 && (
+                <p className="field__hint">
+                  {fill ? t("export.sheet.hint.max") : t(`export.sheet.hint.${perSheet}`)}
+                </p>
+                {!fill && perSheet > 1 && (
                   <div className="toggle-row">
                     <div className="toggle-row__copy">
                       <span className="toggle-row__label">{t("export.sheet.repeat")}</span>

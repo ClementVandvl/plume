@@ -1631,6 +1631,7 @@ async fn build_document(
     taught_only: bool,
     per_sheet: u8,
     repeat: bool,
+    fill: bool,
 ) -> Result<BuildResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let document = workspace::load(&id)?;
@@ -1670,16 +1671,22 @@ async fn build_document(
         let tex_path = dir.join(&name);
         fs::write(&tex_path, tex).map_err(|e| format!("Écriture du .tex : {e}"))?;
 
-        let compiled = latex::compile(&dir, &name).and_then(|pdf| {
-            if per_sheet <= 1 {
-                return Ok(pdf);
-            }
-            let pdf_name = pdf
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .ok_or("PDF sans nom.")?;
-            latex::impose(&dir, &pdf_name, per_sheet, repeat)
-        });
+        // « Au plus » recomposes the document in a cell rather than shrinking
+        // its pages, so it needs the .tex, not the PDF, and compiles its own.
+        let compiled = if fill {
+            latex::fill(&dir, &name)
+        } else {
+            latex::compile(&dir, &name).and_then(|pdf| {
+                if per_sheet <= 1 {
+                    return Ok(pdf);
+                }
+                let pdf_name = pdf
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .ok_or("PDF sans nom.")?;
+                latex::impose(&dir, &pdf_name, per_sheet, repeat)
+            })
+        };
 
         match compiled {
             Ok(pdf) => {
@@ -1688,7 +1695,11 @@ async fn build_document(
                 // Only a complete one: a partial build would make the document
                 // read as finished and point "Ouvrir le PDF" at a document
                 // that stops halfway through.
-                if !taught_only {
+                // Only the document itself, whole and one page per sheet:
+                // a partial, imposed or recomposed build is a copy taken for
+                // a purpose, and neither the list nor "Ouvrir le PDF" should
+                // point at it.
+                if !taught_only && per_sheet <= 1 && !fill {
                     let mut document = document;
                     document.status = "ready".into();
                     document.last_pdf = pdf

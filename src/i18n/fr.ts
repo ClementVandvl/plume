@@ -382,6 +382,9 @@ export const fr = {
   "export.sheet.hint.1": "Le PDF tel quel, une page par feuille A4.",
   "export.sheet.hint.2": "Deux pages côte à côte sur un A4 en paysage, chacune réduite de moitié.",
   "export.sheet.hint.4": "Quatre pages en grille sur un A4, chacune réduite au quart.",
+  "export.sheet.max": "Au plus",
+  "export.sheet.hint.max":
+    "La fiche est recomposée dans la plus petite case où elle tient entière — le texte réduit au besoin, jamais sous 9 pt — et posée autant de fois que la feuille en contient, avec un cadre pour découper.",
   "export.sheet.repeat": "Répéter la même page dans chaque case",
   "export.sheet.repeat.on": "Pour imprimer une fiche en plusieurs exemplaires et la découper.",
   "export.sheet.repeat.off": "Les pages se suivent, d'une case à l'autre.",

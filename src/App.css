@@ -178,11 +178,9 @@ body {
   opacity: 1;
 }
 
-/* The gap before the first passage stays faintly visible: nobody hovers a
-   place they do not know exists, and it is the one gap a reading that missed
-   the title needs found. */
+/* The gap before the first passage: quiet like the others, by the teacher's
+   choice — one visible affordance among hidden ones read as an oddity. */
 .pgap--top {
-  opacity: 0.55;
   margin-bottom: var(--space-xs);
 }
 
