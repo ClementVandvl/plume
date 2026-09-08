@@ -1671,7 +1671,7 @@ async fn build_document(
         let tex_path = dir.join(&name);
         fs::write(&tex_path, tex).map_err(|e| format!("Écriture du .tex : {e}"))?;
 
-        // « Au plus » recomposes the document in a cell rather than shrinking
+        // « Maximiser » recomposes the document in a cell rather than shrinking
         // its pages, so it needs the .tex, not the PDF, and compiles its own.
         let compiled = if fill {
             latex::fill(&dir, &name)

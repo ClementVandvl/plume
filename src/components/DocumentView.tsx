@@ -112,7 +112,7 @@ export function DocumentView({
     onChanged();
   });
   const [repeat, setRepeat] = useState(true);
-  /** « Au plus »: recompose in the smallest cell that fits, and tile it. */
+  /** « Maximiser »: recompose in the smallest cell that fits, and tile it. */
   const [fill, setFill] = useState(false);
   const [rules, setRules] = useState("");
   const [progress, setProgress] = useState<TranscriptionProgress | null>(null);

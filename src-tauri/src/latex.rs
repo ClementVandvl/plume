@@ -328,7 +328,7 @@ pub fn fill(dir: &Path, tex_name: &str) -> Result<PathBuf, String> {
                         .map_err(|e| format!("Écriture de {name} : {e}"))?;
                     logbus::info(
                         "latex",
-                        format!("Au plus : {copies} exemplaires par feuille, en cases de {rows} rangée(s) à {size} pt"),
+                        format!("Maximiser : {copies} exemplaires par feuille, en cases de {rows} rangée(s) à {size} pt"),
                     );
                     return compile(dir, &name);
                 }
