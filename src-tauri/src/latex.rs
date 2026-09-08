@@ -311,8 +311,9 @@ pub fn fill(dir: &Path, tex_name: &str) -> Result<PathBuf, String> {
             match pages {
                 Some(1) => {
                     // One page that fits its cell exactly: pdfpages lays
-                    // 2×rows of them on the sheet at scale one, and the
-                    // frame is the cut line.
+                    // 2×rows of them on the sheet at scale one. No frame:
+                    // the teacher cuts by eye, and a rule down every slip
+                    // reads as part of the sheet.
                     let copies = 2 * rows as usize;
                     let list = std::iter::repeat("1").take(copies).collect::<Vec<_>>().join(",");
                     let wrapper = format!(
@@ -320,7 +321,7 @@ pub fn fill(dir: &Path, tex_name: &str) -> Result<PathBuf, String> {
                          \\usepackage[a4paper]{{geometry}}\n\
                          \\usepackage{{pdfpages}}\n\
                          \\begin{{document}}\n\
-                         \\includepdf[nup=2x{rows},pages={{{list}}},frame=true]{{{cell_stem}.pdf}}\n\
+                         \\includepdf[nup=2x{rows},pages={{{list}}}]{{{cell_stem}.pdf}}\n\
                          \\end{{document}}\n"
                     );
                     let name = format!("{stem}-max.tex");

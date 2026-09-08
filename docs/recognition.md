@@ -586,8 +586,9 @@ that is then mostly empty too: one short exercise, four to a sheet, was three
 quarters blank in every cell. `latex::fill` recomposes instead. The document is
 compiled on a paper the size of one cell — two columns, R rows, 105 mm by
 297/R — trying R = 4, 3, 2, 1, and the smallest cell in which it still fits on
-a single page wins; 2×R copies then go on the sheet at scale one, with a frame
-as the cut line. Each cell is tried at the charte's type size first, then a
+a single page wins; 2×R copies then go on the sheet at scale one, unframed —
+the teacher cuts by eye, and a rule down every slip read as part of the
+sheet. Each cell is tried at the charte's type size first, then a
 point smaller at a time down to 9 pt (`scrextend`'s `fontsize`), and only when
 the overflow was a single page: six slips at 10 pt beat four at 11 pt, which
 is what "maximiser" was asked for. The cell and the size are injected before
