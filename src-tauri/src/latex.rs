@@ -208,6 +208,26 @@ fn fill_sizes(base: u32) -> Vec<u32> {
     std::iter::once(base).chain((FILL_MIN_SIZE..base).rev()).collect()
 }
 
+/// Where the document's body begins: the byte offset of the line that holds
+/// the real `\begin{document}`. Not the first mention of it — the maths
+/// charte's preamble opens with a comment saying what to copy "entre
+/// \documentclass{...} et \begin{document}", and a cell injected there put
+/// `\begin{document}` on line 7 and every `\usepackage` after it.
+fn body_starts_at(source: &str) -> Option<usize> {
+    let mut at = 0;
+    for line in source.split_inclusive('\n') {
+        let code = match line.find('%') {
+            Some(i) if i == 0 || line.as_bytes()[i - 1] != b'\\' => &line[..i],
+            _ => line,
+        };
+        if code.contains("\\begin{document}") {
+            return Some(at);
+        }
+        at += line.len();
+    }
+    None
+}
+
 /// Tiles as many copies of the document on an A4 sheet as fit.
 ///
 /// Imposing pages shrinks a page that was mostly empty into a cell that is
@@ -241,7 +261,13 @@ pub fn fill(dir: &Path, tex_name: &str) -> Result<PathBuf, String> {
             .into());
     }
 
+    let body = body_starts_at(&source)
+        .ok_or("Le .tex n'a pas de \\begin{document} : rien à recomposer.")?;
     let base = base_size(&source);
+    // A cell that compiled and was counted, whatever the count: without one,
+    // the failure is the compile's, and its message is the one to show.
+    let mut measured = false;
+    let mut last_failure = String::new();
     for rows in FILL_ROWS {
         let height = 297.0 / rows as f64;
         for size in fill_sizes(base) {
@@ -256,16 +282,24 @@ pub fn fill(dir: &Path, tex_name: &str) -> Result<PathBuf, String> {
             if size != base {
                 cell.push_str(&format!("\\usepackage[fontsize={size}pt]{{scrextend}}\n"));
             }
-            let tex = source.replacen("\\begin{document}", &format!("{cell}\\begin{{document}}"), 1);
+            let tex = format!("{}{cell}{}", &source[..body], &source[body..]);
             let cell_stem = format!("{stem}-cell{rows}");
             std::fs::write(dir.join(format!("{cell_stem}.tex")), tex)
                 .map_err(|e| format!("Écriture de {cell_stem}.tex : {e}"))?;
 
-            let Ok(pdf) = compile(dir, &format!("{cell_stem}.tex")) else {
-                logbus::warn("latex", format!("Case de {rows} rangée(s) à {size} pt : compilation impossible"));
-                break;
+            let pdf = match compile(dir, &format!("{cell_stem}.tex")) {
+                Ok(pdf) => pdf,
+                Err(failure) => {
+                    logbus::warn(
+                        "latex",
+                        format!("Case de {rows} rangée(s) à {size} pt : compilation impossible"),
+                    );
+                    last_failure = failure;
+                    break;
+                }
             };
             let pages = page_count(dir, &cell_stem);
+            measured |= pages.is_some();
             logbus::detail(
                 "latex",
                 format!(
@@ -304,6 +338,9 @@ pub fn fill(dir: &Path, tex_name: &str) -> Result<PathBuf, String> {
         }
     }
 
+    if !measured {
+        return Err(format!("La recomposition n'a pas compilé : {last_failure}"));
+    }
     Err(format!(
         "La fiche ne tient pas dans une demi-page, même à {FILL_MIN_SIZE} pt : gardez 1 ou 2 pages \
          par feuille."
@@ -320,6 +357,24 @@ mod tests {
         assert_eq!(fill_sizes(12), vec![12, 11, 10, 9]);
         assert_eq!(fill_sizes(9), vec![9], "the charte is already at the floor");
         assert_eq!(fill_sizes(8), vec![8], "and a smaller one is not grown");
+    }
+
+    /// The regression: the maths charte's preamble names `\begin{document}`
+    /// in a comment on its fifth line, and the cell went there.
+    #[test]
+    fn the_cell_goes_before_the_real_begin_document_not_a_comment_naming_it() {
+        let source = "\\documentclass{article}\n\
+                      %  A copier tel quel entre \\documentclass{...} et \\begin{document}\n\
+                      \\usepackage{geometry}\n\
+                      \\begin{document}\nx\n\\end{document}\n";
+        let at = body_starts_at(source).unwrap();
+        assert!(source[at..].starts_with("\\begin{document}\nx"));
+        assert_eq!(body_starts_at("\\documentclass{article}\n"), None);
+        assert_eq!(
+            body_starts_at("100\\% sure \\begin{document}\n"),
+            Some(0),
+            "an escaped percent is not a comment"
+        );
     }
 
     #[test]
