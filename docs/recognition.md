@@ -588,13 +588,20 @@ compiled on a paper the size of one cell — two columns, R rows, 105 mm by
 297/R — trying R = 4, 3, 2, 1, and the smallest cell in which it still fits on
 a single page wins; 2×R copies then go on the sheet at scale one, unframed —
 the teacher cuts by eye, and a rule down every slip read as part of the
-sheet. Each cell is tried at the charte's type size first, then a
-point smaller at a time down to 9 pt (`scrextend`'s `fontsize`), and only when
-the overflow was a single page: six slips at 10 pt beat four at 11 pt, which
-is what "maximiser" was asked for. The cell and the size are injected before
-`\begin{document}`, after the charte's own preamble; a charte that does not
-load geometry is refused with a message, and a document that does not fit
-even a half page at 9 pt keeps the fixed counts.
+sheet. Each cell is tried at the charte's type size first, then at the largest
+smaller size that fits, found by bisection between one point below and 6 pt
+(`scrextend`'s `fontsize`) — three compiles for an 11 pt charte, not five.
+The floor is what "4 pages" already prints an 11 pt document at (each
+dimension halved, 5.5 pt), so nothing is smaller than what was being read
+before; a 9 pt charte comes down to 6 pt too, not to half of itself. Eight
+slips at 7 pt beat six at 11 pt: that is what "maximiser" was asked for.
+Sizes are only tried when the arithmetic allows it — text area scales with
+the square of the size, so four pages at 11 pt cannot become one at 6 pt and
+the row is skipped without a compile. The cell and the size are injected
+before the real `\begin{document}` (the maths charte names it in a comment
+first), after the charte's own preamble; a charte that does not load geometry
+is refused with a message, and a document that does not fit even a half page
+at 6 pt keeps the fixed counts.
 
 A partial, imposed or recomposed build never touches `status` or `last_pdf`:
 all are copies taken for a purpose, not the document.

@@ -182,8 +182,9 @@ fn page_count(dir: &Path, stem: &str) -> Option<u32> {
 /// as many rows as the document still fits in.
 const FILL_ROWS: [u32; 4] = [4, 3, 2, 1];
 
-/// The smallest type a slip may be set in and still be read at a desk.
-const FILL_MIN_SIZE: u32 = 9;
+/// The smallest type a slip may be set in: what "4 pages" already prints an
+/// 11 pt document at, near enough, and read at a desk since.
+const FILL_MIN_SIZE: u32 = 6;
 
 /// The type size the document's class was given, in points: `11pt` in
 /// `\documentclass[11pt,a4paper]{article}`. LaTeX's own default otherwise.
@@ -200,12 +201,6 @@ fn base_size(source: &str) -> u32 {
                 .find_map(|o| o.strip_suffix("pt").and_then(|n| n.parse().ok()))
         })
         .unwrap_or(10)
-}
-
-/// The sizes to set a cell in, the charte's own first, then each point down
-/// to the smallest that still reads: 11 → 11, 10, 9.
-fn fill_sizes(base: u32) -> Vec<u32> {
-    std::iter::once(base).chain((FILL_MIN_SIZE..base).rev()).collect()
 }
 
 /// Where the document's body begins: the byte offset of the line that holds
@@ -228,6 +223,84 @@ fn body_starts_at(source: &str) -> Option<usize> {
     None
 }
 
+/// Whether smaller type could bring a document of `pages` pages at `base`
+/// down to one. Text area scales with the square of the size; the banners
+/// a charte sets in fixed sizes do not shrink, so this is optimistic — a
+/// "no" is certain and saves the compiles, a "yes" is worth them.
+fn shrinking_could_fit(pages: u32, base: u32) -> bool {
+    pages as f64 * (FILL_MIN_SIZE as f64 / base as f64).powi(2) <= 1.0
+}
+
+/// The largest size below `base` at which `measure` reports a single page,
+/// by bisection: 10 pt down to 6 pt is three compiles, not five. `None`
+/// from `measure` — a compile that failed — ends the search with what was
+/// found. Pagination is not perfectly monotone in the size, but near enough
+/// that the bisection lands on a size that fits, which is what matters.
+fn largest_fitting(base: u32, mut measure: impl FnMut(u32) -> Option<u32>) -> Option<u32> {
+    let mut best = None;
+    let (mut lo, mut hi) = (FILL_MIN_SIZE, base.saturating_sub(1));
+    while lo <= hi {
+        let mid = (lo + hi + 1) / 2;
+        match measure(mid) {
+            Some(1) => {
+                best = Some(mid);
+                lo = mid + 1;
+            }
+            Some(_) => hi = mid - 1,
+            None => break,
+        }
+    }
+    best
+}
+
+/// Writes the document on a paper the size of one cell, at `size`, compiles
+/// it and counts its pages. Files are named after the cell and the size
+/// (`fiche-cell3-8pt`), because the bisection's last compile is not always
+/// its winner and the imposition must pick up the right PDF.
+fn measure_cell(
+    dir: &Path,
+    source: &str,
+    body: usize,
+    stem: &str,
+    rows: u32,
+    base: u32,
+    size: u32,
+) -> Result<u32, String> {
+    let height = 297.0 / rows as f64;
+    // A page number on every slip would be absurd: it goes from the footer
+    // when the charte uses fancyhdr, the running header staying, and the
+    // whole plain style goes otherwise.
+    let mut cell = format!(
+        "\\geometry{{paperwidth=105mm,paperheight={height:.2}mm,margin=5mm,\
+         headheight=12pt,headsep=2mm,footskip=4mm}}\n\
+         \\ifdefined\\fancyfoot\\fancyfoot{{}}\\else\\pagestyle{{empty}}\\fi\n"
+    );
+    if size != base {
+        cell.push_str(&format!("\\usepackage[fontsize={size}pt]{{scrextend}}\n"));
+    }
+    let tex = format!("{}{cell}{}", &source[..body], &source[body..]);
+    let cell_stem = cell_stem(stem, rows, size);
+    std::fs::write(dir.join(format!("{cell_stem}.tex")), tex)
+        .map_err(|e| format!("Écriture de {cell_stem}.tex : {e}"))?;
+
+    let pdf = compile(dir, &format!("{cell_stem}.tex")).map_err(|failure| {
+        logbus::warn("latex", format!("Case de {rows} rangée(s) à {size} pt : compilation impossible"));
+        failure
+    })?;
+    let pages = page_count(dir, &cell_stem)
+        .ok_or_else(|| format!("Nombre de pages illisible dans {cell_stem}.log"))?;
+    logbus::detail(
+        "latex",
+        format!("Case de {rows} rangée(s) à {size} pt : {pages} page(s)"),
+        pdf.to_string_lossy().to_string(),
+    );
+    Ok(pages)
+}
+
+fn cell_stem(stem: &str, rows: u32, size: u32) -> String {
+    format!("{stem}-cell{rows}-{size}pt")
+}
+
 /// Tiles as many copies of the document on an A4 sheet as fit.
 ///
 /// Imposing pages shrinks a page that was mostly empty into a cell that is
@@ -236,12 +309,13 @@ fn body_starts_at(source: &str) -> Option<usize> {
 /// compiled on a paper the size of one cell — two columns, `rows` rows,
 /// 105 mm by 297/rows — and the smallest cell in which it still fits on a
 /// single page wins. Each cell is tried at the charte's own type size first,
-/// then a point smaller at a time, never below `FILL_MIN_SIZE`: the teacher
-/// asked for the fullest sheet that still reads, and six slips at 10 pt beat
-/// four at 11 pt. A smaller size is only worth trying when the overflow was a
-/// single page; type a point down does not halve a document. A document that
-/// does not fit even a half page at the smallest size is refused, and the
-/// fixed counts remain.
+/// then at the largest smaller size that fits, never below `FILL_MIN_SIZE`:
+/// the teacher asked for the fullest sheet, and eight slips at 7 pt beat six
+/// at 11 pt. The floor is what "4 pages" already prints an 11 pt document
+/// at, so nothing here is smaller than what was being read before; a charte
+/// set at 9 pt comes down to 6 pt too, not to half of itself. A document
+/// that does not fit even a half page at the floor is refused, and the fixed
+/// counts remain.
 ///
 /// The cell is set through `geometry`, and the size through `scrextend`,
 /// injected before `\begin{document}` so they come after the charte's own
@@ -269,74 +343,53 @@ pub fn fill(dir: &Path, tex_name: &str) -> Result<PathBuf, String> {
     let mut measured = false;
     let mut last_failure = String::new();
     for rows in FILL_ROWS {
-        let height = 297.0 / rows as f64;
-        for size in fill_sizes(base) {
-            // A page number on every slip would be absurd: it goes from the
-            // footer when the charte uses fancyhdr, the running header
-            // staying, and the whole plain style goes otherwise.
-            let mut cell = format!(
-                "\\geometry{{paperwidth=105mm,paperheight={height:.2}mm,margin=5mm,\
-                 headheight=12pt,headsep=2mm,footskip=4mm}}\n\
-                 \\ifdefined\\fancyfoot\\fancyfoot{{}}\\else\\pagestyle{{empty}}\\fi\n"
-            );
-            if size != base {
-                cell.push_str(&format!("\\usepackage[fontsize={size}pt]{{scrextend}}\n"));
+        let mut trial = |size: u32| match measure_cell(dir, &source, body, &stem, rows, base, size) {
+            Ok(pages) => {
+                measured = true;
+                Some(pages)
             }
-            let tex = format!("{}{cell}{}", &source[..body], &source[body..]);
-            let cell_stem = format!("{stem}-cell{rows}");
-            std::fs::write(dir.join(format!("{cell_stem}.tex")), tex)
-                .map_err(|e| format!("Écriture de {cell_stem}.tex : {e}"))?;
+            Err(failure) => {
+                last_failure = failure;
+                None
+            }
+        };
 
-            let pdf = match compile(dir, &format!("{cell_stem}.tex")) {
-                Ok(pdf) => pdf,
-                Err(failure) => {
-                    logbus::warn(
-                        "latex",
-                        format!("Case de {rows} rangée(s) à {size} pt : compilation impossible"),
-                    );
-                    last_failure = failure;
-                    break;
-                }
-            };
-            let pages = page_count(dir, &cell_stem);
-            measured |= pages.is_some();
+        let Some(pages) = trial(base) else { continue };
+        let winner = if pages == 1 {
+            Some(base)
+        } else if shrinking_could_fit(pages, base) {
+            largest_fitting(base, &mut trial)
+        } else {
             logbus::detail(
                 "latex",
-                format!(
-                    "Case de {rows} rangée(s) à {size} pt : {} page(s)",
-                    pages.map_or("?".into(), |n| n.to_string())
-                ),
-                pdf.to_string_lossy().to_string(),
+                format!("Case de {rows} rangée(s) : {pages} pages, même {FILL_MIN_SIZE} pt n'y tiendrait pas"),
+                String::new(),
             );
-            match pages {
-                Some(1) => {
-                    // One page that fits its cell exactly: pdfpages lays
-                    // 2×rows of them on the sheet at scale one. No frame:
-                    // the teacher cuts by eye, and a rule down every slip
-                    // reads as part of the sheet.
-                    let copies = 2 * rows as usize;
-                    let list = std::iter::repeat("1").take(copies).collect::<Vec<_>>().join(",");
-                    let wrapper = format!(
-                        "\\documentclass{{article}}\n\
-                         \\usepackage[a4paper]{{geometry}}\n\
-                         \\usepackage{{pdfpages}}\n\
-                         \\begin{{document}}\n\
-                         \\includepdf[nup=2x{rows},pages={{{list}}}]{{{cell_stem}.pdf}}\n\
-                         \\end{{document}}\n"
-                    );
-                    let name = format!("{stem}-max.tex");
-                    std::fs::write(dir.join(&name), wrapper)
-                        .map_err(|e| format!("Écriture de {name} : {e}"))?;
-                    logbus::info(
-                        "latex",
-                        format!("Maximiser : {copies} exemplaires par feuille, en cases de {rows} rangée(s) à {size} pt"),
-                    );
-                    return compile(dir, &name);
-                }
-                Some(2) => continue,
-                _ => break,
-            }
-        }
+            None
+        };
+        let Some(size) = winner else { continue };
+
+        // One page that fits its cell exactly: pdfpages lays 2×rows of them
+        // on the sheet at scale one. No frame: the teacher cuts by eye, and
+        // a rule down every slip reads as part of the sheet.
+        let copies = 2 * rows as usize;
+        let list = std::iter::repeat("1").take(copies).collect::<Vec<_>>().join(",");
+        let cell_pdf = format!("{}.pdf", cell_stem(&stem, rows, size));
+        let wrapper = format!(
+            "\\documentclass{{article}}\n\
+             \\usepackage[a4paper]{{geometry}}\n\
+             \\usepackage{{pdfpages}}\n\
+             \\begin{{document}}\n\
+             \\includepdf[nup=2x{rows},pages={{{list}}}]{{{cell_pdf}}}\n\
+             \\end{{document}}\n"
+        );
+        let name = format!("{stem}-max.tex");
+        std::fs::write(dir.join(&name), wrapper).map_err(|e| format!("Écriture de {name} : {e}"))?;
+        logbus::info(
+            "latex",
+            format!("Maximiser : {copies} exemplaires par feuille, en cases de {rows} rangée(s) à {size} pt"),
+        );
+        return compile(dir, &name);
     }
 
     if !measured {
@@ -353,11 +406,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_type_steps_down_from_the_charte_size_to_the_smallest_that_reads() {
-        assert_eq!(fill_sizes(11), vec![11, 10, 9]);
-        assert_eq!(fill_sizes(12), vec![12, 11, 10, 9]);
-        assert_eq!(fill_sizes(9), vec![9], "the charte is already at the floor");
-        assert_eq!(fill_sizes(8), vec![8], "and a smaller one is not grown");
+    fn the_largest_size_that_fits_is_found_in_three_compiles_not_five() {
+        let mut tried = Vec::new();
+        let size = largest_fitting(11, |size| {
+            tried.push(size);
+            Some(if size <= 8 { 1 } else { 2 })
+        });
+        assert_eq!(size, Some(8));
+        assert!(tried.len() <= 3, "bisection over 10..6, not a walk: {tried:?}");
+        assert!(tried.iter().all(|s| (6..=10).contains(s)), "never the base, never below the floor");
+
+        assert_eq!(largest_fitting(11, |_| Some(2)), None, "nothing fits, not even the floor");
+        assert_eq!(largest_fitting(6, |_| Some(1)), None, "a charte at the floor has nowhere to go");
+        assert_eq!(largest_fitting(11, |_| None), None, "a failed compile ends the search");
+    }
+
+    /// Three pages at 11 pt can become one at 6 pt (area ×0.3); four cannot.
+    /// A 9 pt charte has less room: two pages, yes; three, no.
+    #[test]
+    fn the_floor_is_only_tried_when_the_arithmetic_allows_it() {
+        assert!(shrinking_could_fit(3, 11));
+        assert!(!shrinking_could_fit(4, 11));
+        assert!(shrinking_could_fit(2, 9));
+        assert!(!shrinking_could_fit(3, 9));
     }
 
     /// The regression: the maths charte's preamble names `\begin{document}`
@@ -404,8 +475,8 @@ mod tests {
         match fill(&dir, "sheet.tex") {
             Ok(pdf) => {
                 assert!(pdf.ends_with("sheet-max.pdf"));
-                assert!(dir.join("sheet-cell4.pdf").is_file(), "the smallest cell was tried first");
-                assert_eq!(page_count(&dir, "sheet-cell4"), Some(1), "and the exercise fit it");
+                assert!(dir.join("sheet-cell4-11pt.pdf").is_file(), "the smallest cell was tried first");
+                assert_eq!(page_count(&dir, "sheet-cell4-11pt"), Some(1), "and the exercise fit it");
                 assert_eq!(page_count(&dir, "sheet-max"), Some(1), "one sheet, eight copies");
             }
             Err(error) if error.contains("moteur") => {
