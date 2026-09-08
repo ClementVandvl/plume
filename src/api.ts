@@ -148,10 +148,10 @@ export const insertBlock = (
   afterBlockId: string,
   kind: string,
   title: string | null,
+  number: string | null,
   latex: string,
-) => invoke<Transcript>("insert_block", { id, afterBlockId, kind, title, latex });
+) => invoke<Transcript>("insert_block", { id, afterBlockId, kind, title, number, latex });
 
-/** Adds a photograph as a page where the gap is, then reads it. */
 export const insertFromPhoto = (
   id: string,
   afterBlockId: string,

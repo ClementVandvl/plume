@@ -20,8 +20,15 @@ import { Modal } from "./Modal";
 
 type Mode = "latex" | "photo";
 
-/** Kinds worth offering by hand. Headings carry numbering rules of their own. */
-const KINDS = [
+/**
+ * Headings are their title: no LaTeX body, and a handwritten number the
+ * charte writes but never invents. They sit in their own group so the
+ * difference reads before the form does.
+ */
+const HEADINGS = ["chapter", "part", "subpart", "paragraph"];
+
+/** Everything else carries its content in LaTeX. */
+const PASSAGES = [
   "text",
   "definition",
   "property",
@@ -35,6 +42,8 @@ const KINDS = [
   "list",
 ];
 
+export const isHeading = (kind: string) => HEADINGS.includes(kind);
+
 export function InsertPanel({
   busy,
   onClose,
@@ -43,13 +52,18 @@ export function InsertPanel({
 }: {
   busy: boolean;
   onClose: () => void;
-  onWrite: (kind: string, title: string, latex: string) => Promise<void>;
+  onWrite: (kind: string, title: string, number: string, latex: string) => Promise<void>;
   onPhoto: (source: string) => Promise<void>;
 }) {
   const [mode, setMode] = useState<Mode>("latex");
   const [kind, setKind] = useState("text");
   const [title, setTitle] = useState("");
+  const [number, setNumber] = useState("");
   const [latex, setLatex] = useState("");
+
+  // A heading needs a title and nothing else; a passage needs its content.
+  const heading = isHeading(kind);
+  const complete = heading ? title.trim().length > 0 : latex.trim().length > 0;
 
   async function pick() {
     const picked = await open({
@@ -97,37 +111,63 @@ export function InsertPanel({
                 value={kind}
                 onChange={(event) => setKind(event.target.value)}
               >
-                {KINDS.map((id) => (
-                  <option key={id} value={id}>
-                    {KIND_LABEL[id] ?? id}
-                  </option>
-                ))}
+                <optgroup label={t("insert.kind.headings")}>
+                  {HEADINGS.map((id) => (
+                    <option key={id} value={id}>
+                      {KIND_LABEL[id] ?? id}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label={t("insert.kind.passages")}>
+                  {PASSAGES.map((id) => (
+                    <option key={id} value={id}>
+                      {KIND_LABEL[id] ?? id}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </label>
             <label className="key">
-              <span className="key__label">{t("insert.name")}</span>
+              <span className="key__label">
+                {heading ? t("insert.heading.title") : t("insert.name")}
+              </span>
               <input
                 className="input input--compact"
                 value={title}
-                placeholder={t("insert.name.placeholder")}
+                placeholder={heading ? t("insert.heading.placeholder") : t("insert.name.placeholder")}
                 onChange={(event) => setTitle(event.target.value)}
               />
             </label>
+            {heading && (
+              <label className="key">
+                <span className="key__label">{t("insert.number")}</span>
+                <input
+                  className="input input--compact"
+                  value={number}
+                  placeholder={t("insert.number.placeholder")}
+                  onChange={(event) => setNumber(event.target.value)}
+                />
+              </label>
+            )}
           </div>
 
-          <label className="field">
-            <span className="field__label">{t("insert.latex")}</span>
-            <textarea
-              className="input input--code"
-              rows={7}
-              spellCheck={false}
-              value={latex}
-              placeholder={t("insert.latex.placeholder")}
-              onChange={(event) => setLatex(event.target.value)}
-            />
-          </label>
+          {heading ? (
+            <p className="field__hint">{t("insert.heading.hint")}</p>
+          ) : (
+            <label className="field">
+              <span className="field__label">{t("insert.latex")}</span>
+              <textarea
+                className="input input--code"
+                rows={7}
+                spellCheck={false}
+                value={latex}
+                placeholder={t("insert.latex.placeholder")}
+                onChange={(event) => setLatex(event.target.value)}
+              />
+            </label>
+          )}
 
-          {latex.trim() && (
+          {!heading && latex.trim() && (
             <>
               <span className="overline">{t("insert.preview")}</span>
               <div
@@ -141,8 +181,8 @@ export function InsertPanel({
             <button
               type="button"
               className="btn btn--primary"
-              onClick={() => onWrite(kind, title, latex)}
-              disabled={busy || !latex.trim()}
+              onClick={() => onWrite(kind, title, number, heading ? "" : latex)}
+              disabled={busy || !complete}
             >
               {busy ? t("common.saving") : t("insert.add")}
             </button>

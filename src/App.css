@@ -178,6 +178,14 @@ body {
   opacity: 1;
 }
 
+/* The gap before the first passage stays faintly visible: nobody hovers a
+   place they do not know exists, and it is the one gap a reading that missed
+   the title needs found. */
+.pgap--top {
+  opacity: 0.55;
+  margin-bottom: var(--space-xs);
+}
+
 /* A rule across the gap, so the targets read as a place. */
 .pgap::before,
 .pgap::after {

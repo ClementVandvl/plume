@@ -856,6 +856,7 @@ fn insert_block(
     after_block_id: String,
     kind: String,
     title: Option<String>,
+    number: Option<String>,
     latex: String,
 ) -> Result<ir::Transcript, String> {
     if latex.trim().is_empty() && title.as_deref().map(str::trim).unwrap_or("").is_empty() {
@@ -867,7 +868,9 @@ fn insert_block(
         id: String::new(),
         kind,
         title: title.map(|t| t.trim().to_string()).filter(|t| !t.is_empty()),
-        number: None,
+        // A heading's handwritten number — « 3 », « II », « a » — which the
+        // charte writes but never invents.
+        number: number.map(|n| n.trim().to_string()).filter(|n| !n.is_empty()),
         latex: latex.trim().to_string(),
         // Written by hand, so there is nothing for the model to be unsure about
         // and nothing left to review.

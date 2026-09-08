@@ -225,6 +225,17 @@ fn render_block(template: &Template, block: &Block) -> String {
     }
 }
 
+/// The document's title, written the way this charte writes a chapter.
+fn fallback_heading(template: &Template, title: &str) -> String {
+    match template.blocks.get("chapter") {
+        Some(mapping) if mapping.mode == "numbered" => {
+            format!("\\{}{{}}{{{title}}}", mapping.name)
+        }
+        Some(mapping) if mapping.mode == "command" => format!("\\{}{{{title}}}", mapping.name),
+        _ => format!("\\section*{{{title}}}"),
+    }
+}
+
 fn keeps(block: &Block, audience: &str) -> bool {
     audience == AUDIENCE_ALL
         || block.audience.is_empty()
@@ -291,9 +302,13 @@ pub fn render_document(
         out.push_str("\n\n");
     }
 
-    // A document without a recognised chapter heading still deserves a title.
+    // A document without a recognised chapter heading still deserves a title:
+    // the document's own, through the same mapping a chapter block would use.
+    // It was written as `\chapitre{title}` — one argument to a two-argument
+    // command, so the title landed in the number's place and the exercise
+    // sheet came out headed « Fiche d'exercices — » with nothing after it.
     if !wrote_chapter {
-        let heading = format!("\\chapitre{{{title}}}\n\n");
+        let heading = format!("{}\n\n", fallback_heading(template, title));
         if let Some(at) = out.find("\\begin{document}\n\n") {
             let at = at + "\\begin{document}\n\n".len();
             out.insert_str(at, &heading);
@@ -394,6 +409,18 @@ mod tests {
             .map(|b| b.latex.as_str())
             .collect();
         assert_eq!(teacher, vec!["énoncé", "correction"]);
+    }
+
+    /// The regression: without a chapter block the sheet was headed by the
+    /// document's title, passed as the *number* of a two-argument command.
+    #[test]
+    fn the_fallback_title_takes_the_shape_of_a_chapter() {
+        let template = bundled();
+        assert_eq!(
+            fallback_heading(&template, "Calcul littéral"),
+            "\\chapitre{}{Calcul littéral}",
+            "an empty number, then the title — exactly what a chapter block gives"
+        );
     }
 
     /// Marking the last passage is a legitimate way to say "we finished".

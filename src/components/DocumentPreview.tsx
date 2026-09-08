@@ -153,6 +153,17 @@ export function DocumentPreview({
 
   return (
     <div className="paper">
+      {/* The one place a gap sits before a passage rather than after: a
+          reading that missed the heading leaves nothing to add "after", and
+          the title of a sheet belongs before everything else. An empty anchor
+          is what the insertion understands as "at the very start". */}
+      {numbered.length > 0 && (
+        <div className="pgap pgap--top">
+          <button type="button" className="pgap__act" onClick={() => onInsertAfter("")}>
+            {t("insert.first")}
+          </button>
+        </div>
+      )}
       {numbered
         .filter(({ block }) => {
           if (filter === "doubt") return needsReview(block, origin);

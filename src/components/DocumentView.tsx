@@ -1608,9 +1608,16 @@ export function DocumentView({
         <InsertPanel
           busy={inserting}
           onClose={() => setInsertAfter(null)}
-          onWrite={(kind, title, latex) =>
+          onWrite={(kind, title, number, latex) =>
             addPassage(() =>
-              insertBlock(documentId, insertAfter, kind, title.trim() || null, latex),
+              insertBlock(
+                documentId,
+                insertAfter,
+                kind,
+                title.trim() || null,
+                number.trim() || null,
+                latex,
+              ),
             )
           }
           onPhoto={(source) =>

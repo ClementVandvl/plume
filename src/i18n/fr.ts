@@ -292,6 +292,15 @@ export const fr = {
   "panel.title.label": "Titre (facultatif)",
   "insert.title": "Ajouter un passage",
   "insert.here": "Ajouter ici",
+  "insert.first": "Ajouter au début",
+  "insert.kind.headings": "Titres — sans LaTeX",
+  "insert.kind.passages": "Passages",
+  "insert.heading.title": "Texte du titre",
+  "insert.heading.placeholder": "Calcul littéral",
+  "insert.heading.hint":
+    "Un titre n'a pas de contenu LaTeX : la charte le compose à partir de son texte et de son numéro.",
+  "insert.number": "Numéro",
+  "insert.number.placeholder": "3, II, a…",
 
   // Où la classe en est. Une marque sur le document, posée après la séance, que
   // chaque fabrication relit ensuite.
