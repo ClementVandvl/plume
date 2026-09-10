@@ -1692,7 +1692,6 @@ async fn build_document(
         let name = format!("{}-{}{}.tex", document.id, audience, suffix);
         let tex_path = dir.join(&name);
         fs::write(&tex_path, tex).map_err(|e| format!("Écriture du .tex : {e}"))?;
-        latex::sweep_leftovers(&dir, &document.id);
 
         // « Maximiser » recomposes the document in a cell rather than shrinking
         // its pages, so it needs the .tex, not the PDF, and compiles its own.

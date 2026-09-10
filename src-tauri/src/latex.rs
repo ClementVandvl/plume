@@ -126,35 +126,6 @@ impl Drop for Workshop {
     }
 }
 
-/// Removes what earlier versions left at the root of a document's folder:
-/// the cells and wrappers of an imposition or a recomposition, with their
-/// logs, from before the workshop existed. The PDFs they delivered stay, as
-/// do the document's own `.tex`, `.log` and `.pdf`. Run before each build,
-/// since a build is when the teacher is looking at that folder.
-pub fn sweep_leftovers(dir: &Path, document_id: &str) {
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
-    let prefix = format!("{document_id}-");
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        let Some(rest) = name.strip_prefix(&prefix) else { continue };
-        let derived = rest.contains("-cell")
-            || rest.ends_with("-max.tex")
-            || rest.ends_with("-max.log")
-            || (rest.contains("-x") && (rest.ends_with(".tex") || rest.ends_with(".log")) && is_imposition_stem(rest));
-        if derived && entry.path().is_file() {
-            let _ = std::fs::remove_file(entry.path());
-        }
-    }
-}
-
-/// `teacher-x4.tex`, not `teacher-xavier.tex`: an imposition wrapper's name
-/// ends in `-x` and a digit.
-fn is_imposition_stem(rest: &str) -> bool {
-    let stem = rest.rsplit_once('.').map_or(rest, |(stem, _)| stem);
-    stem.rsplit_once("-x")
-        .is_some_and(|(_, digits)| !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit()))
-}
-
 /// Lays several pages of a finished PDF on each sheet, for printing.
 ///
 /// `per_sheet` is 2 or 4 — the only counts that make a regular grid of A4 on
@@ -614,38 +585,6 @@ mod tests {
             "the wrappers and their logs went with the workshop"
         );
         // Left on disk on purpose: the PDFs are worth looking at.
-    }
-
-    /// The mountain a teacher found: a `.tex`, a `.log` and a `.pdf` per cell
-    /// and per size, wrappers and their logs, all at the root, from versions
-    /// before the workshop. Swept before a build; the delivered sheets and
-    /// the document's own files stay.
-    #[test]
-    fn what_older_versions_left_at_the_root_is_swept() {
-        let dir = std::env::temp_dir().join("plume-sweep-test");
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let names = [
-            "cours-teacher.tex", "cours-teacher.log", "cours-teacher.pdf",
-            "cours-teacher-cell4-8pt.tex", "cours-teacher-cell4-8pt.log", "cours-teacher-cell4-8pt.pdf",
-            "cours-teacher-cell3.pdf", "cours-teacher-max.tex", "cours-teacher-max.log", "cours-teacher-max.pdf",
-            "cours-teacher-x4.tex", "cours-teacher-x4.log", "cours-teacher-x4.pdf",
-            "cours-student-x2.tex", "cours-student-x2.pdf",
-            "document.json", "transcript.json", "cours-xavier.tex",
-        ];
-        for name in names {
-            std::fs::write(dir.join(name), "x").unwrap();
-        }
-        sweep_leftovers(&dir, "cours");
-        let mut left: Vec<String> = std::fs::read_dir(&dir).unwrap().flatten()
-            .map(|e| e.file_name().to_string_lossy().to_string()).collect();
-        left.sort();
-        assert_eq!(left, vec![
-            "cours-student-x2.pdf", "cours-teacher-max.pdf", "cours-teacher-x4.pdf",
-            "cours-teacher.log", "cours-teacher.pdf", "cours-teacher.tex",
-            "cours-xavier.tex", "document.json", "transcript.json",
-        ]);
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// Pages of a PDF, by poppler's `pdfinfo` when the machine has it.

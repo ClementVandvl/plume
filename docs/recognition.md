@@ -608,8 +608,9 @@ at 6 pt keeps the fixed counts.
 An imposition or a recomposition works in a hidden folder of its own beside
 the document (`.build-<stem>/`, `latex::Workshop`) and delivers only the sheet
 asked for; the cells, wrappers and logs go with the folder, on success and on
-failure alike. They used to pile up at the root of the document's folder, a
-`.tex`, a `.log` and a `.pdf` per cell and per size, never purged.
+failure alike. They piled up at the root of the document's folder before
+this, a `.tex`, a `.log` and a `.pdf` per cell and per size, never purged;
+nothing sweeps those, since no released version ever wrote them.
 
 A partial, imposed or recomposed build never touches `status` or `last_pdf`:
 all are copies taken for a purpose, not the document.
