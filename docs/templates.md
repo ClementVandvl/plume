@@ -33,6 +33,16 @@ path: a copy gets a fresh id, `version: 1`, and is never touched by `seed`
 again. `upgrading_never_touches_a_personal_template` is the test that keeps
 this true.
 
+Both preambles load the TikZ libraries the model reaches for when it draws —
+`arrows.meta`, `calc`, `decorations.pathreplacing`, `decorations.markings`,
+`patterns`, `positioning`, `angles`, `quotes`, `intersections`,
+`shapes.geometric` — and the recogniser is told so, never to load one inside a
+block. A brace drawn with `decoration={brace}` once failed the PDF and the
+review both, with the charte loading bare `tikz`. A personal charte that
+drops the line loses them in both places at once: the review renders figures
+and passages with the charte's own preamble (see [preview.md](preview.md)), so
+the two never disagree.
+
 ## Placeholders
 
 `render_preamble` substitutes `{{key}}` with the key's value, dropping the `#`

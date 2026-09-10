@@ -13,11 +13,15 @@ The preview draws each block with one of two renderers.
   nothing about layout, on purpose.
 - **The engine** (`src/components/EngineImage.tsx`, `src-tauri/src/figures.rs`)
   is the real LaTeX compiler. It is exact and costs a second or two per
-  request, once — results are cached beside the document. It draws diagrams
-  (`tikzpicture`, on their own with the charte's colours) and *passages*: a
-  whole block that lays itself out, compiled with the charte's full preamble
-  inside a minipage of the charte's text width and cropped by the `preview`
-  package, so it shows as it will print, line breaks included.
+  request, once — results are cached beside the document, keyed by source and
+  preamble. It draws diagrams (`tikzpicture`, on their own) and *passages*: a
+  whole block that lays itself out, set in a minipage of the charte's text
+  width so it shows as it will print, line breaks included. Both are compiled
+  with the charte's full preamble and cropped by the `preview` package. A
+  figure once got a lighter `standalone` document carrying only the charte's
+  colours, and a brace drawn with a decoration library the charte loads was
+  refused in the review: what compiles in the PDF must compile here, and the
+  only way to be sure is the same preamble.
 
 `src/preview/detect.ts` is the only place that decides between the two, in
 `route`. A block containing a layout construct (`tabular`, `minipage`,

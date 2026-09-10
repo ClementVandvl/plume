@@ -68,76 +68,79 @@ impl Snippet<'_> {
 
     /// The complete `.tex` that draws the snippet.
     ///
-    /// A figure needs only the charte's colours, and `standalone` crops it to
-    /// the drawing. A passage needs everything the charte defines — its
-    /// packages, macros, fonts, `\leqslant` — so its preamble is taken whole,
-    /// and the `preview` package crops the page to a minipage of the charte's
-    /// own text width: line breaks fall where the PDF will put them, and a
-    /// table wider than the page overflows here as it overflows there.
+    /// Both kinds are set inside the charte: its preamble, whole — packages,
+    /// TikZ libraries, macros, fonts, colours — then the `preview` package,
+    /// which crops the page to what is drawn. A figure used to get a
+    /// `standalone` document carrying only the charte's colours, and a brace
+    /// drawn with `decoration={brace}` failed in the review with "You need to
+    /// load a decoration library" while the charte had it: what compiles in
+    /// the PDF must compile here, and the only way to be sure is the same
+    /// preamble. A passage is set in a minipage of the charte's text width,
+    /// so line breaks fall where the PDF puts them and a table wider than the
+    /// page overflows here as it overflows there; a figure keeps its own size.
     fn document(&self, preamble: &str) -> String {
-        match self {
-            Snippet::Figure(tikz) => {
-                let colours = preamble
-                    .lines()
-                    .filter(|line| line.trim_start().starts_with("\\definecolor"))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                format!(
-                    "\\documentclass[border=4pt]{{standalone}}\n\
-                     \\usepackage[T1]{{fontenc}}\n\
-                     \\usepackage[utf8]{{inputenc}}\n\
-                     \\usepackage{{lmodern}}\n\
-                     \\usepackage{{amsmath,amssymb}}\n\
-                     \\usepackage{{xcolor}}\n\
-                     \\usepackage{{tikz}}\n\
-                     {colours}\n\
-                     \\begin{{document}}\n\
-                     {tikz}\n\
-                     \\end{{document}}\n"
-                )
+        let drawn = match self {
+            Snippet::Figure(tikz) => (*tikz).to_string(),
+            Snippet::Passage(latex) => {
+                format!("\\begin{{minipage}}{{\\textwidth}}\n{latex}\n\\end{{minipage}}")
             }
-            Snippet::Passage(latex) => format!(
-                "{}\n\
-                 \\usepackage[active,tightpage]{{preview}}\n\
-                 \\setlength{{\\PreviewBorder}}{{4pt}}\n\
-                 \\begin{{document}}\n\
-                 \\begin{{preview}}\n\
-                 \\begin{{minipage}}{{\\textwidth}}\n\
-                 {latex}\n\
-                 \\end{{minipage}}\n\
-                 \\end{{preview}}\n\
-                 \\end{{document}}\n",
-                preamble.trim_end()
-            ),
-        }
+        };
+        format!(
+            "{}\n\
+             \\usepackage[active,tightpage]{{preview}}\n\
+             \\setlength{{\\PreviewBorder}}{{4pt}}\n\
+             \\begin{{document}}\n\
+             \\begin{{preview}}\n\
+             {drawn}\n\
+             \\end{{preview}}\n\
+             \\end{{document}}\n",
+            preamble.trim_end()
+        )
     }
 
-    /// What the cache key is made of: the source, plus everything else that
-    /// changes the image.
+    /// What the cache key is made of: the source and the preamble, since
+    /// both decide the image — a charte edit re-renders everything.
     fn key(&self, preamble: &str) -> String {
+        hash(&format!("{preamble}\n{}", self.source()))
+    }
+
+    fn source(&self) -> &str {
         match self {
-            Snippet::Figure(tikz) => hash(tikz),
-            Snippet::Passage(latex) => hash(&format!("{preamble}\n{latex}")),
+            Snippet::Figure(s) | Snippet::Passage(s) => s,
         }
     }
 }
 
-/// Pulls the first real error out of a LaTeX log, which is far more useful than
-/// the process exit code.
+/// Pulls the first real error out of a compile, which is far more useful
+/// than the process exit code.
+///
+/// The log first, then the engine's own output. Tectonic prints the TeX
+/// error lines — the ones opening on `!` — to stderr, among its warnings,
+/// and the first of those warnings is not the error: a figure that failed
+/// on a missing TikZ library was reported as "accessing absolute path
+/// `/dev/null`", which is tectonic noticing a package probing the null
+/// device, on every compile, successful ones included. So a `!` line is
+/// looked for in every stream before anything else, then a line tectonic
+/// itself marks as an error, and only then whatever came first.
 fn compile_error(log: &Path, stdout: &str, stderr: &str) -> String {
-    let from_log = fs::read_to_string(log).ok().and_then(|text| {
+    let tex_error = |text: &str| {
         text.lines()
             .find(|line| line.starts_with('!'))
             .map(|line| line.trim_start_matches('!').trim().to_string())
-    });
+    };
+    let engine_error = |text: &str| {
+        text.lines()
+            .find(|line| line.starts_with("error:"))
+            .map(|line| line.trim_start_matches("error:").trim().to_string())
+    };
 
-    from_log
-        .or_else(|| {
-            stdout
-                .lines()
-                .find(|line| line.starts_with('!'))
-                .map(|line| line.trim_start_matches('!').trim().to_string())
-        })
+    fs::read_to_string(log)
+        .ok()
+        .and_then(|text| tex_error(&text))
+        .or_else(|| tex_error(stdout))
+        .or_else(|| tex_error(stderr))
+        .or_else(|| engine_error(stderr))
+        .or_else(|| engine_error(stdout))
         .or_else(|| stderr.lines().next().map(str::to_string))
         .filter(|detail| !detail.is_empty())
         .unwrap_or_else(|| "le moteur LaTeX n'a rien produit".to_string())
@@ -238,7 +241,9 @@ pub fn render(
     let mut command = crate::proc::quiet(&engine.1);
     command.current_dir(&build);
     if engine.0 == "tectonic" {
-        command.args(["-X", "compile", &format!("{stem}.tex")]);
+        // The log stays: it is where the error is read from when the
+        // compile fails, and tectonic deletes it otherwise.
+        command.args(["-X", "compile", "--keep-logs", &format!("{stem}.tex")]);
     } else {
         command.args(["-interaction=nonstopmode", "-halt-on-error", &format!("{stem}.tex")]);
     }
@@ -308,11 +313,30 @@ mod tests {
         (root, template)
     }
 
-    /// A passage is set inside the charte, not beside it: its preamble comes
-    /// first and whole, the crop is the `preview` package's, and the width
-    /// is the charte's text width. A figure keeps the lighter standalone.
+    /// The message a teacher saw: tectonic's warning about `/dev/null`, which
+    /// it prints on every compile, in place of the TeX error two lines down.
     #[test]
-    fn a_passage_is_typeset_with_the_charte_s_own_preamble() {
+    fn the_tex_error_is_reported_ahead_of_tectonic_s_warnings() {
+        let stderr = "warning: accessing absolute path `/dev/null`; build may not be reproducible\n\
+                      ! Package tikz Error: You need to load a decoration library.\n\
+                      error: the XeTeX engine had an unrecoverable error\n";
+        let nowhere = Path::new("/nonexistent/plume.log");
+        assert_eq!(
+            compile_error(nowhere, "", stderr),
+            "Package tikz Error: You need to load a decoration library."
+        );
+        // Without a TeX line, tectonic's own error beats its warnings.
+        assert_eq!(
+            compile_error(nowhere, "", "warning: something\nerror: the XeTeX engine had an unrecoverable error\n"),
+            "the XeTeX engine had an unrecoverable error"
+        );
+    }
+
+    /// Both kinds are set inside the charte: its preamble first and whole,
+    /// the crop the `preview` package's. A passage is as wide as the text; a
+    /// figure keeps its own size.
+    #[test]
+    fn a_snippet_is_typeset_with_the_charte_s_own_preamble() {
         let preamble = "\\documentclass[11pt,a4paper]{article}\n\\usepackage{tikz}\n\\definecolor{mcDef}{HTML}{A93226}\n";
         let passage = Snippet::Passage("\\begin{tabular}{cc}a & b\\end{tabular}").document(preamble);
         assert!(passage.starts_with("\\documentclass[11pt,a4paper]{article}\n\\usepackage{tikz}"));
@@ -320,19 +344,42 @@ mod tests {
         assert!(passage.contains("\\begin{minipage}{\\textwidth}\n\\begin{tabular}{cc}a & b\\end{tabular}\n\\end{minipage}"));
 
         let figure = Snippet::Figure("\\begin{tikzpicture}\\end{tikzpicture}").document(preamble);
-        assert!(figure.starts_with("\\documentclass[border=4pt]{standalone}"));
-        assert!(figure.contains("\\definecolor{mcDef}{HTML}{A93226}"));
-        assert!(!figure.contains("a4paper"), "a figure does not carry the page");
+        assert!(figure.starts_with("\\documentclass[11pt,a4paper]{article}"), "the charte, not a standalone");
+        assert!(figure.contains("\\begin{preview}\n\\begin{tikzpicture}\\end{tikzpicture}\n\\end{preview}"));
+        assert!(!figure.contains("minipage"), "a figure keeps its own size");
     }
 
-    /// The same table, before and after the charte changes: a different
-    /// image. The same diagram: the same one, the charte having no say.
+    /// The same source under two chartes is two images: a colour, a TikZ
+    /// library, a font can all change what is drawn.
     #[test]
-    fn a_passage_s_cache_key_follows_the_charte_but_a_figure_s_does_not() {
-        let table = Snippet::Passage("\\begin{tabular}{c}x\\end{tabular}");
-        assert_ne!(table.key("\\definecolor{mcDef}{HTML}{A93226}"), table.key("\\definecolor{mcDef}{HTML}{000000}"));
-        let figure = Snippet::Figure("\\begin{tikzpicture}\\end{tikzpicture}");
-        assert_eq!(figure.key("\\definecolor{mcDef}{HTML}{A93226}"), figure.key("\\definecolor{mcDef}{HTML}{000000}"));
+    fn the_cache_key_follows_the_charte() {
+        for snippet in [
+            Snippet::Passage("\\begin{tabular}{c}x\\end{tabular}"),
+            Snippet::Figure("\\begin{tikzpicture}\\end{tikzpicture}"),
+        ] {
+            assert_ne!(snippet.key("\\definecolor{mcDef}{HTML}{A93226}"), snippet.key("\\definecolor{mcDef}{HTML}{000000}"));
+            assert_eq!(snippet.key("same"), snippet.key("same"));
+        }
+    }
+
+    /// The failure that moved figures inside the charte: a brace drawn with a
+    /// decoration library the charte loads, refused by the review's
+    /// standalone document that did not.
+    #[test]
+    fn a_figure_may_use_every_tikz_library_the_charte_loads() {
+        if !has_engine() {
+            eprintln!("no LaTeX engine on this machine, skipping");
+            return;
+        }
+        let (root, template) = scratch("brace-test");
+        let tikz = "\\begin{tikzpicture}[x=0.33cm,y=0.4cm,>=latex]\n\
+                    \\draw[->] (-5.5,0) -- (20.5,0);\n\
+                    \\draw[green!60!black,line width=1.4pt] (-2,0) -- (10,0);\n\
+                    \\draw[thick,decorate,decoration={brace,amplitude=6pt}] (5,1.3) -- (10,1.3) node[midway,above=8pt] {$I \\cap J$};\n\
+                    \\end{tikzpicture}";
+        let path = render(&root, &root, &template, Snippet::Figure(tikz)).expect("rendered");
+        assert!(path.is_file());
+        let _ = fs::remove_dir_all(&root);
     }
 
     /// The table that started this: a `tabular` with a diagram in each row,
