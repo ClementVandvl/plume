@@ -82,6 +82,79 @@ pub fn compile(dir: &Path, tex_name: &str) -> Result<PathBuf, String> {
     Err("La compilation n'a produit aucun PDF.".into())
 }
 
+/// A scratch directory for one derived build — an imposition, a recomposition
+/// — beside the document, gone once the PDF is out.
+///
+/// « Maximiser » compiles a cell per row count and per type size, and every
+/// one left a `.tex`, a `.log` and a `.pdf` at the root of the document's
+/// folder: a mountain the teacher found in the Finder, never purged. So the
+/// work happens in a hidden folder of its own, and only the sheet asked for
+/// is delivered to the document; the folder goes with everything else in it,
+/// on success and on failure alike.
+struct Workshop {
+    dir: PathBuf,
+    document_dir: PathBuf,
+}
+
+impl Workshop {
+    fn open(document_dir: &Path, stem: &str) -> Result<Self, String> {
+        let dir = document_dir.join(format!(".build-{stem}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).map_err(|e| format!("Dossier de travail : {e}"))?;
+        Ok(Self { dir, document_dir: document_dir.to_path_buf() })
+    }
+
+    /// Brings a file of the document in, for a wrapper that includes it.
+    fn take_in(&self, file_name: &str) -> Result<(), String> {
+        std::fs::copy(self.document_dir.join(file_name), self.dir.join(file_name))
+            .map(|_| ())
+            .map_err(|e| format!("Copie de {file_name} : {e}"))
+    }
+
+    /// Moves the finished file out to the document, and closes the workshop.
+    fn deliver(self, file_name: &str) -> Result<PathBuf, String> {
+        let destination = self.document_dir.join(file_name);
+        std::fs::rename(self.dir.join(file_name), &destination)
+            .map_err(|e| format!("Livraison de {file_name} : {e}"))?;
+        Ok(destination)
+    }
+}
+
+impl Drop for Workshop {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+/// Removes what earlier versions left at the root of a document's folder:
+/// the cells and wrappers of an imposition or a recomposition, with their
+/// logs, from before the workshop existed. The PDFs they delivered stay, as
+/// do the document's own `.tex`, `.log` and `.pdf`. Run before each build,
+/// since a build is when the teacher is looking at that folder.
+pub fn sweep_leftovers(dir: &Path, document_id: &str) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    let prefix = format!("{document_id}-");
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        let Some(rest) = name.strip_prefix(&prefix) else { continue };
+        let derived = rest.contains("-cell")
+            || rest.ends_with("-max.tex")
+            || rest.ends_with("-max.log")
+            || (rest.contains("-x") && (rest.ends_with(".tex") || rest.ends_with(".log")) && is_imposition_stem(rest));
+        if derived && entry.path().is_file() {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}
+
+/// `teacher-x4.tex`, not `teacher-xavier.tex`: an imposition wrapper's name
+/// ends in `-x` and a digit.
+fn is_imposition_stem(rest: &str) -> bool {
+    let stem = rest.rsplit_once('.').map_or(rest, |(stem, _)| stem);
+    stem.rsplit_once("-x")
+        .is_some_and(|(_, digits)| !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit()))
+}
+
 /// Lays several pages of a finished PDF on each sheet, for printing.
 ///
 /// `per_sheet` is 2 or 4 — the only counts that make a regular grid of A4 on
@@ -156,7 +229,10 @@ pub fn impose(dir: &Path, pdf_name: &str, per_sheet: u8, repeat: bool) -> Result
     );
 
     let name = format!("{stem}-x{per_sheet}.tex");
-    std::fs::write(dir.join(&name), wrapper).map_err(|e| format!("Écriture de {name} : {e}"))?;
+    let workshop = Workshop::open(dir, &format!("{stem}-x{per_sheet}"))?;
+    workshop.take_in(pdf_name)?;
+    std::fs::write(workshop.dir.join(&name), wrapper)
+        .map_err(|e| format!("Écriture de {name} : {e}"))?;
     logbus::info(
         "latex",
         format!(
@@ -164,7 +240,8 @@ pub fn impose(dir: &Path, pdf_name: &str, per_sheet: u8, repeat: bool) -> Result
             if repeat { "la même page répétée" } else { "pages à la suite" }
         ),
     );
-    compile(dir, &name)
+    compile(&workshop.dir, &name)?;
+    workshop.deliver(&format!("{stem}-x{per_sheet}.pdf"))
 }
 
 /// Pages of a compiled document, from its log: pdfTeX and XeTeX both write
@@ -338,12 +415,13 @@ pub fn fill(dir: &Path, tex_name: &str) -> Result<PathBuf, String> {
     let body = body_starts_at(&source)
         .ok_or("Le .tex n'a pas de \\begin{document} : rien à recomposer.")?;
     let base = base_size(&source);
+    let workshop = Workshop::open(dir, &format!("{stem}-max"))?;
     // A cell that compiled and was counted, whatever the count: without one,
     // the failure is the compile's, and its message is the one to show.
     let mut measured = false;
     let mut last_failure = String::new();
     for rows in FILL_ROWS {
-        let mut trial = |size: u32| match measure_cell(dir, &source, body, &stem, rows, base, size) {
+        let mut trial = |size: u32| match measure_cell(&workshop.dir, &source, body, &stem, rows, base, size) {
             Ok(pages) => {
                 measured = true;
                 Some(pages)
@@ -384,12 +462,14 @@ pub fn fill(dir: &Path, tex_name: &str) -> Result<PathBuf, String> {
              \\end{{document}}\n"
         );
         let name = format!("{stem}-max.tex");
-        std::fs::write(dir.join(&name), wrapper).map_err(|e| format!("Écriture de {name} : {e}"))?;
+        std::fs::write(workshop.dir.join(&name), wrapper)
+            .map_err(|e| format!("Écriture de {name} : {e}"))?;
         logbus::info(
             "latex",
             format!("Maximiser : {copies} exemplaires par feuille, en cases de {rows} rangée(s) à {size} pt"),
         );
-        return compile(dir, &name);
+        compile(&workshop.dir, &name)?;
+        return workshop.deliver(&format!("{stem}-max.pdf"));
     }
 
     if !measured {
@@ -474,10 +554,13 @@ mod tests {
 
         match fill(&dir, "sheet.tex") {
             Ok(pdf) => {
-                assert!(pdf.ends_with("sheet-max.pdf"));
-                assert!(dir.join("sheet-cell4-11pt.pdf").is_file(), "the smallest cell was tried first");
-                assert_eq!(page_count(&dir, "sheet-cell4-11pt"), Some(1), "and the exercise fit it");
-                assert_eq!(page_count(&dir, "sheet-max"), Some(1), "one sheet, eight copies");
+                assert_eq!(pdf, dir.join("sheet-max.pdf"));
+                if let Some(n) = pdf_pages(&pdf) {
+                    assert_eq!(n, 1, "one sheet, eight copies");
+                }
+                // The cells, their logs, the wrapper: a mountain of files
+                // once, at the root of the document, never purged.
+                assert_eq!(left_behind(&dir), vec!["sheet-max.pdf"]);
             }
             Err(error) if error.contains("moteur") => {
                 eprintln!("no LaTeX engine on this machine, skipping: {error}");
@@ -512,31 +595,79 @@ mod tests {
 
         // 3 pages, each twice, 2 per sheet → 3 sheets.
         let two = impose(&dir, "source.pdf", 2, true).expect("2 per sheet, repeated");
-        assert!(two.ends_with("source-x2.pdf"));
+        assert_eq!(two, dir.join("source-x2.pdf"));
         // 3 pages in sequence, 4 per sheet → 1 sheet.
         let four = impose(&dir, "source.pdf", 4, false).expect("4 per sheet, in sequence");
-        assert!(four.ends_with("source-x4.pdf"));
+        assert_eq!(four, dir.join("source-x4.pdf"));
 
-        // pdfTeX and XeTeX both write this line; the counts are the point.
-        let sheets = |stem: &str| {
-            std::fs::read_to_string(dir.join(format!("{stem}.log")))
-                .ok()
-                .and_then(|log| {
-                    log.lines()
-                        .find(|l| l.starts_with("Output written on"))
-                        .and_then(|l| l.split('(').nth(1))
-                        .and_then(|l| l.split(' ').next())
-                        .and_then(|n| n.parse::<u32>().ok())
-                })
-        };
-        if let Some(n) = sheets("source-x2") {
+        if let Some(n) = pdf_pages(&two) {
             assert_eq!(n, 3, "three pages twice, two per sheet");
         }
-        if let Some(n) = sheets("source-x4") {
+        if let Some(n) = pdf_pages(&four) {
             assert_eq!(n, 1, "three pages in sequence, four per sheet");
         }
 
         assert!(impose(&dir, "source.pdf", 3, false).is_err(), "3 is not a grid");
+        assert_eq!(
+            left_behind(&dir),
+            vec!["source-x2.pdf", "source-x4.pdf"],
+            "the wrappers and their logs went with the workshop"
+        );
         // Left on disk on purpose: the PDFs are worth looking at.
+    }
+
+    /// The mountain a teacher found: a `.tex`, a `.log` and a `.pdf` per cell
+    /// and per size, wrappers and their logs, all at the root, from versions
+    /// before the workshop. Swept before a build; the delivered sheets and
+    /// the document's own files stay.
+    #[test]
+    fn what_older_versions_left_at_the_root_is_swept() {
+        let dir = std::env::temp_dir().join("plume-sweep-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let names = [
+            "cours-teacher.tex", "cours-teacher.log", "cours-teacher.pdf",
+            "cours-teacher-cell4-8pt.tex", "cours-teacher-cell4-8pt.log", "cours-teacher-cell4-8pt.pdf",
+            "cours-teacher-cell3.pdf", "cours-teacher-max.tex", "cours-teacher-max.log", "cours-teacher-max.pdf",
+            "cours-teacher-x4.tex", "cours-teacher-x4.log", "cours-teacher-x4.pdf",
+            "cours-student-x2.tex", "cours-student-x2.pdf",
+            "document.json", "transcript.json", "cours-xavier.tex",
+        ];
+        for name in names {
+            std::fs::write(dir.join(name), "x").unwrap();
+        }
+        sweep_leftovers(&dir, "cours");
+        let mut left: Vec<String> = std::fs::read_dir(&dir).unwrap().flatten()
+            .map(|e| e.file_name().to_string_lossy().to_string()).collect();
+        left.sort();
+        assert_eq!(left, vec![
+            "cours-student-x2.pdf", "cours-teacher-max.pdf", "cours-teacher-x4.pdf",
+            "cours-teacher.log", "cours-teacher.pdf", "cours-teacher.tex",
+            "cours-xavier.tex", "document.json", "transcript.json",
+        ]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Pages of a PDF, by poppler's `pdfinfo` when the machine has it.
+    fn pdf_pages(pdf: &Path) -> Option<u32> {
+        let tool = crate::env_check::resolve_tool("pdfinfo")?;
+        let out = std::process::Command::new(tool).arg(pdf).output().ok()?;
+        String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .find_map(|l| l.strip_prefix("Pages:"))
+            .and_then(|n| n.trim().parse().ok())
+    }
+
+    /// What a build left in the document's folder besides its source and
+    /// the source's own products.
+    fn left_behind(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .filter(|n| !matches!(n.as_str(), "source.tex" | "source.pdf" | "source.log" | "sheet.tex"))
+            .collect();
+        names.sort();
+        names
     }
 }

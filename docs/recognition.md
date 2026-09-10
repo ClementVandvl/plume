@@ -605,6 +605,12 @@ first), after the charte's own preamble; a charte that does not load geometry
 is refused with a message, and a document that does not fit even a half page
 at 6 pt keeps the fixed counts.
 
+An imposition or a recomposition works in a hidden folder of its own beside
+the document (`.build-<stem>/`, `latex::Workshop`) and delivers only the sheet
+asked for; the cells, wrappers and logs go with the folder, on success and on
+failure alike. They used to pile up at the root of the document's folder, a
+`.tex`, a `.log` and a `.pdf` per cell and per size, never purged.
+
 A partial, imposed or recomposed build never touches `status` or `last_pdf`:
 all are copies taken for a purpose, not the document.
 
