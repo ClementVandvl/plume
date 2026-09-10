@@ -398,6 +398,8 @@ export const fr = {
   "export.noTex": "Fabriquez d'abord le PDF : le fichier .tex apparaîtra ici.",
   "figure.compiling": "Compilation du schéma…",
   "figure.alt": "Schéma du document",
+  "passage.compiling": "Mise en page par le moteur…",
+  "passage.alt": "Passage tel qu'il sera imprimé",
   "export.openTex": "Ouvrir le .tex",
   "export.failed": "Le .tex est écrit, mais la compilation a échoué : {error}",
   "export.preview.title": "Aperçu — {audience}",
@@ -724,8 +726,8 @@ export const fr = {
   "preview.tag.layout": "mise en page",
   "preview.aside.teacher": "prof",
   "preview.aside.student": "élève",
-  "preview.layout.note":
-    "Ce passage contient sa propre mise en page. L'aperçu l'empile en une colonne — le PDF, lui, la respectera et peut déborder.",
+  "preview.layout.fallback":
+    "Ce passage contient sa propre mise en page et le moteur n'a pas pu le rendre : l'aperçu l'empile en une colonne, le PDF la respectera.",
   "preview.stray.note":
     "Ce passage aligne sur un « & » sans environnement d'alignement autour. Le PDF ne compilera pas — corrigez le passage.",
   "preview.chapterLabel": "Chapitre {number} :",

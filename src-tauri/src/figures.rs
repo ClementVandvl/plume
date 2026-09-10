@@ -1,11 +1,17 @@
-//! Renders a single TikZ block to an image for the review preview.
+//! Renders a snippet of a document to an image for the review preview.
 //!
-//! A webview cannot draw TikZ, and a diagram shown as "see the PDF" is exactly
-//! the block a teacher most needs to check. So each figure is compiled on its
-//! own with the real engine, then rasterised.
+//! Two kinds of snippet, one pipeline. A *figure* is a TikZ picture, which a
+//! webview cannot draw. A *passage* is a whole block that lays itself out —
+//! a table, columns, a rule — which the HTML preview can only stack in one
+//! column; converting every way LaTeX has of making a table is a chase with
+//! no end, so the passage is typeset by the engine, with the charte's own
+//! preamble, and shown as it will print. Both are compiled on their own with
+//! the real engine, then rasterised.
 //!
-//! Results are cached next to the document, keyed by a hash of the TikZ source:
-//! editing a figure produces a new file, leaving it alone costs nothing.
+//! Results are cached next to the document, keyed by a hash of what was
+//! compiled: editing a snippet produces a new file, leaving it alone costs
+//! nothing, and a passage's key includes the preamble so a charte edit
+//! re-renders it.
 
 use crate::logbus;
 use crate::templates::Template;
@@ -13,13 +19,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-/// Figure renders are serialised.
+/// Renders are serialised.
 ///
-/// The preview mounts every diagram at once, so without this several `pdflatex`
-/// runs share one directory and delete each other's intermediate files —
-/// producing "I can't find file `fig-….aux`" on figures that compile perfectly
-/// on their own. Two blocks holding the same diagram also share a cache key,
-/// so they would race on the very same paths.
+/// The preview mounts every snippet at once, so without this several
+/// `pdflatex` runs share one directory and delete each other's intermediate
+/// files — producing "I can't find file `fig-….aux`" on figures that compile
+/// perfectly on their own. Two blocks holding the same diagram also share a
+/// cache key, so they would race on the very same paths.
 static RENDER_LOCK: Mutex<()> = Mutex::new(());
 
 const CACHE_DIR: &str = "figures";
@@ -35,32 +41,85 @@ fn hash(source: &str) -> String {
     format!("{value:016x}")
 }
 
-/// The colour definitions from the document's own preamble, so a figure drawn in
-/// `mcDef` red looks the same here as in the PDF.
-fn colour_definitions(root: &Path, template: &Template) -> String {
-    crate::templates::render_preamble(root, template)
-        .unwrap_or_default()
-        .lines()
-        .filter(|line| line.trim_start().starts_with("\\definecolor"))
-        .collect::<Vec<_>>()
-        .join("\n")
+/// What the preview wants drawn.
+pub enum Snippet<'a> {
+    /// A `tikzpicture`, on its own.
+    Figure(&'a str),
+    /// A block's whole LaTeX body, as the charte would set it.
+    Passage(&'a str),
 }
 
-fn standalone_document(colours: &str, tikz: &str) -> String {
-    format!(
-        r#"\documentclass[border=4pt]{{standalone}}
-\usepackage[T1]{{fontenc}}
-\usepackage[utf8]{{inputenc}}
-\usepackage{{lmodern}}
-\usepackage{{amsmath,amssymb}}
-\usepackage{{xcolor}}
-\usepackage{{tikz}}
-{colours}
-\begin{{document}}
-{tikz}
-\end{{document}}
-"#
-    )
+impl Snippet<'_> {
+    /// The prefix of the cached file, so the two kinds never share a key.
+    fn prefix(&self) -> &'static str {
+        match self {
+            Snippet::Figure(_) => "fig",
+            Snippet::Passage(_) => "pas",
+        }
+    }
+
+    /// The word the messages use.
+    fn noun(&self) -> &'static str {
+        match self {
+            Snippet::Figure(_) => "schéma",
+            Snippet::Passage(_) => "passage",
+        }
+    }
+
+    /// The complete `.tex` that draws the snippet.
+    ///
+    /// A figure needs only the charte's colours, and `standalone` crops it to
+    /// the drawing. A passage needs everything the charte defines — its
+    /// packages, macros, fonts, `\leqslant` — so its preamble is taken whole,
+    /// and the `preview` package crops the page to a minipage of the charte's
+    /// own text width: line breaks fall where the PDF will put them, and a
+    /// table wider than the page overflows here as it overflows there.
+    fn document(&self, preamble: &str) -> String {
+        match self {
+            Snippet::Figure(tikz) => {
+                let colours = preamble
+                    .lines()
+                    .filter(|line| line.trim_start().starts_with("\\definecolor"))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                format!(
+                    "\\documentclass[border=4pt]{{standalone}}\n\
+                     \\usepackage[T1]{{fontenc}}\n\
+                     \\usepackage[utf8]{{inputenc}}\n\
+                     \\usepackage{{lmodern}}\n\
+                     \\usepackage{{amsmath,amssymb}}\n\
+                     \\usepackage{{xcolor}}\n\
+                     \\usepackage{{tikz}}\n\
+                     {colours}\n\
+                     \\begin{{document}}\n\
+                     {tikz}\n\
+                     \\end{{document}}\n"
+                )
+            }
+            Snippet::Passage(latex) => format!(
+                "{}\n\
+                 \\usepackage[active,tightpage]{{preview}}\n\
+                 \\setlength{{\\PreviewBorder}}{{4pt}}\n\
+                 \\begin{{document}}\n\
+                 \\begin{{preview}}\n\
+                 \\begin{{minipage}}{{\\textwidth}}\n\
+                 {latex}\n\
+                 \\end{{minipage}}\n\
+                 \\end{{preview}}\n\
+                 \\end{{document}}\n",
+                preamble.trim_end()
+            ),
+        }
+    }
+
+    /// What the cache key is made of: the source, plus everything else that
+    /// changes the image.
+    fn key(&self, preamble: &str) -> String {
+        match self {
+            Snippet::Figure(tikz) => hash(tikz),
+            Snippet::Passage(latex) => hash(&format!("{preamble}\n{latex}")),
+        }
+    }
 }
 
 /// Pulls the first real error out of a LaTeX log, which is far more useful than
@@ -123,15 +182,19 @@ fn rasterise(dir: &Path, stem: &str) -> Result<PathBuf, String> {
     Err("Aucun convertisseur d'image disponible (pdftocairo ou pdftoppm).".into())
 }
 
-/// Renders `tikz` and returns the image path, reusing the cache when possible.
+/// Renders the snippet and returns the image path, reusing the cache when
+/// possible.
 pub fn render(
     document_dir: &Path,
     root: &Path,
     template: &Template,
-    tikz: &str,
+    snippet: Snippet<'_>,
 ) -> Result<PathBuf, String> {
+    let preamble = crate::templates::render_preamble(root, template)
+        .map_err(|e| format!("Préambule de la charte illisible : {e}"))?;
     let cache = document_dir.join(CACHE_DIR);
-    let stem = format!("fig-{}", hash(tikz));
+    let stem = format!("{}-{}", snippet.prefix(), snippet.key(&preamble));
+    let noun = snippet.noun();
 
     let cached = |cache: &Path| {
         ["svg", "png"]
@@ -145,14 +208,14 @@ pub fn render(
         return Ok(hit);
     }
 
-    let _guard = RENDER_LOCK.lock().map_err(|_| "Rendu des schémas indisponible.")?;
+    let _guard = RENDER_LOCK.lock().map_err(|_| "Rendu indisponible.")?;
 
     // Another render may have produced it while we waited.
     if let Some(hit) = cached(&cache) {
         return Ok(hit);
     }
 
-    fs::create_dir_all(&cache).map_err(|e| format!("Dossier des schémas : {e}"))?;
+    fs::create_dir_all(&cache).map_err(|e| format!("Dossier des rendus : {e}"))?;
 
     // Each compilation gets its own directory, so nothing can collide with a
     // neighbour's intermediate files.
@@ -160,9 +223,8 @@ pub fn render(
     let _ = fs::remove_dir_all(&build);
     fs::create_dir_all(&build).map_err(|e| format!("Dossier de compilation : {e}"))?;
 
-    let source = standalone_document(&colour_definitions(root, template), tikz);
-    fs::write(build.join(format!("{stem}.tex")), source)
-        .map_err(|e| format!("Écriture du schéma : {e}"))?;
+    fs::write(build.join(format!("{stem}.tex")), snippet.document(&preamble))
+        .map_err(|e| format!("Écriture du {noun} : {e}"))?;
 
     let engine = crate::engine::installed()
         .map(|path| ("tectonic", path))
@@ -190,9 +252,9 @@ pub fn render(
             &String::from_utf8_lossy(&output.stdout),
             &String::from_utf8_lossy(&output.stderr),
         );
-        logbus::warn("latex", format!("Schéma non compilé : {detail}"));
+        logbus::warn("latex", format!("{} non compilé : {detail}", capitalise(noun)));
         let _ = fs::remove_dir_all(&build);
-        return Err(format!("Ce schéma ne compile pas : {detail}"));
+        return Err(format!("Ce {noun} ne compile pas : {detail}"));
     }
 
     let produced = rasterise(&build, &stem).inspect_err(|_| {
@@ -206,12 +268,24 @@ pub fn render(
     let final_path = cache.join(format!("{stem}.{extension}"));
     fs::rename(&produced, &final_path)
         .or_else(|_| fs::copy(&produced, &final_path).map(|_| ()))
-        .map_err(|e| format!("Enregistrement du schéma : {e}"))?;
+        .map_err(|e| format!("Enregistrement du {noun} : {e}"))?;
 
     let _ = fs::remove_dir_all(&build);
 
-    logbus::detail("latex", "Schéma rendu", final_path.to_string_lossy().to_string());
+    logbus::detail(
+        "latex",
+        format!("{} rendu", capitalise(noun)),
+        final_path.to_string_lossy().to_string(),
+    );
     Ok(final_path)
+}
+
+fn capitalise(word: &str) -> String {
+    let mut chars = word.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
 }
 
 #[cfg(test)]
@@ -219,24 +293,80 @@ mod tests {
     use super::*;
     use std::thread;
 
+    fn has_engine() -> bool {
+        crate::env_check::resolve_tool("pdflatex").is_some()
+            || crate::env_check::resolve_tool("tectonic").is_some()
+            || crate::engine::installed().is_some()
+    }
+
+    fn scratch(name: &str) -> (PathBuf, Template) {
+        let root = std::env::temp_dir().join(format!("plume-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        crate::templates::seed(&root).unwrap();
+        let template = crate::templates::load(&root, "charte-maths").expect("bundled template");
+        (root, template)
+    }
+
+    /// A passage is set inside the charte, not beside it: its preamble comes
+    /// first and whole, the crop is the `preview` package's, and the width
+    /// is the charte's text width. A figure keeps the lighter standalone.
+    #[test]
+    fn a_passage_is_typeset_with_the_charte_s_own_preamble() {
+        let preamble = "\\documentclass[11pt,a4paper]{article}\n\\usepackage{tikz}\n\\definecolor{mcDef}{HTML}{A93226}\n";
+        let passage = Snippet::Passage("\\begin{tabular}{cc}a & b\\end{tabular}").document(preamble);
+        assert!(passage.starts_with("\\documentclass[11pt,a4paper]{article}\n\\usepackage{tikz}"));
+        assert!(passage.contains("\\usepackage[active,tightpage]{preview}"));
+        assert!(passage.contains("\\begin{minipage}{\\textwidth}\n\\begin{tabular}{cc}a & b\\end{tabular}\n\\end{minipage}"));
+
+        let figure = Snippet::Figure("\\begin{tikzpicture}\\end{tikzpicture}").document(preamble);
+        assert!(figure.starts_with("\\documentclass[border=4pt]{standalone}"));
+        assert!(figure.contains("\\definecolor{mcDef}{HTML}{A93226}"));
+        assert!(!figure.contains("a4paper"), "a figure does not carry the page");
+    }
+
+    /// The same table, before and after the charte changes: a different
+    /// image. The same diagram: the same one, the charte having no say.
+    #[test]
+    fn a_passage_s_cache_key_follows_the_charte_but_a_figure_s_does_not() {
+        let table = Snippet::Passage("\\begin{tabular}{c}x\\end{tabular}");
+        assert_ne!(table.key("\\definecolor{mcDef}{HTML}{A93226}"), table.key("\\definecolor{mcDef}{HTML}{000000}"));
+        let figure = Snippet::Figure("\\begin{tikzpicture}\\end{tikzpicture}");
+        assert_eq!(figure.key("\\definecolor{mcDef}{HTML}{A93226}"), figure.key("\\definecolor{mcDef}{HTML}{000000}"));
+    }
+
+    /// The table that started this: a `tabular` with a diagram in each row,
+    /// which the HTML preview can only show as prose with stray `&`. Rendered
+    /// by the engine it comes back as one image, text width wide.
+    #[test]
+    fn a_table_with_diagrams_in_its_cells_renders_as_one_image() {
+        if !has_engine() {
+            eprintln!("no LaTeX engine on this machine, skipping");
+            return;
+        }
+        let (root, template) = scratch("passage-test");
+        let latex = "\\begin{center}\\begin{tabular}{|c|c|}\\hline\n\
+                     $x \\in [a\\,;b]$ & \\begin{tikzpicture}[baseline=-0.5ex,x=0.5cm,y=0.5cm]\\draw[mcTexte,->] (0,0) -- (4,0);\\draw[mcDef,line width=1.2pt] (1,0) -- (3,0);\\end{tikzpicture} \\\\ \\hline\n\
+                     \\end{tabular}\\end{center}";
+        let path = render(&root, &root, &template, Snippet::Passage(latex)).expect("rendered");
+        assert!(path.is_file());
+        assert!(path.file_name().unwrap().to_string_lossy().starts_with("pas-"));
+        // Once more, from the cache this time: the same file, no compile.
+        assert_eq!(render(&root, &root, &template, Snippet::Passage(latex)).unwrap(), path);
+        let _ = fs::remove_dir_all(&root);
+    }
+
     /// Reproduces the failure this module was built around: the preview mounts
     /// every diagram at once, and two blocks may hold the identical diagram.
     /// Before serialisation, concurrent runs deleted each other's intermediate
     /// files and reported "I can't find file `fig-….aux`".
     #[test]
     fn concurrent_renders_all_succeed() {
-        if crate::env_check::resolve_tool("pdflatex").is_none()
-            && crate::env_check::resolve_tool("tectonic").is_none()
-        {
+        if !has_engine() {
             eprintln!("no LaTeX engine on this machine, skipping");
             return;
         }
-
-        let root = std::env::temp_dir().join(format!("plume-fig-test-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).unwrap();
-        crate::templates::seed(&root).unwrap();
-        let template = crate::templates::load(&root, "charte-maths").expect("bundled template");
+        let (root, template) = scratch("fig-test");
 
         let shared = r"\begin{tikzpicture}\draw[mcDef,->] (0,0) -- (2,1);\end{tikzpicture}";
         let diagrams = [
@@ -250,7 +380,7 @@ mod tests {
         let results: Vec<_> = thread::scope(|scope| {
             let handles: Vec<_> = diagrams
                 .iter()
-                .map(|tikz| scope.spawn(|| render(&root, &root, &template, tikz)))
+                .map(|tikz| scope.spawn(|| render(&root, &root, &template, Snippet::Figure(tikz))))
                 .collect();
             handles.into_iter().map(|h| h.join().unwrap()).collect()
         });

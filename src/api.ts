@@ -178,6 +178,10 @@ export const readingDocuments = () => invoke<string[]>("reading_documents");
 export const renderFigure = (id: string, tikz: string) =>
   invoke<string>("render_figure", { id, tikz });
 
+/** A block with its own layout, typeset by the engine with the charte. */
+export const renderPassage = (id: string, latex: string) =>
+  invoke<string>("render_passage", { id, latex });
+
 export const getSettings = () => invoke<Settings>("get_settings");
 export const saveSettings = (settings: Settings) =>
   invoke<void>("save_settings", { settings });

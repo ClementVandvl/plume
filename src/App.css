@@ -4050,6 +4050,15 @@ textarea.code-area {
   max-height: 320px;
 }
 
+/* A passage typeset by the engine at the charte's text width: shown at the
+   column's width, so its type lands at about the size of the prose around it. */
+.tex-passage-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: var(--space-xs) 0;
+}
+
 .tex-figure--error {
   border-color: rgb(169 50 38 / 40%);
   color: rgb(169 50 38 / 80%);

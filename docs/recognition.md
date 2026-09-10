@@ -269,7 +269,9 @@ lines; the review had said so, but the PDF was just as broken.
 and keeps everything they contained in order. The passage stacks — which is
 what the charte expects and what the review already showed. Every removal is
 named in the console. `hasLayout` and `LAYOUT_COMMANDS` still exist for what
-reaches the review from an older reading, or from a hand edit.
+reaches the review from an older reading, an import or a hand edit — a table,
+most often — and such a passage is typeset by the engine in the review rather
+than stacked (see [preview.md](preview.md)).
 
 ### Echoed headings
 
@@ -672,13 +674,13 @@ The detection is still the model's, not deterministic colour analysis. Until the
 HSV pre-pass exists, treat the tagging as a proposal the teacher confirms — the
 same rule as §4: a business decision must not rest on a hallucination.
 
-**Figures.** A diagram is where a wrong transcription hides best, so the review
-preview compiles each `tikzpicture` on its own with the real engine
-([`figures.rs`](../src-tauri/src/figures.rs)): a `standalone` document carrying
-the document's own colour definitions, then `pdftocairo -svg`, with `pdftoppm`
-as the raster fallback. Output is cached beside the document, keyed by a hash of
-the TikZ source, so an unchanged figure costs nothing and an edited one is
-rebuilt.
+**Figures and passages.** A diagram is where a wrong transcription hides best,
+so the review preview compiles each `tikzpicture` on its own with the real
+engine; a passage that lays itself out — a table, columns — is compiled whole,
+with the charte's preamble, since the HTML preview can only stack it. Both go
+through [`figures.rs`](../src-tauri/src/figures.rs) and are cached beside the
+document. How the preview splits its work between the converter and the engine
+is in [preview.md](preview.md).
 
 **Preview.** The export step embeds the compiled PDF in the window rather than
 handing it to an external reader.

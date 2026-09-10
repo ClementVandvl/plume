@@ -52,6 +52,13 @@ const transcript = {
         }),
         // A heading the page did not number: it used to render as "null – …".
         block("b2b", "subpart", "", { title: "Exercices" }),
+        // A block with its own layout — a table with a diagram in each row —
+        // which the preview hands whole to the engine rather than stacking.
+        block(
+          "b2c",
+          "application",
+          "\\textbf{Notation :} on peut définir d'autres intervalles à l'aide du tableau suivant :\n\n\\begin{center}\\begin{tabular}{|c|c|c|}\\hline\n$a \\leqslant x \\leqslant b$ & $x \\in [a\\,;b]$ & \\begin{tikzpicture}\\draw[->] (0,0) -- (3,0);\\end{tikzpicture} \\\\ \\hline\n$a < x \\leqslant b$ & $x \\in \\,]a\\,;b]$ & \\begin{tikzpicture}\\draw[->] (0,0) -- (3,0);\\end{tikzpicture} \\\\ \\hline\n\\end{tabular}\\end{center}",
+        ),
         block(
           "b3",
           "text",
@@ -316,6 +323,15 @@ const logs = [
   { at: now - 20_000, level: "info", scope: "latex", message: "compilation en 2 passes — 9 pages, 0 warning", detail: null },
 ];
 
+const inlineSvg = (width: number, height: number, caption: string) =>
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}pt" height="${height}pt" viewBox="0 0 ${width} ${height}">` +
+      `<rect x="1" y="1" width="${width - 2}" height="${height - 2}" fill="none" stroke="#1a1a1a" stroke-dasharray="4 3"/>` +
+      `<text x="${width / 2}" y="${height / 2 + 4}" text-anchor="middle" font-family="serif" font-size="11" fill="#1a1a1a">${caption}</text>` +
+      `</svg>`,
+  );
+
 const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   check_environment: () => ({ ...environment, auth: auth }),
   // `?mock&loggedout` starts signed out; "signing in" takes a few seconds,
@@ -451,6 +467,12 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
     for (const d of documents) for (const t of d.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
     return [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count);
   },
+  // The engine is not in the browser: an inline drawing stands in for the
+  // compiled image, sized like the real thing — a diagram, or a passage as
+  // wide as the charte's text — so the preview's routing can be looked at.
+  render_figure: () => inlineSvg(120, 60, "schéma (moteur)"),
+  render_passage: (args: Record<string, unknown>) =>
+    inlineSvg(478, 80, `passage rendu par le moteur — ${String(args.latex ?? "").length} caractères`),
   mcp_bundle: (args: Record<string, unknown>) => String(args.path ?? "/tmp/plume.mcpb"),
   reveal_file: () => undefined,
   build_document: (args: Record<string, unknown>) => ({

@@ -21,7 +21,7 @@ use serde::Serialize;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::menu::{Menu, MenuItem, Submenu};
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_opener::OpenerExt;
@@ -451,16 +451,38 @@ fn remove_engine() -> Result<(), String> {
 /// PDF" there defeats the purpose.
 #[tauri::command]
 async fn render_figure(id: String, tikz: String) -> Result<String, String> {
+    render_snippet(id, move |document_dir, root, template| {
+        figures::render(document_dir, root, template, figures::Snippet::Figure(&tikz))
+    })
+    .await
+}
+
+/// Typesets one block with the charte and returns the image path.
+///
+/// For a passage that lays itself out — a table, columns — where the HTML
+/// preview can only stack things: what is shown is what will print.
+#[tauri::command]
+async fn render_passage(id: String, latex: String) -> Result<String, String> {
+    render_snippet(id, move |document_dir, root, template| {
+        figures::render(document_dir, root, template, figures::Snippet::Passage(&latex))
+    })
+    .await
+}
+
+async fn render_snippet(
+    id: String,
+    render: impl FnOnce(&Path, &Path, &templates::Template) -> Result<PathBuf, String> + Send + 'static,
+) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let root = workspace::root();
         let document = workspace::load(&id)?;
         let template = templates::load(&root, &document.template_id)
             .ok_or("Modèle introuvable.".to_string())?;
-        figures::render(&workspace::document_dir(&id), &root, &template, &tikz)
+        render(&workspace::document_dir(&id), &root, &template)
             .map(|path| path.to_string_lossy().to_string())
     })
     .await
-    .map_err(|e| format!("Rendu du schéma interrompu : {e}"))?
+    .map_err(|e| format!("Rendu interrompu : {e}"))?
 }
 
 /// Preview of the preamble as it will be written at the top of the .tex.
@@ -1810,6 +1832,7 @@ pub fn run() {
             reveal_file,
             preview_preamble,
             render_figure,
+            render_passage,
             install_engine,
             install_claude,
             open_claude_login,

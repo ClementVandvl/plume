@@ -1,13 +1,8 @@
 import { useMemo } from "react";
-import {
-  hasLayout,
-  hasStrayAlignment,
-  latexToHtml,
-  splitFigures,
-} from "../preview/latexToHtml";
+import { hasLayout, hasStrayAlignment } from "../preview/detect";
 import { t } from "../i18n";
 import { needsReview } from "../ui/review";
-import { Figure } from "./Figure";
+import { BlockBody } from "./BlockBody";
 import { KIND_LABEL, type Block, type Template, type Transcript } from "../types";
 
 /**
@@ -181,8 +176,8 @@ export function DocumentPreview({
           block.audience.length > 0 && !block.audience.includes("student");
         const studentOnly =
           block.audience.length > 0 && !block.audience.includes("teacher");
-        // The preview is a single column; a block doing its own layout will not
-        // look the same in the PDF, and saying so beats a silent difference.
+        // A block doing its own layout is typeset by the engine rather than
+        // stacked by the converter; the tag says which passages those are.
         const layout = hasLayout(block.latex);
         // An alignment tab with no environment around it is a LaTeX error, so
         // the export would fail outright. Saying so here is the only chance to
@@ -196,7 +191,7 @@ export function DocumentPreview({
               block.note ? "pblock--noted" : ""
             } ${teacherOnly ? "pblock--teacher" : ""} ${
               studentOnly ? "pblock--student" : ""
-            } ${layout || strayTab ? "pblock--layout" : ""} ${
+            } ${strayTab ? "pblock--layout" : ""} ${
               beyond.has(block.id) ? "pblock--beyond" : ""
             } ${selectedId === block.id ? "pblock--selected" : ""}`}
             onClick={() => onSelect(block.id)}
@@ -270,28 +265,14 @@ export function DocumentPreview({
                         : undefined
                     }
                   >
-                    {layout && (
-                      <p className="tex-layout-note">{t("preview.layout.note")}</p>
-                    )}
                     {strayTab && (
                       <p className="tex-layout-note">{t("preview.stray.note")}</p>
                     )}
-                    {splitFigures(block.latex).map((segment, index) =>
-                      segment.kind === "figure" ? (
-                        <Figure
-                          key={`${block.id}-f${index}`}
-                          documentId={documentId}
-                          tikz={segment.tikz}
-                        />
-                      ) : (
-                        <span
-                          key={`${block.id}-t${index}`}
-                          dangerouslySetInnerHTML={{
-                            __html: latexToHtml(segment.latex, latexColours),
-                          }}
-                        />
-                      ),
-                    )}
+                    <BlockBody
+                      documentId={documentId}
+                      latex={block.latex}
+                      colours={latexColours}
+                    />
                   </div>
                 </div>
               )}
