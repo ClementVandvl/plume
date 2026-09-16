@@ -431,14 +431,21 @@ export function DocumentView({
   const prepared = useMemo(() => preparedAdaptations(blocks), [blocks]);
   const colours = useMemo(() => latexColours(template), [template]);
 
-  const done: Record<StepId, boolean> = {
+  const source = steps.filter((s) => s.phase === "source");
+  const work = steps.filter((s) => s.phase === "work");
+  /** Passages still wanting the teacher's eye, shown on the review tab. */
+  const pending = doubtful.length + annotated.length;
+
+  /**
+   * Whether each of the source steps has happened.
+   *
+   * Only those: reviewing, adapting and exporting are not stages to get
+   * through, and a tick beside them said a document was finished when the
+   * teacher was still going back and forth between the three.
+   */
+  const done: Partial<Record<StepId, boolean>> = {
     pages: pagePaths.length > 0,
     read: blocks.length > 0,
-    review: blocks.length > 0 && doubtful.length === 0 && annotated.length === 0,
-    // Not a stage to get through: a document nobody needs adapted is finished
-    // without it, so the dot lights only once there is an adaptation to show.
-    adapt: prepared.length > 0,
-    export: (build?.pdfPath ?? document?.lastPdf) != null,
   };
 
   // Opening a written document from the list asks for "pages", which it has not
@@ -816,23 +823,54 @@ export function DocumentView({
             {t("document.back")}
           </button>
           <span className="stepbar__divider" />
-          {steps.map((s, index) => (
-            <span key={s.id} className="stepbar__unit">
-              {index > 0 && <span className="stepbar__sep" />}
+
+          {/* Turning paper into passages: done once, in order, and then not
+              thought about again. The chain is true here. */}
+          {source.length > 0 && (
+            <>
+              {source.map((s, index) => (
+                <span key={s.id} className="stepbar__unit">
+                  {index > 0 && <span className="stepbar__sep" />}
+                  <button
+                    type="button"
+                    className={`stepbar__step ${step === s.id ? "stepbar__step--current" : ""}`}
+                    onClick={() => setStep(s.id)}
+                  >
+                    <span
+                      className={`stepbar__dot ${done[s.id] ? "stepbar__dot--done" : ""} ${step === s.id ? "stepbar__dot--current" : ""}`}
+                    >
+                      {done[s.id] ? <Icon name="check" size={11} /> : index + 1}
+                    </span>
+                    {t(s.labelKey)}
+                  </button>
+                </span>
+              ))}
+              <span className="stepbar__divider" />
+            </>
+          )}
+
+          {/* Three views of the same finished document, moved between freely.
+              No numbers, no chain: nothing here is a stage to get past. */}
+          <div className="seg seg--tabs" role="tablist" aria-label={t("steps.work")}>
+            {work.map((s) => (
               <button
+                key={s.id}
                 type="button"
-                className={`stepbar__step ${step === s.id ? "stepbar__step--current" : ""}`}
+                role="tab"
+                aria-selected={step === s.id}
+                className={`seg__opt ${step === s.id ? "seg__opt--on" : ""}`}
                 onClick={() => setStep(s.id)}
               >
-                <span
-                  className={`stepbar__dot ${done[s.id] ? "stepbar__dot--done" : ""} ${step === s.id ? "stepbar__dot--current" : ""}`}
-                >
-                  {done[s.id] ? <Icon name="check" size={11} /> : index + 1}
-                </span>
                 {t(s.labelKey)}
+                {/* The one count worth carrying up here: passages the teacher
+                    has still to look at. The others would only be decoration
+                    on a tab they can see for themselves. */}
+                {s.id === "review" && pending > 0 && (
+                  <span className="seg__count">{pending}</span>
+                )}
               </button>
-            </span>
-          ))}
+            ))}
+          </div>
         </div>
 
         <div className="stepbar__tools">

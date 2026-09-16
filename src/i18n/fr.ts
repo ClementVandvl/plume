@@ -56,6 +56,7 @@ export const fr = {
   // ------------------------------------------------------------------- steps
   "steps.pages": "Photos",
   "steps.read": "Lecture",
+  "steps.work": "Travail sur le document",
   "steps.review": "Relecture",
   "steps.export": "PDF",
 

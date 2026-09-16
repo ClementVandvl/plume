@@ -269,12 +269,24 @@ export type Route =
   | { name: "document"; id: string; step?: StepId };
 
 /** Steps of the recognition wizard, in order. Labels live in the dictionary. */
+/**
+ * The steps of a document, in two halves that behave differently.
+ *
+ * `source` is a pipeline: photograph, then read. It runs once, forwards, and
+ * a step of it is either done or not — the numbered chain says so.
+ *
+ * `work` is not. Reviewing, adapting and exporting are three views of the
+ * same finished document, and the teacher moves between them all afternoon:
+ * mark a hole, build the PDF, go back and fix a passage. Drawn as a chain of
+ * numbered stages they promised a progression nobody follows, so they are
+ * tabs.
+ */
 export const STEPS = [
-  { id: "pages", labelKey: "steps.pages" },
-  { id: "read", labelKey: "steps.read" },
-  { id: "review", labelKey: "steps.review" },
-  { id: "adapt", labelKey: "steps.adapt" },
-  { id: "export", labelKey: "steps.export" },
+  { id: "pages", labelKey: "steps.pages", phase: "source" },
+  { id: "read", labelKey: "steps.read", phase: "source" },
+  { id: "review", labelKey: "steps.review", phase: "work" },
+  { id: "adapt", labelKey: "steps.adapt", phase: "work" },
+  { id: "export", labelKey: "steps.export", phase: "work" },
 ] as const;
 
 export type StepId = (typeof STEPS)[number]["id"];

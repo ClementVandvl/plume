@@ -3302,6 +3302,37 @@ textarea.code-area {
   color: var(--color-accent-on);
 }
 
+/* The three tabs of the finished document. Sized to sit level with the
+   numbered chain beside them, and kept as one pill so the group reads as a
+   place to move around in rather than a road to travel down. */
+.seg--tabs {
+  height: var(--control-height-sm);
+  align-items: center;
+}
+
+.seg--tabs .seg__opt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  height: calc(var(--control-height-sm) - 4px);
+  padding: 0 var(--space-sm);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+/* Passages still to look at: the one number worth carrying into the bar. */
+.seg__count {
+  flex: none;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-soft-warning);
+  color: var(--color-strong-warning);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
 .stepbar__tools {
   display: flex;
   align-items: center;
