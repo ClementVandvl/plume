@@ -606,11 +606,23 @@ is refused with a message, and a document that does not fit even a half page
 at 6 pt keeps the fixed counts.
 
 **Adapting a lesson (PAP).** A pupil working under a *plan d'accompagnement
-personnalisé* gets the same lesson with some of its words left blank, to fill
-in during the hour instead of copying the whole page. A step of its own
-between the review and the PDF (`AdaptView`): the teacher drags across a
-stretch of text and it becomes a hole. Optional — a document nobody needs
-adapted is finished without ever opening it.
+personnalisé* gets the same lesson adapted for them. A step of its own between
+the review and the PDF, optional — a document nobody needs adapted is finished
+without ever opening it.
+
+[`adapt/kinds.ts`](../src/adapt/kinds.ts) lists the adaptations, and is the
+only list of them. `AdaptView` reads it for its sidebar and opens one editor at
+a time; the export step reads it to offer the adapted copy. There is one entry
+today, *texte à trous*, and the shape is the point: a second adaptation is an
+entry plus an editor, not a second screen, and not another switch added to a
+row of switches in two places at once. The export carries the adaptations by
+name (`adaptations: Vec<String>` on `build_document`) rather than a flag each,
+for the same reason. Nothing is offered that the document has not been
+prepared for: a control that can do nothing is still a question to read and
+dismiss.
+
+**Texte à trous.** The teacher drags across a stretch of text and it becomes a
+hole.
 
 The marking is written into the passage's own LaTeX as `\trou{les mots}`,
 never into a field beside it: a field would name a span of text by position,
@@ -625,12 +637,18 @@ are never hidden, and a passage that lays itself out is left out of the page
 entirely — cut into words a table is alignment tabs and rules.
 
 `render::apply_gaps` resolves the mark at export: printed as itself in every
-ordinary copy, and in the adapted one replaced by
-`\underline{\vphantom{Ag}\hphantom{…}}` — one hole per word, so a long
-marking still breaks across lines and the count of holes tells the pupil how
-many words are missing. The width is the word's own, so the two copies break
-their lines in the same places and the class can follow one page. An adapted
-build never touches `status` or `last_pdf`, like every other copy taken for a
+ordinary copy, and in the adapted one replaced by a ruled space — one hole per
+word, so a long marking still breaks across lines and the count of holes tells
+the pupil how many words are missing. Each hole is `GAP_WIDTH` times the width
+of the word it hides (`\makebox[1.5\width]` around an `\hphantom`), because
+handwriting is bigger than 11 pt type and a hole the exact width of its word is
+one a pupil cannot write in. The price is that the adapted copy no longer
+breaks its lines where the ordinary one does; room to write was worth more.
+
+The chartes carry `\providecommand{\trou}[1]{#1}` so a mark written by hand in
+the LaTeX editor compiles instead of stopping the build, and the engine
+preview of a passage resolves the marks before compiling. An adapted build
+never touches `status` or `last_pdf`, like every other copy taken for a
 purpose, and its `.tex` is named `…-pap.tex`.
 
 An imposition or a recomposition works in a hidden folder of its own beside

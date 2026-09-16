@@ -254,15 +254,22 @@ fn keeps(block: &Block, audience: &str) -> bool {
 /// holds — through a correction, a split, a renumbering.
 pub const GAP: &str = "\\trou";
 
+/// How much wider than the printed word its hole is.
+///
+/// Handwriting is bigger than 11 pt type, and a hole the exact width of the
+/// word it replaces is one a pupil cannot write in — which is the whole point
+/// of the hole. Half as wide again is about what a secondary pupil's hand
+/// needs. The price is that the adapted copy no longer breaks its lines in
+/// the same places as the ordinary one; room to write was worth more.
+const GAP_WIDTH: &str = "1.5";
+
 /// Resolves every `\trou{…}` in a block's body.
 ///
 /// `blank` produces the adapted copy: each marked word becomes a ruled space
-/// of exactly its own width, so the pupil writes in the hole and the lines
-/// break where they break in every other copy — the teacher can read from the
-/// board while the pupil follows on the same layout. Word by word rather than
-/// one rule over the whole run, so a long marking still breaks across lines,
-/// and the count of holes tells the pupil how many words are missing, which
-/// is the kind of support a PAP exists to give.
+/// half as wide again as the word it hides, for the pupil to write in. Word
+/// by word rather than one rule over the whole run, so a long marking still
+/// breaks across lines, and the count of holes tells the pupil how many words
+/// are missing — the kind of support a PAP exists to give.
 ///
 /// Without `blank` the words come back and the ordinary PDF holds no trace of
 /// the marking: one document, two copies, nothing to keep in step by hand.
@@ -317,7 +324,14 @@ fn group_at(text: &str) -> Option<&str> {
 fn blanked(content: &str) -> String {
     words_of(content)
         .into_iter()
-        .map(|word| format!("\\underline{{\\vphantom{{Ag}}\\hphantom{{{word}}}}}"))
+        .map(|word| {
+            // `\width` inside a `\makebox` width is the natural width of what
+            // it holds, so the rule grows with the word rather than by a fixed
+            // amount: a long word gets a long hole.
+            format!(
+                "\\underline{{\\vphantom{{Ag}}\\makebox[{GAP_WIDTH}\\width]{{\\hphantom{{{word}}}}}}}"
+            )
+        })
         .collect::<Vec<_>>()
         .join(" ")
 }
@@ -467,7 +481,8 @@ mod tests {
         );
         assert_eq!(
             apply_gaps(latex, true),
-            "Deux vecteurs sont \\underline{\\vphantom{Ag}\\hphantom{colinéaires}} lorsque..."
+            "Deux vecteurs sont \
+             \\underline{\\vphantom{Ag}\\makebox[1.5\\width]{\\hphantom{colinéaires}}} lorsque..."
         );
     }
 
@@ -477,9 +492,10 @@ mod tests {
     fn each_word_of_a_run_keeps_its_own_width() {
         let blanked = apply_gaps("On dit \\trou{de même direction} quand...", true);
         assert_eq!(blanked.matches("\\underline").count(), 3);
-        assert!(blanked.contains(
-            "\\underline{\\vphantom{Ag}\\hphantom{de}} \\underline{\\vphantom{Ag}\\hphantom{même}}"
-        ), "one hole per word, the ordinary space between them: the line may break there");
+        assert!(
+            blanked.contains("\\hphantom{de}}} \\underline{"),
+            "one hole per word, the ordinary space between them: the line may break there"
+        );
     }
 
     /// A space inside maths or inside a command's argument does not separate
@@ -488,6 +504,9 @@ mod tests {
     fn a_space_inside_maths_does_not_open_a_second_hole() {
         let blanked = apply_gaps("\\trou{$a + b$ et \\textbf{les deux}}", true);
         assert_eq!(blanked.matches("\\underline").count(), 3, "$a + b$, et, \\textbf{{...}}");
+        // Wider than the word, so a hand fits: the reason the copies no
+        // longer break their lines in the same places.
+        assert_eq!(blanked.matches("\\makebox[1.5\\width]").count(), 3);
         assert!(blanked.contains("\\hphantom{$a + b$}"));
         assert!(blanked.contains("\\hphantom{\\textbf{les deux}}"));
     }

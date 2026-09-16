@@ -37,10 +37,11 @@ LaTeX has more ways of making a table than a converter will ever cover, and the
 model finds a new one each course. A construct the converter cannot draw
 faithfully is added to the layout list, not to the converter.
 
-`AdaptView` is a third reader of the same passages, and it uses neither
-renderer whole: it cuts a passage into words with `preview/gaps.ts` and
-converts each one with `inlineHtml`, so the teacher can point at a word. It
-skips what `hasLayout` flags, for the same reason the engine takes those over.
+`GapEditor`, on the adaptation step, is a third reader of the same passages,
+and it uses neither renderer whole: it cuts a passage into words with
+`preview/gaps.ts` and converts each one with `inlineHtml`, so the teacher can
+point at a word. It skips what `hasLayout` flags, for the same reason the
+engine takes those over.
 
 ## The converter is a pipeline
 

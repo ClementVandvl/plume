@@ -54,7 +54,7 @@ import { useAdvanced } from "../ui/mode";
 import { Icon } from "../ui/Icon";
 import { moved, useDragOrder } from "../ui/dragOrder";
 import { AdaptView } from "./AdaptView";
-import { countGaps } from "../preview/gaps";
+import { ADAPTATIONS, preparedAdaptations } from "../adapt/kinds";
 import { latexColours } from "../preview/colours";
 import { needsReview } from "../ui/review";
 import { useClaudeLogin } from "../ui/login";
@@ -117,8 +117,8 @@ export function DocumentView({
   const [repeat, setRepeat] = useState(true);
   /** « Maximiser »: recompose in the smallest cell that fits, and tile it. */
   const [fill, setFill] = useState(false);
-  /** The copy for a pupil under a PAP: the marked words left blank. */
-  const [pap, setPap] = useState(false);
+  /** Which adaptations the copy for a pupil under a PAP carries. */
+  const [adaptations, setAdaptations] = useState<string[]>([]);
   const [rules, setRules] = useState("");
   const [progress, setProgress] = useState<TranscriptionProgress | null>(null);
   const [scan, setScan] = useState<Record<number, ScanInfo>>({});
@@ -427,11 +427,8 @@ export function DocumentView({
       pagePaths.length > 0,
   );
 
-  /** Holes across the whole document, as the teacher drew them. */
-  const gaps = useMemo(
-    () => blocks.reduce((total, block) => total + countGaps(block.latex), 0),
-    [blocks],
-  );
+  /** The adaptations this document has actually been prepared for. */
+  const prepared = useMemo(() => preparedAdaptations(blocks), [blocks]);
   const colours = useMemo(() => latexColours(template), [template]);
 
   const done: Record<StepId, boolean> = {
@@ -440,7 +437,7 @@ export function DocumentView({
     review: blocks.length > 0 && doubtful.length === 0 && annotated.length === 0,
     // Not a stage to get through: a document nobody needs adapted is finished
     // without it, so the dot lights only once there is an adaptation to show.
-    adapt: gaps > 0,
+    adapt: prepared.length > 0,
     export: (build?.pdfPath ?? document?.lastPdf) != null,
   };
 
@@ -534,7 +531,9 @@ export function DocumentView({
     setError(null);
     setBuilding(true);
     try {
-      setBuild(await buildDocument(documentId, audience, taughtOnly, perSheet, repeat, fill, pap));
+      setBuild(
+        await buildDocument(documentId, audience, taughtOnly, perSheet, repeat, fill, adaptations),
+      );
       // The PDF is rewritten at the same path, so its URL never changes and the
       // webview kept showing the previous build. Counting them changes it.
       setBuilds((count) => count + 1);
@@ -1371,7 +1370,12 @@ export function DocumentView({
         )}
 
         {step === "adapt" && transcript && (
-          <AdaptView transcript={transcript} colours={colours} onPersist={persist} />
+          <AdaptView
+            transcript={transcript}
+            blocks={blocks}
+            colours={colours}
+            onPersist={persist}
+          />
         )}
 
         {step === "export" && (
@@ -1469,20 +1473,61 @@ export function DocumentView({
                 <p className="field__hint">{t("export.partial.note")}</p>
               )}
 
-              {/* Offered only once words are marked: a switch that can do
-                  nothing is a question the teacher has to answer anyway. */}
-              {gaps > 0 && (
+              {/* One switch, whatever the document has been prepared for:
+                  a row of them, one per adaptation, would grow into a form
+                  the teacher has to read through on every export. What the
+                  copy carries is said underneath, and picked apart only when
+                  there is more than one thing to pick from. */}
+              {prepared.length > 0 && (
                 <div className="panelcard">
                   <span className="panelcard__title">{t("export.pap.title")}</span>
                   <div className="toggle-row">
                     <div className="toggle-row__copy">
                       <span className="toggle-row__label">{t("export.pap.label")}</span>
                       <span className="field__hint">
-                        {pap ? tn("export.pap.on", gaps) : t("export.pap.off")}
+                        {adaptations.length === 0
+                          ? t("export.pap.off")
+                          : prepared
+                              .filter((entry) => adaptations.includes(entry.id))
+                              .map((entry) => t(entry.labelKey))
+                              .join(" · ")}
                       </span>
                     </div>
-                    <Toggle checked={pap} onChange={setPap} label={t("export.pap.label")} />
+                    <Toggle
+                      checked={adaptations.length > 0}
+                      onChange={(on) =>
+                        setAdaptations(on ? prepared.map((entry) => entry.id) : [])
+                      }
+                      label={t("export.pap.label")}
+                    />
                   </div>
+
+                  {/* With one adaptation the switch has already said it all. */}
+                  {adaptations.length > 0 && prepared.length > 1 && (
+                    <div className="chips chips--tight">
+                      {prepared.map((entry) => (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          className={`chip ${adaptations.includes(entry.id) ? "chip--on" : ""}`}
+                          onClick={() =>
+                            setAdaptations((current) =>
+                              current.includes(entry.id)
+                                ? current.filter((id) => id !== entry.id)
+                                : ADAPTATIONS.filter(
+                                    (known) =>
+                                      known.id === entry.id || current.includes(known.id),
+                                  ).map((known) => known.id),
+                            )
+                          }
+                          aria-pressed={adaptations.includes(entry.id)}
+                        >
+                          {t(entry.labelKey)}
+                          <span className="chip__count">{entry.count(blocks)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

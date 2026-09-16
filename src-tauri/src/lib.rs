@@ -1654,9 +1654,15 @@ async fn build_document(
     per_sheet: u8,
     repeat: bool,
     fill: bool,
-    pap: bool,
+    adaptations: Vec<String>,
 ) -> Result<BuildResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        // Which adaptations this copy carries, by name rather than by a flag
+        // each: a second one is another arm here, not another parameter
+        // threaded through the command, the API and the mock.
+        let blanks = adaptations.iter().any(|name| name == "gaps");
+        let adapted = !adaptations.is_empty();
+
         let document = workspace::load(&id)?;
         let root = workspace::root();
         let dir = workspace::document_dir(&id);
@@ -1686,7 +1692,7 @@ async fn build_document(
             &document.title,
             &audience,
             taught_only,
-            pap,
+            blanks,
         )
         .map_err(|e| format!("Rendu impossible : {e}"))?;
 
@@ -1694,7 +1700,7 @@ async fn build_document(
         if taught_only {
             suffix.push_str("-partiel");
         }
-        if pap {
+        if adapted {
             suffix.push_str("-pap");
         }
         let name = format!("{}-{}{}.tex", document.id, audience, suffix);
@@ -1729,7 +1735,7 @@ async fn build_document(
                 // with nothing blanked: a partial, imposed, recomposed or
                 // adapted build is a copy taken for a purpose, and neither
                 // the list nor "Ouvrir le PDF" should point at it.
-                if !taught_only && per_sheet <= 1 && !fill && !pap {
+                if !taught_only && per_sheet <= 1 && !fill && !adapted {
                     let mut document = document;
                     document.status = "ready".into();
                     document.last_pdf = pdf

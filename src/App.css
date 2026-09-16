@@ -4070,11 +4070,117 @@ textarea.code-area {
 
 /* ---------- Adapting a lesson (PAP) ---------- */
 
+/* The page is a list of adaptations and the one that is open. There is a
+   single adaptation today; the shape is what keeps the second from landing
+   as another row of controls on top of the first. */
 .adapt {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  align-items: start;
+}
+
+.adapt__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  position: sticky;
+  top: var(--space-lg);
+}
+
+.adapt__side-title {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+  padding: 0 var(--space-sm) var(--space-xs);
+}
+
+.adaptkind {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-subtle);
+  background: none;
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+
+.adaptkind:hover {
+  background: var(--color-surface-hover);
+}
+
+.adaptkind--on {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.adaptkind__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.adaptkind__label {
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.adaptkind__hint {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.adaptkind__count {
+  flex: none;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--color-surface-hover);
+  font-size: 11px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.adapt__side-note {
+  margin: var(--space-xs) 0 0;
+  padding: 0 var(--space-sm);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text-faint);
+}
+
+.adapt__main {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  padding: var(--space-lg);
+  min-width: 0;
+}
+
+/* Narrow enough that two columns would leave the passage unreadable: the
+   list goes back on top and the passage keeps the width. */
+@media (max-width: 860px) {
+  .adapt {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adapt__side {
+    position: static;
+  }
+}
+
+.chips--tight {
+  margin-top: var(--space-sm);
 }
 
 .adapt__bar {

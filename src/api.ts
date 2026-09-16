@@ -64,7 +64,8 @@ export const buildDocument = (
   perSheet: PerSheet,
   repeat: boolean,
   fill: boolean,
-  pap: boolean,
+  /** Ids of the adaptations this copy carries; empty for the ordinary one. */
+  adaptations: string[],
 ) =>
   invoke<BuildResult>("build_document", {
     id,
@@ -73,7 +74,7 @@ export const buildDocument = (
     perSheet,
     repeat,
     fill,
-    pap,
+    adaptations,
   });
 
 /** Reads a document from JSON without creating anything. */
