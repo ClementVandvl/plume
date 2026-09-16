@@ -4108,8 +4108,9 @@ textarea.code-area {
   display: grid;
   grid-template-columns: 210px minmax(0, 1fr);
   gap: var(--space-lg);
-  padding: var(--space-lg);
   align-items: start;
+  /* No padding of its own: the step's body already sets the page margin, and
+     adding to it put this page's edge further in than every other one. */
 }
 
 .adapt__side {
@@ -4117,7 +4118,7 @@ textarea.code-area {
   flex-direction: column;
   gap: var(--space-xs);
   position: sticky;
-  top: var(--space-lg);
+  top: var(--space-xl);
 }
 
 .adapt__side-title {
