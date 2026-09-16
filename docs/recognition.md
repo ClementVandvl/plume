@@ -605,6 +605,34 @@ first), after the charte's own preamble; a charte that does not load geometry
 is refused with a message, and a document that does not fit even a half page
 at 6 pt keeps the fixed counts.
 
+**Adapting a lesson (PAP).** A pupil working under a *plan d'accompagnement
+personnalisé* gets the same lesson with some of its words left blank, to fill
+in during the hour instead of copying the whole page. A step of its own
+between the review and the PDF (`AdaptView`): the teacher drags across a
+stretch of text and it becomes a hole. Optional — a document nobody needs
+adapted is finished without ever opening it.
+
+The marking is written into the passage's own LaTeX as `\trou{les mots}`,
+never into a field beside it: a field would name a span of text by position,
+and every edit moves those. Inside the body, the mark travels with the words
+it holds, through a correction, a split or a renumbering.
+[`preview/gaps.ts`](../src/preview/gaps.ts) is the round trip between that
+LaTeX and something clickable — `tokenise` cuts a passage into words, `build`
+puts it back, and `runs` says which pieces one `\trou` covers, so the
+highlight on screen is the hole in the PDF down to the space between two
+marked words. A formula is one piece; a diagram and the scaffolding of a list
+are never hidden, and a passage that lays itself out is left out of the page
+entirely — cut into words a table is alignment tabs and rules.
+
+`render::apply_gaps` resolves the mark at export: printed as itself in every
+ordinary copy, and in the adapted one replaced by
+`\underline{\vphantom{Ag}\hphantom{…}}` — one hole per word, so a long
+marking still breaks across lines and the count of holes tells the pupil how
+many words are missing. The width is the word's own, so the two copies break
+their lines in the same places and the class can follow one page. An adapted
+build never touches `status` or `last_pdf`, like every other copy taken for a
+purpose, and its `.tex` is named `…-pap.tex`.
+
 An imposition or a recomposition works in a hidden folder of its own beside
 the document (`.build-<stem>/`, `latex::Workshop`) and delivers only the sheet
 asked for; the cells, wrappers and logs go with the folder, on success and on

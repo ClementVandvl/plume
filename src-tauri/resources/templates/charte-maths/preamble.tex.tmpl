@@ -39,6 +39,7 @@
 
 % --- Environnements de cours ---
 \definecolor{mcDef}{HTML}{{{color.definition}}}  % Definition
+\definecolor{mcVocab}{HTML}{{{color.vocabulary}}}  % Vocabulaire
 \definecolor{mcProp}{HTML}{{{color.property}}}  % Propriete
 \definecolor{mcTheo}{HTML}{{{color.theorem}}}  % Theoreme
 \definecolor{mcMethode}{HTML}{{{color.method}}}  % Methode
@@ -135,6 +136,11 @@
 %============================================================================
 %  7. ETIQUETTE D'ENVIRONNEMENT   \mclabel{couleur}{Mot}{titre optionnel}
 %============================================================================
+% Les mots masqués dans une version aménagée (PAP). Plume les résout
+% lui-même à l'export : cette définition n'est qu'un filet, pour qu'un
+% \trou écrit à la main compile au lieu d'arrêter la fabrication.
+\providecommand{\trou}[1]{#1}
+
 \newcommand{\mclabel}[3]{%
   \mcul{#1}{\bfseries #2\ifblank{#3}{}{ (#3)}}%
   \textcolor{#1}{\bfseries\,:}\hspace{0.7em}\ignorespaces}
@@ -145,6 +151,10 @@
 %============================================================================
 \newenvironment{definition}[1][]%
   {\begin{mccrochet}{mcDef}\mclabel{mcDef}{{{label.definition}}}{#1}}%
+  {\end{mccrochet}}
+
+\newenvironment{vocabulaire}[1][]%
+  {\begin{mccrochet}{mcVocab}\mclabel{mcVocab}{{{label.vocabulary}}}{#1}}%
   {\end{mccrochet}}
 
 \newenvironment{propriete}[1][]%

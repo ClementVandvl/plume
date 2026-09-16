@@ -152,10 +152,13 @@ fn aligned(body: String, align: Option<&str>) -> String {
     format!("\\begingroup{declaration}\n{neutralise}{body}\n\\par\\endgroup")
 }
 
-fn render_block(template: &Template, block: &Block) -> String {
+fn render_block(template: &Template, block: &Block, blanks: bool) -> String {
     // The alignment wraps the body, inside whatever environment holds it: a
     // heading's own label must keep the place the charte gives it.
-    let body = aligned(escape_nothing(block.latex.trim()).to_string(), block.align.as_deref());
+    let body = aligned(
+        apply_gaps(escape_nothing(block.latex.trim()), blanks),
+        block.align.as_deref(),
+    );
     let body = body.as_str();
     let mapping = template.blocks.get(&block.kind);
 
@@ -242,6 +245,133 @@ fn keeps(block: &Block, audience: &str) -> bool {
         || block.audience.iter().any(|a| a == audience)
 }
 
+/// The mark a teacher leaves on words that must disappear from an adapted
+/// copy: `\trou{les mots}`.
+///
+/// Held in the block's own LaTeX rather than in a field beside it. A field
+/// would have to name a span of text by position, and every edit to the
+/// passage moves those; inside the body, the mark travels with the words it
+/// holds — through a correction, a split, a renumbering.
+pub const GAP: &str = "\\trou";
+
+/// Resolves every `\trou{…}` in a block's body.
+///
+/// `blank` produces the adapted copy: each marked word becomes a ruled space
+/// of exactly its own width, so the pupil writes in the hole and the lines
+/// break where they break in every other copy — the teacher can read from the
+/// board while the pupil follows on the same layout. Word by word rather than
+/// one rule over the whole run, so a long marking still breaks across lines,
+/// and the count of holes tells the pupil how many words are missing, which
+/// is the kind of support a PAP exists to give.
+///
+/// Without `blank` the words come back and the ordinary PDF holds no trace of
+/// the marking: one document, two copies, nothing to keep in step by hand.
+pub fn apply_gaps(latex: &str, blank: bool) -> String {
+    let mut out = String::with_capacity(latex.len());
+    let mut rest = latex;
+
+    while let Some(at) = rest.find(GAP) {
+        let after = &rest[at + GAP.len()..];
+        // `\trouble` opens no group: the command name ends at the brace.
+        let Some(inner) = group_at(after) else {
+            out.push_str(&rest[..at + GAP.len()]);
+            rest = after;
+            continue;
+        };
+        out.push_str(&rest[..at]);
+        out.push_str(&if blank { blanked(inner) } else { inner.to_string() });
+        rest = &after[inner.len() + 2..];
+    }
+
+    out.push_str(rest);
+    out
+}
+
+/// The contents of the balanced group `text` opens with, if it opens with one.
+fn group_at(text: &str) -> Option<&str> {
+    if !text.starts_with('{') {
+        return None;
+    }
+    let mut depth = 0i32;
+    let mut escaped = false;
+    for (at, ch) in text.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match ch {
+            '\\' => escaped = true,
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&text[1..at]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn blanked(content: &str) -> String {
+    words_of(content)
+        .into_iter()
+        .map(|word| format!("\\underline{{\\vphantom{{Ag}}\\hphantom{{{word}}}}}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// The words of a marked run, splitting on spaces that separate words rather
+/// than on every space: one inside `$a + b$` or inside a command's argument
+/// would cut the LaTeX in half and the copy would not compile.
+fn words_of(content: &str) -> Vec<&str> {
+    let mut words = Vec::new();
+    let (mut depth, mut maths, mut escaped) = (0i32, false, false);
+    let mut start: Option<usize> = None;
+    let open = |start: &mut Option<usize>, at: usize| {
+        if start.is_none() {
+            *start = Some(at);
+        }
+    };
+
+    for (at, ch) in content.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match ch {
+            '\\' => {
+                open(&mut start, at);
+                escaped = true;
+            }
+            '{' => {
+                open(&mut start, at);
+                depth += 1;
+            }
+            '}' => {
+                open(&mut start, at);
+                depth -= 1;
+            }
+            '$' => {
+                open(&mut start, at);
+                maths = !maths;
+            }
+            ch if ch.is_whitespace() && depth == 0 && !maths => {
+                if let Some(from) = start.take() {
+                    words.push(content[from..at].trim());
+                }
+            }
+            _ => open(&mut start, at),
+        }
+    }
+    if let Some(from) = start {
+        words.push(content[from..].trim());
+    }
+    words.retain(|word| !word.is_empty());
+    words
+}
+
 /// Blocks in reading order, narrowed to what this export should contain.
 ///
 /// Two filters, independent of each other: who the document is for, and how
@@ -279,7 +409,8 @@ pub fn kept<'a>(
 /// Builds the complete `.tex` for one audience.
 ///
 /// `audience` is `all`, `teacher` or `student`; `taught_only` stops the
-/// document after the passage the class reached.
+/// document after the passage the class reached; `blanks` leaves a ruled
+/// space where the teacher marked words, for a pupil working under a PAP.
 pub fn render_document(
     root: &Path,
     template: &Template,
@@ -287,6 +418,7 @@ pub fn render_document(
     title: &str,
     audience: &str,
     taught_only: bool,
+    blanks: bool,
 ) -> std::io::Result<String> {
     let mut out = crate::templates::render_preamble(root, template)?;
     out.push_str("\n\\begin{document}\n\n");
@@ -298,7 +430,7 @@ pub fn render_document(
         }
         warn_about_layout(block);
         warn_about_alignment(block);
-        out.push_str(&render_block(template, block));
+        out.push_str(&render_block(template, block, blanks));
         out.push_str("\n\n");
     }
 
@@ -322,6 +454,60 @@ pub fn render_document(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The ordinary copy carries no trace of what was marked, and the adapted
+    /// one leaves exactly the room the words took.
+    #[test]
+    fn a_marked_run_is_printed_or_left_blank() {
+        let latex = "Deux vecteurs sont \\trou{colinéaires} lorsque...";
+        assert_eq!(
+            apply_gaps(latex, false),
+            "Deux vecteurs sont colinéaires lorsque...",
+            "the everyday PDF must not show the marking"
+        );
+        assert_eq!(
+            apply_gaps(latex, true),
+            "Deux vecteurs sont \\underline{\\vphantom{Ag}\\hphantom{colinéaires}} lorsque..."
+        );
+    }
+
+    /// A run of several words becomes one hole per word: the line can break
+    /// inside it, and the pupil sees how many words are missing.
+    #[test]
+    fn each_word_of_a_run_keeps_its_own_width() {
+        let blanked = apply_gaps("On dit \\trou{de même direction} quand...", true);
+        assert_eq!(blanked.matches("\\underline").count(), 3);
+        assert!(blanked.contains(
+            "\\underline{\\vphantom{Ag}\\hphantom{de}} \\underline{\\vphantom{Ag}\\hphantom{même}}"
+        ), "one hole per word, the ordinary space between them: the line may break there");
+    }
+
+    /// A space inside maths or inside a command's argument does not separate
+    /// two words: splitting there would cut the LaTeX in half.
+    #[test]
+    fn a_space_inside_maths_does_not_open_a_second_hole() {
+        let blanked = apply_gaps("\\trou{$a + b$ et \\textbf{les deux}}", true);
+        assert_eq!(blanked.matches("\\underline").count(), 3, "$a + b$, et, \\textbf{{...}}");
+        assert!(blanked.contains("\\hphantom{$a + b$}"));
+        assert!(blanked.contains("\\hphantom{\\textbf{les deux}}"));
+    }
+
+    /// `\trou` names a command only when a group follows it.
+    #[test]
+    fn a_word_that_merely_starts_like_the_mark_is_left_alone() {
+        for latex in ["un \\trouble passager", "le trou du milieu"] {
+            assert_eq!(apply_gaps(latex, true), latex);
+            assert_eq!(apply_gaps(latex, false), latex);
+        }
+    }
+
+    /// Several marks in one passage, and one holding braces of its own.
+    #[test]
+    fn marks_are_resolved_one_after_another() {
+        let latex = "\\trou{premier} au milieu \\trou{\\emph{second}} fin";
+        assert_eq!(apply_gaps(latex, false), "premier au milieu \\emph{second} fin");
+        assert_eq!(apply_gaps(latex, true).matches("\\underline").count(), 2);
+    }
 
     /// The exact shape that reached the screen as a literal "&=".
     fn heading(kind: &str, title: &str, number: Option<&str>) -> Block {
@@ -443,11 +629,11 @@ mod tests {
     fn a_heading_carries_the_number_read_on_the_page() {
         let template = bundled();
         assert_eq!(
-            render_block(&template, &heading("chapter", "Vecteurs", Some("3"))),
+            render_block(&template, &heading("chapter", "Vecteurs", Some("3")), false),
             "\\chapitre{3}{Vecteurs}"
         );
         assert_eq!(
-            render_block(&template, &heading("part", "Notion de vecteurs", Some("II"))),
+            render_block(&template, &heading("part", "Notion de vecteurs", Some("II")), false),
             "\\partie{II}{Notion de vecteurs}"
         );
     }
@@ -457,11 +643,11 @@ mod tests {
     fn an_unnumbered_heading_gets_no_invented_number() {
         let template = bundled();
         assert_eq!(
-            render_block(&template, &heading("chapter", "Vecteurs", None)),
+            render_block(&template, &heading("chapter", "Vecteurs", None), false),
             "\\chapitre{}{Vecteurs}"
         );
         assert_eq!(
-            render_block(&template, &heading("subpart", "Définition", Some("  "))),
+            render_block(&template, &heading("subpart", "Définition", Some("  ")), false),
             "\\souspartie{}{Définition}",
             "blank is the same as absent"
         );

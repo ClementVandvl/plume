@@ -37,6 +37,7 @@
 \definecolor{mcParagraphe}{HTML}{{{color.paragraph}}}  % Paragraphe
 \definecolor{mcApp}{HTML}{{{color.application}}}       % « Exercice n »
 \definecolor{mcDef}{HTML}{{{color.definition}}}        % Rappel : définition
+\definecolor{mcVocab}{HTML}{{{color.vocabulary}}}  % Vocabulaire
 \definecolor{mcProp}{HTML}{{{color.property}}}         % Rappel : propriété
 \definecolor{mcTheo}{HTML}{{{color.theorem}}}          % Rappel : théorème
 \definecolor{mcMethode}{HTML}{{{color.method}}}        % Rappel : méthode
@@ -140,6 +141,11 @@
 %============================================================================
 %  8. RAPPELS ENCADRES (définition, propriété, théorème, méthode)
 %============================================================================
+% Les mots masqués dans une version aménagée (PAP). Plume les résout
+% lui-même à l'export : cette définition n'est qu'un filet, pour qu'un
+% \trou écrit à la main compile au lieu d'arrêter la fabrication.
+\providecommand{\trou}[1]{#1}
+
 \newcommand{\mclabel}[3]{%
   {\color{#1}\bfseries #2\ifblank{#3}{}{ (#3)}~:}\hspace{0.6em}\ignorespaces}
 
@@ -150,6 +156,8 @@
 
 \newenvironment{definition}[1][]%
   {\begin{mcrappel}{mcDef}\mclabel{mcDef}{{{label.definition}}}{#1}}{\end{mcrappel}}
+\newenvironment{vocabulaire}[1][]%
+  {\begin{mcrappel}{mcVocab}\mclabel{mcVocab}{{{label.vocabulary}}}{#1}}{\end{mcrappel}}
 \newenvironment{propriete}[1][]%
   {\begin{mcrappel}{mcProp}\mclabel{mcProp}{{{label.property}}}{#1}}{\end{mcrappel}}
 \newenvironment{theoreme}[1][]%

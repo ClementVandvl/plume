@@ -186,7 +186,7 @@ const SHAPING: Pass[] = [lists, centred, lineBreaks];
 const run = (passes: Pass[], text: string, context: Context) =>
   passes.reduce((current, pass) => pass(current, context), text);
 
-export function latexToHtml(latex: string, colours: Colours = {}): string {
+function convert(latex: string, colours: Colours, wrap: boolean): string {
   const slots = new Slots();
   const context: Context = { colours, keep: (html) => slots.park(html) };
 
@@ -194,5 +194,19 @@ export function latexToHtml(latex: string, colours: Colours = {}): string {
   const shaped = run(SHAPING, escapeHtml(parked), context);
   const resolved = applyCommands(shaped, colours);
 
-  return slots.restore(paragraphs(resolved));
+  return slots.restore(wrap ? paragraphs(resolved) : resolved);
+}
+
+export function latexToHtml(latex: string, colours: Colours = {}): string {
+  return convert(latex, colours, true);
+}
+
+/**
+ * The same conversion for a fragment that sits inside a line rather than
+ * forming one: a single word or formula on the adaptation page. The paragraph
+ * pass would wrap each of them in a `<p>` of its own and stack what the
+ * teacher needs to read as a sentence.
+ */
+export function inlineHtml(latex: string, colours: Colours = {}): string {
+  return convert(latex, colours, false);
 }

@@ -64,8 +64,17 @@ export const buildDocument = (
   perSheet: PerSheet,
   repeat: boolean,
   fill: boolean,
+  pap: boolean,
 ) =>
-  invoke<BuildResult>("build_document", { id, audience, taughtOnly, perSheet, repeat, fill });
+  invoke<BuildResult>("build_document", {
+    id,
+    audience,
+    taughtOnly,
+    perSheet,
+    repeat,
+    fill,
+    pap,
+  });
 
 /** Reads a document from JSON without creating anything. */
 export const inspectImport = (json: string) =>

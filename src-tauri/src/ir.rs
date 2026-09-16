@@ -22,6 +22,7 @@ pub const BLOCK_KINDS: &[&str] = &[
     "list",
     "equation",
     "definition",
+    "vocabulary",
     "property",
     "theorem",
     "method",

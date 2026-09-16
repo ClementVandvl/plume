@@ -25,7 +25,7 @@ Rules:
 - `latex` carries body content ONLY. Never emit \begin{...}/\end{...} wrappers for the block itself, never a preamble, never \section or \chapter — the caller wraps each block according to its kind.
 - For heading blocks (`chapter`, `part`, `subpart`, `paragraph`): put the heading text ALONE in `title` — without its number and without the words "Chapitre", "Partie" — and leave `latex` empty. Put the number exactly as the page writes it in `number`: "3", "II", "1", "a". Plume never renumbers, so a course opening on "Chapitre 3" stays chapter 3. If the page shows no number, leave `number` empty rather than inventing one.
 - Emit CONTENT, never page layout. No `minipage`, no `tabular` used for placement, no `multicols`, no `\rule`, no `\hfill`, no `\vspace`, no `\newpage`. Columns and spacing belong to the template, and a layout you invent will not fit the page. If the page shows two things side by side, emit them as two consecutive blocks.
-- A keyword introducing a passage — « Définition : », « Propriété : », « Exemple : », « Remarque : » — is that block's own label, not a heading. Emit the block itself and nothing else; never a separate `paragraph` or `subpart` repeating the keyword above it. Emit a heading block only for a heading the page itself sets apart as one, with its own number.
+- A keyword introducing a passage — « Définition : », « Vocabulaire : », « Propriété : », « Exemple : », « Remarque : » — is that block's own label, not a heading. Emit the block itself and nothing else; never a separate `paragraph` or `subpart` repeating the keyword above it. Emit a heading block only for a heading the page itself sets apart as one, with its own number.
 - Set `title` ONLY when the page itself writes a title next to the keyword, e.g. « Définition (vecteurs colinéaires) : ». If the page just says « Définition : », leave `title` empty. Never repeat the environment's own name as its title.
 - A diagram that belongs to an example or a proof stays inside that block's `latex`, wrapped in \begin{center}...\end{center}. Use a standalone `figure` block only for a diagram that stands on its own.
 - A numbered or bulleted list is `enumerate` or `itemize` with `\item`. Never number the lines by hand: written as « 1)\quad ... », the first item runs on after the environment's own label instead of starting its own line.
@@ -185,6 +185,7 @@ fn strip_layout(latex: &str) -> (String, Vec<String>) {
 fn environment_word(kind: &str) -> Option<&'static str> {
     match kind {
         "definition" => Some("definition"),
+        "vocabulary" => Some("vocabulaire"),
         "property" => Some("propriete"),
         "theorem" => Some("theoreme"),
         "method" => Some("methode"),

@@ -31,6 +31,7 @@ const HEADINGS = ["chapter", "part", "subpart", "paragraph"];
 const PASSAGES = [
   "text",
   "definition",
+  "vocabulary",
   "property",
   "theorem",
   "method",

@@ -1654,6 +1654,7 @@ async fn build_document(
     per_sheet: u8,
     repeat: bool,
     fill: bool,
+    pap: bool,
 ) -> Result<BuildResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let document = workspace::load(&id)?;
@@ -1685,10 +1686,17 @@ async fn build_document(
             &document.title,
             &audience,
             taught_only,
+            pap,
         )
         .map_err(|e| format!("Rendu impossible : {e}"))?;
 
-        let suffix = if taught_only { "-partiel" } else { "" };
+        let mut suffix = String::new();
+        if taught_only {
+            suffix.push_str("-partiel");
+        }
+        if pap {
+            suffix.push_str("-pap");
+        }
         let name = format!("{}-{}{}.tex", document.id, audience, suffix);
         let tex_path = dir.join(&name);
         fs::write(&tex_path, tex).map_err(|e| format!("Écriture du .tex : {e}"))?;
@@ -1717,11 +1725,11 @@ async fn build_document(
                 // Only a complete one: a partial build would make the document
                 // read as finished and point "Ouvrir le PDF" at a document
                 // that stops halfway through.
-                // Only the document itself, whole and one page per sheet:
-                // a partial, imposed or recomposed build is a copy taken for
-                // a purpose, and neither the list nor "Ouvrir le PDF" should
-                // point at it.
-                if !taught_only && per_sheet <= 1 && !fill {
+                // Only the document itself, whole, one page per sheet and
+                // with nothing blanked: a partial, imposed, recomposed or
+                // adapted build is a copy taken for a purpose, and neither
+                // the list nor "Ouvrir le PDF" should point at it.
+                if !taught_only && per_sheet <= 1 && !fill && !pap {
                     let mut document = document;
                     document.status = "ready".into();
                     document.last_pdf = pdf

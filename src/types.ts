@@ -223,6 +223,7 @@ export const KIND_LABEL: Record<string, string> = {
   list: t("kind.list"),
   equation: t("kind.equation"),
   definition: t("kind.definition"),
+  vocabulary: t("kind.vocabulary"),
   property: t("kind.property"),
   theorem: t("kind.theorem"),
   method: t("kind.method"),
@@ -272,6 +273,7 @@ export const STEPS = [
   { id: "pages", labelKey: "steps.pages" },
   { id: "read", labelKey: "steps.read" },
   { id: "review", labelKey: "steps.review" },
+  { id: "adapt", labelKey: "steps.adapt" },
   { id: "export", labelKey: "steps.export" },
 ] as const;
 

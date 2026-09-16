@@ -1,6 +1,6 @@
 {
   "id": "charte-exercices",
-  "version": 7,
+  "version": 8,
   "name": "Charte fiche d'exercices",
   "description": "Bandeaux de partie, exercices numérotés, sous-questions en colonnes, corrections réservées au professeur.",
   "engine": "pdflatex",
@@ -46,6 +46,13 @@
       "group": "Environnements",
       "type": "color",
       "value": "#1F3B73"
+    },
+    {
+      "key": "color.vocabulary",
+      "label": "Vocabulaire",
+      "group": "Environnements",
+      "type": "color",
+      "value": "#117A65"
     },
     {
       "key": "color.property",
@@ -160,6 +167,13 @@
       "value": "Définition"
     },
     {
+      "key": "label.vocabulary",
+      "label": "Intitulé « Vocabulaire »",
+      "group": "Intitulés",
+      "type": "text",
+      "value": "Vocabulaire"
+    },
+    {
       "key": "label.property",
       "label": "Intitulé « Propriété »",
       "group": "Intitulés",
@@ -257,6 +271,10 @@
     "definition": {
       "mode": "environment",
       "name": "definition"
+    },
+    "vocabulary": {
+      "mode": "environment",
+      "name": "vocabulaire"
     },
     "property": {
       "mode": "environment",

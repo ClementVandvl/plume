@@ -1,5 +1,10 @@
 import { useMemo } from "react";
 import { hasLayout, hasStrayAlignment } from "../preview/detect";
+import {
+  latexColours as latexColoursOf,
+  semanticColours,
+  semanticLabels,
+} from "../preview/colours";
 import { t } from "../i18n";
 import { needsReview } from "../ui/review";
 import { BlockBody } from "./BlockBody";
@@ -33,26 +38,10 @@ type Props = {
 };
 
 
-/** LaTeX colour names used by the template, mapped to their semantic key. */
-const LATEX_COLOURS: Record<string, string> = {
-  mcChapitre: "chapter",
-  mcPartie: "part",
-  mcSousPartie: "subpart",
-  mcParagraphe: "paragraph",
-  mcDef: "definition",
-  mcProp: "property",
-  mcTheo: "theorem",
-  mcMethode: "method",
-  mcExemple: "example",
-  mcApp: "application",
-  mcRemarque: "remark",
-  mcDemo: "proof",
-  mcTexte: "body",
-};
-
-const BRACKETED = new Set(["definition", "property", "theorem", "method"]);
+const BRACKETED = new Set(["definition", "vocabulary", "property", "theorem", "method"]);
 const LABELLED = new Set([
   "definition",
+  "vocabulary",
   "property",
   "theorem",
   "method",
@@ -73,30 +62,10 @@ export function DocumentPreview({
   onInsertAfter,
   onTaughtEnd,
 }: Props) {
-  const colours = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const key of template?.keys ?? []) {
-      if (key.key.startsWith("color.")) map[key.key.slice("color.".length)] = key.value;
-    }
-    return map;
-  }, [template]);
-
-  const labels = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const key of template?.keys ?? []) {
-      if (key.key.startsWith("label.")) map[key.key.slice("label.".length)] = key.value;
-    }
-    return map;
-  }, [template]);
-
+  const colours = useMemo(() => semanticColours(template), [template]);
+  const labels = useMemo(() => semanticLabels(template), [template]);
   // `\mcul{mcProp}{...}` needs the real colour behind the LaTeX name.
-  const latexColours = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const [name, key] of Object.entries(LATEX_COLOURS)) {
-      if (colours[key]) map[name] = colours[key];
-    }
-    return map;
-  }, [colours]);
+  const latexColours = useMemo(() => latexColoursOf(template), [template]);
 
   // Headings are renumbered exactly as the template does, so what the teacher
   // reads here matches the PDF rather than the handwritten numbering.
@@ -135,6 +104,7 @@ export function DocumentPreview({
       subpart: "subpart",
       paragraph: "paragraph",
       definition: "definition",
+      vocabulary: "vocabulary",
       property: "property",
       theorem: "theorem",
       method: "method",

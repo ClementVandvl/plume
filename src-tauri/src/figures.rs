@@ -82,6 +82,11 @@ impl Snippet<'_> {
         let drawn = match self {
             Snippet::Figure(tikz) => (*tikz).to_string(),
             Snippet::Passage(latex) => {
+                // The review shows the lesson as everyone gets it, so the
+                // words a teacher marked for a PAP copy are printed here
+                // rather than left blank — and `\trou` never reaches the
+                // engine, which knows nothing about it.
+                let latex = crate::render::apply_gaps(latex, false);
                 format!("\\begin{{minipage}}{{\\textwidth}}\n{latex}\n\\end{{minipage}}")
             }
         };
@@ -339,6 +344,7 @@ mod tests {
     fn a_snippet_is_typeset_with_the_charte_s_own_preamble() {
         let preamble = "\\documentclass[11pt,a4paper]{article}\n\\usepackage{tikz}\n\\definecolor{mcDef}{HTML}{A93226}\n";
         let passage = Snippet::Passage("\\begin{tabular}{cc}a & b\\end{tabular}").document(preamble);
+        assert!(!passage.contains("\\trou"), "the engine knows no such command");
         assert!(passage.starts_with("\\documentclass[11pt,a4paper]{article}\n\\usepackage{tikz}"));
         assert!(passage.contains("\\usepackage[active,tightpage]{preview}"));
         assert!(passage.contains("\\begin{minipage}{\\textwidth}\n\\begin{tabular}{cc}a & b\\end{tabular}\n\\end{minipage}"));
@@ -380,6 +386,16 @@ mod tests {
         let path = render(&root, &root, &template, Snippet::Figure(tikz)).expect("rendered");
         assert!(path.is_file());
         let _ = fs::remove_dir_all(&root);
+    }
+
+    /// A marking made on the adaptation page, met by the engine: the words
+    /// come back rather than reaching LaTeX as an undefined command.
+    #[test]
+    fn a_marked_passage_is_typeset_with_its_words_in_place() {
+        let document = Snippet::Passage("Deux vecteurs \\trou{colinéaires} ici")
+            .document("\\documentclass{article}\n\\usepackage{geometry}\n");
+        assert!(document.contains("Deux vecteurs colinéaires ici"));
+        assert!(!document.contains("\\trou"));
     }
 
     /// The table that started this: a `tabular` with a diagram in each row,

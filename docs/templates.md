@@ -33,6 +33,12 @@ path: a copy gets a fresh id, `version: 1`, and is never touched by `seed`
 again. `upgrading_never_touches_a_personal_template` is the test that keeps
 this true.
 
+Both also carry `\providecommand{\trou}[1]{#1}`. Plume resolves that mark
+itself when it renders a document, so the command never reaches the compiler
+from an export; the definition is a net, so a `\trou` written by hand in the
+LaTeX editor compiles instead of stopping the build. What it is for is in
+[recognition.md](recognition.md).
+
 Both preambles load the TikZ libraries the model reaches for when it draws —
 `arrows.meta`, `calc`, `decorations.pathreplacing`, `decorations.markings`,
 `patterns`, `positioning`, `angles`, `quotes`, `intersections`,

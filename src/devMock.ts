@@ -109,6 +109,11 @@ const transcript = {
           "Insister sur le cas $k$ négatif : les élèves confondent souvent avec la relation de Chasles.",
           { audience: ["teacher"] },
         ),
+        block(
+          "b8",
+          "vocabulary",
+          "Deux vecteurs sont \\trou{colinéaires} lorsqu'ils ont la \\trou{même direction}, quel que soit leur sens.",
+        ),
       ],
     },
   ],
@@ -393,8 +398,11 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
     args.id === "fiche-importee"
       ? []
       : ['/mock/IMG_4021.jpg', '/mock/IMG_4022.jpg', '/mock/IMG_4023.jpg'],
+  // A fresh copy, as the real command's JSON round trip always yields.
+  // Handing back the same object let React bail out of the render — the
+  // passage was saved and the screen went on showing the old one.
   load_transcript: (args: Record<string, unknown>) =>
-    args.id === "fiche-importee" && imported ? imported : transcript,
+    structuredClone(args.id === "fiche-importee" && imported ? imported : transcript),
   logs: () => logs,
   clear_logs: () => undefined,
   log_client: () => undefined,
@@ -527,7 +535,7 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
 const KINDS = [
   "chapter", "part", "subpart", "paragraph", "text", "list", "equation",
   "definition", "property", "theorem", "method", "example", "application",
-  "remark", "proof", "figure",
+  "remark", "vocabulary", "proof", "figure",
 ];
 const HEADINGS = ["chapter", "part", "subpart", "paragraph"];
 

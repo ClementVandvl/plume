@@ -4059,6 +4059,102 @@ textarea.code-area {
   margin: var(--space-xs) 0;
 }
 
+/* A word the teacher marked, wherever a passage is read: the highlighter
+   they would have drawn on paper, and the PDF's blank is its consequence. */
+.tex-gap {
+  background: rgb(214 183 43 / 32%);
+  border-radius: 2px;
+  padding: 0 1px;
+  color: inherit;
+}
+
+/* ---------- Adapting a lesson (PAP) ---------- */
+
+.adapt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+}
+
+.adapt__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.adapt__count {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  font-family: var(--font-ui);
+}
+
+.adapt__count-value {
+  font-size: 20px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.adapt__count-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.adapt__intro,
+.adapt__empty {
+  margin: 0 0 var(--space-md);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+.adapt__block + .adapt__block {
+  margin-top: var(--space-md);
+}
+
+.adapt__kind {
+  display: block;
+  margin-bottom: 2px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+}
+
+/* The passage reads as a passage; only the cursor says it can be marked. */
+.adapt__text {
+  margin: 0;
+  line-height: 1.9;
+}
+
+.gapword {
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 1px 1px;
+  /* A drag across words must not take the browser's text selection with it. */
+  user-select: none;
+}
+
+.gapword:hover {
+  background: rgb(214 183 43 / 18%);
+}
+
+.gapword--drag {
+  background: rgb(214 183 43 / 28%);
+}
+
+.gapword--on {
+  background: rgb(214 183 43 / 45%);
+}
+
+.gapword--on:hover {
+  background: rgb(214 183 43 / 55%);
+}
+
 .tex-figure--error {
   border-color: rgb(169 50 38 / 40%);
   color: rgb(169 50 38 / 80%);

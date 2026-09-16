@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -53,6 +53,9 @@ import { useConfirm } from "../confirm";
 import { useAdvanced } from "../ui/mode";
 import { Icon } from "../ui/Icon";
 import { moved, useDragOrder } from "../ui/dragOrder";
+import { AdaptView } from "./AdaptView";
+import { countGaps } from "../preview/gaps";
+import { latexColours } from "../preview/colours";
 import { needsReview } from "../ui/review";
 import { useClaudeLogin } from "../ui/login";
 import { AdvancedRow, Meter, OverflowMenu, Toggle } from "../ui/controls";
@@ -114,6 +117,8 @@ export function DocumentView({
   const [repeat, setRepeat] = useState(true);
   /** « Maximiser »: recompose in the smallest cell that fits, and tile it. */
   const [fill, setFill] = useState(false);
+  /** The copy for a pupil under a PAP: the marked words left blank. */
+  const [pap, setPap] = useState(false);
   const [rules, setRules] = useState("");
   const [progress, setProgress] = useState<TranscriptionProgress | null>(null);
   const [scan, setScan] = useState<Record<number, ScanInfo>>({});
@@ -422,10 +427,20 @@ export function DocumentView({
       pagePaths.length > 0,
   );
 
+  /** Holes across the whole document, as the teacher drew them. */
+  const gaps = useMemo(
+    () => blocks.reduce((total, block) => total + countGaps(block.latex), 0),
+    [blocks],
+  );
+  const colours = useMemo(() => latexColours(template), [template]);
+
   const done: Record<StepId, boolean> = {
     pages: pagePaths.length > 0,
     read: blocks.length > 0,
     review: blocks.length > 0 && doubtful.length === 0 && annotated.length === 0,
+    // Not a stage to get through: a document nobody needs adapted is finished
+    // without it, so the dot lights only once there is an adaptation to show.
+    adapt: gaps > 0,
     export: (build?.pdfPath ?? document?.lastPdf) != null,
   };
 
@@ -519,7 +534,7 @@ export function DocumentView({
     setError(null);
     setBuilding(true);
     try {
-      setBuild(await buildDocument(documentId, audience, taughtOnly, perSheet, repeat, fill));
+      setBuild(await buildDocument(documentId, audience, taughtOnly, perSheet, repeat, fill, pap));
       // The PDF is rewritten at the same path, so its URL never changes and the
       // webview kept showing the previous build. Counting them changes it.
       setBuilds((count) => count + 1);
@@ -1355,6 +1370,10 @@ export function DocumentView({
           </section>
         )}
 
+        {step === "adapt" && transcript && (
+          <AdaptView transcript={transcript} colours={colours} onPersist={persist} />
+        )}
+
         {step === "export" && (
           <div className="exportstep">
             <div className="exportstep__side">
@@ -1448,6 +1467,23 @@ export function DocumentView({
               )}
               {taughtOnly && !taughtComplete && (
                 <p className="field__hint">{t("export.partial.note")}</p>
+              )}
+
+              {/* Offered only once words are marked: a switch that can do
+                  nothing is a question the teacher has to answer anyway. */}
+              {gaps > 0 && (
+                <div className="panelcard">
+                  <span className="panelcard__title">{t("export.pap.title")}</span>
+                  <div className="toggle-row">
+                    <div className="toggle-row__copy">
+                      <span className="toggle-row__label">{t("export.pap.label")}</span>
+                      <span className="field__hint">
+                        {pap ? tn("export.pap.on", gaps) : t("export.pap.off")}
+                      </span>
+                    </div>
+                    <Toggle checked={pap} onChange={setPap} label={t("export.pap.label")} />
+                  </div>
+                </div>
               )}
 
               {/* The third question, about paper: how many pages each printed

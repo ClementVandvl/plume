@@ -57,6 +57,16 @@ const drawRule: Handler = ([width = "", height = ""]) =>
     ? `<span class="tex-rule" style="width:${width.trim()};height:${height.trim()}"></span>`
     : "";
 
+/**
+ * `\trou{les mots}` — words the teacher marked to be left blank in the copy
+ * adapted for a pupil working under a PAP. Shown highlighted wherever the
+ * passage is read, so the marking is visible from the review as well as from
+ * the page that made it. The blanking itself happens at export, in
+ * `render::apply_gaps`.
+ */
+const highlightGap: Handler = ([content], resolve) =>
+  content === undefined ? "" : `<mark class="tex-gap">${resolve(content)}</mark>`;
+
 /** A text-mode command worth keeping as a character. */
 const symbol =
   (character: string): Handler =>
@@ -79,6 +89,7 @@ const COMMANDS: Record<string, Handler> = {
   underline: wrap("u"),
   mcul: colouredUnderline,
   rule: drawRule,
+  trou: highlightGap,
   ldots: symbol("…"),
   dots: symbol("…"),
   cdots: symbol("⋯"),
