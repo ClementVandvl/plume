@@ -4,6 +4,7 @@ import { isTauri } from "../platform";
 import type { DocumentSummary, Environment, Route } from "../types";
 import { Icon } from "../ui/Icon";
 import { useClaudeLogin } from "../ui/login";
+import { pendingUpdate, type ClaudeUpdater } from "../ui/claudeUpdate";
 import { Meter, PageSkeleton, ReadingPill, StatusPill } from "../ui/controls";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "heic", "heif", "webp", "tif", "tiff"];
@@ -21,6 +22,7 @@ type Props = {
   onSettings: () => void;
   /** Re-reads the environment — after a sign-in, for one. */
   onRefresh: () => void;
+  claudeUpdate: ClaudeUpdater;
 };
 
 /** `{placeholder}` in a message, rendered bold — for the one emphasised bit. */
@@ -44,6 +46,7 @@ export function HomeView({
   onNavigate,
   onSettings,
   onRefresh,
+  claudeUpdate,
 }: Props) {
   const [dragging, setDragging] = useState(false);
 
@@ -74,6 +77,10 @@ export function HomeView({
   // Installed but signed out: the one thing the teacher can fix from here.
   const signedOut = environment?.auth ? !environment.auth.loggedIn : false;
   const login = useClaudeLogin(onRefresh);
+  // Only an update that matters reaches the home screen; the everyday ones
+  // wait in the settings.
+  const staleClaude = pendingUpdate(claudeUpdate.state);
+  const showClaudeUpdate = !!staleClaude?.important && !claudeUpdate.dismissed;
 
   if (documents.length === 0) {
     return (
@@ -164,6 +171,38 @@ export function HomeView({
             <button type="button" className="btn btn--primary" onClick={login.start}>
               {t("auth.login")}
             </button>
+          )}
+        </div>
+      )}
+
+      {showClaudeUpdate && staleClaude && (
+        <div className="banner banner--warn">
+          <Icon name="warning" />
+          <span className="banner__text">
+            {claudeUpdate.state.kind === "updating"
+              ? claudeUpdate.state.progress
+              : claudeUpdate.state.kind === "failed"
+                ? t("claudeUpdate.failed", { message: claudeUpdate.state.message })
+                : t("claudeUpdate.banner", {
+                    installed: staleClaude.installed,
+                    latest: staleClaude.latest,
+                  })}
+          </span>
+          {claudeUpdate.state.kind !== "updating" && (
+            <>
+              <button type="button" className="btn btn--ghost" onClick={claudeUpdate.dismiss}>
+                {t("claudeUpdate.later")}
+              </button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => claudeUpdate.install(staleClaude)}
+              >
+                {claudeUpdate.state.kind === "failed"
+                  ? t("claudeUpdate.retry")
+                  : t("claudeUpdate.install")}
+              </button>
+            </>
           )}
         </div>
       )}

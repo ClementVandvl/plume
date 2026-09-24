@@ -338,8 +338,30 @@ const inlineSvg = (width: number, height: number, caption: string) =>
       `</svg>`,
   );
 
+/**
+ * Claude Code against its latest release. `?mock&claudeold` starts five weeks
+ * behind, so the home banner and the settings row are visible.
+ */
+let claudeUpdate = new URLSearchParams(window.location.search).has("claudeold")
+  ? { installed: "2.1.236", latest: "2.1.281", behindDays: 35, available: true, important: true }
+  : { installed: "2.1.281", latest: "2.1.281", behindDays: 0, available: false, important: false };
+
 const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
-  check_environment: () => ({ ...environment, auth: auth }),
+  check_claude_update: () => claudeUpdate,
+  update_claude: () =>
+    new Promise((resolve) =>
+      window.setTimeout(() => {
+        claudeUpdate = { ...claudeUpdate, installed: claudeUpdate.latest, behindDays: 0, available: false, important: false };
+        resolve(`${claudeUpdate.latest} (Claude Code)`);
+      }, 2500),
+    ),
+  check_environment: () => ({
+    ...environment,
+    tools: environment.tools.map((tool) =>
+      tool.key === "claude" ? { ...tool, version: `${claudeUpdate.installed} (Claude Code)` } : tool,
+    ),
+    auth: auth,
+  }),
   // `?mock&loggedout` starts signed out; "signing in" takes a few seconds,
   // like the real browser round trip.
   claude_auth_status: () => auth,

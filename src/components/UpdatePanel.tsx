@@ -6,6 +6,7 @@ import { updatesConfigured } from "../api";
 import { t } from "../i18n";
 import { logError, logInfo } from "../log";
 import { Toggle } from "../ui/controls";
+import type { ClaudeUpdater } from "../ui/claudeUpdate";
 
 /**
  * Update checking and installing.
@@ -35,9 +36,18 @@ type Props = {
   enabled: boolean;
   /** Toggling saves immediately — a preference, not a form. */
   onToggleAuto: (value: boolean) => void;
+  claudeUpdate: ClaudeUpdater;
+  /** As `claude --version` prints it; null when Claude Code is not installed. */
+  claudeVersion: string | null;
 };
 
-export function UpdatePanel({ auto, enabled, onToggleAuto }: Props) {
+export function UpdatePanel({
+  auto,
+  enabled,
+  onToggleAuto,
+  claudeUpdate,
+  claudeVersion,
+}: Props) {
   const [state, setState] = useState<State>({ kind: "idle" });
   const [version, setVersion] = useState("");
 
@@ -204,6 +214,8 @@ export function UpdatePanel({ auto, enabled, onToggleAuto }: Props) {
           </p>
         )}
 
+        {claudeVersion && <ClaudeRow updater={claudeUpdate} version={claudeVersion} />}
+
         {state.kind !== "unconfigured" && (
           <label className="update__auto">
             <Toggle checked={enabled} onChange={onToggleAuto} label={t("updates.auto")} />
@@ -212,5 +224,95 @@ export function UpdatePanel({ auto, enabled, onToggleAuto }: Props) {
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Claude Code, under Plume: the same sentence, the same single action. Plume
+ * installed it and is the only one who will ever tell the teacher it is old.
+ */
+function ClaudeRow({ updater, version }: { updater: ClaudeUpdater; version: string }) {
+  const { state } = updater;
+
+  const status = (() => {
+    switch (state.kind) {
+      case "checking":
+        return t("claudeUpdate.checking");
+      case "current":
+        return state.updatedTo
+          ? t("claudeUpdate.updated", { version: state.updatedTo })
+          : t("claudeUpdate.current");
+      case "available":
+        return state.update.behindDays
+          ? t("claudeUpdate.availableBehind", {
+              version: state.update.latest,
+              days: state.update.behindDays,
+            })
+          : t("claudeUpdate.available", { version: state.update.latest });
+      case "updating":
+        return state.progress;
+      case "failed":
+        return state.update
+          ? t("claudeUpdate.available", { version: state.update.latest })
+          : t("claudeUpdate.idle");
+      default:
+        return t("claudeUpdate.idle");
+    }
+  })();
+
+  const pending =
+    state.kind === "available" || state.kind === "failed" ? state.update : null;
+
+  return (
+    <>
+      <div className="update__row">
+        <div className="update__identity">
+          <span className="update__name">
+            {t("claudeUpdate.name", { version: version.split(" ")[0] })}
+          </span>
+          <span
+            className={`update__status ${
+              state.kind === "available" || (state.kind === "current" && state.updatedTo)
+                ? "update__status--highlight"
+                : ""
+            }`}
+          >
+            {status}
+          </span>
+          {state.kind === "available" && state.update.important && (
+            <span className="update__status">{t("claudeUpdate.important")}</span>
+          )}
+        </div>
+
+        {pending ? (
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => updater.install(pending)}
+          >
+            {t("claudeUpdate.install")}
+          </button>
+        ) : state.kind === "updating" ? (
+          <button type="button" className="btn btn--primary" disabled>
+            {t("updates.installing")}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn btn--outline btn--sm"
+            onClick={() => updater.check()}
+            disabled={state.kind === "checking"}
+          >
+            {state.kind === "checking" ? t("updates.checking") : t("claudeUpdate.check")}
+          </button>
+        )}
+      </div>
+
+      {state.kind === "failed" && (
+        <p className="notice notice--error" role="alert">
+          {state.message}
+        </p>
+      )}
+    </>
   );
 }

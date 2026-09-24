@@ -515,16 +515,20 @@ pub fn transcribe_page(
         if crate::claude::is_auth_failure(&detail) {
             return Err(format!("{} : {detail}", crate::claude::AUTH_REQUIRED));
         }
+        if crate::claude_update::is_outdated_failure(&detail) {
+            return Err(format!("{} ({detail})", crate::claude_update::OUTDATED));
+        }
         return Err(format!("Claude Code s'est arrêté ({status}) : {detail}"));
     }
 
     let envelope = envelope.ok_or("Claude Code n'a renvoyé aucun résultat.")?;
 
     if envelope.get("is_error").and_then(|v| v.as_bool()) == Some(true) {
-        return Err(format!(
-            "Claude Code a signalé une erreur : {}",
-            envelope.get("result").and_then(|v| v.as_str()).unwrap_or("")
-        ));
+        let said = envelope.get("result").and_then(|v| v.as_str()).unwrap_or("");
+        if crate::claude_update::is_outdated_failure(said) {
+            return Err(format!("{} ({said})", crate::claude_update::OUTDATED));
+        }
+        return Err(format!("Claude Code a signalé une erreur : {said}"));
     }
 
     let structured = envelope
@@ -740,6 +744,9 @@ pub fn correct_block(
             .unwrap_or_else(|| "il n'a rien dit — ni erreur, ni sortie.".to_string());
         if crate::claude::is_auth_failure(&detail) {
             return Err(format!("{} : {detail}", crate::claude::AUTH_REQUIRED));
+        }
+        if crate::claude_update::is_outdated_failure(&detail) {
+            return Err(format!("{} ({detail})", crate::claude_update::OUTDATED));
         }
         return Err(format!("La correction a échoué ({}) : {detail}", output.status));
     }

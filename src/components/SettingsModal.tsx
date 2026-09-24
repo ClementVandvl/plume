@@ -17,6 +17,7 @@ import { logError } from "../log";
 import { useAdvanced } from "../ui/mode";
 import { detectPlatform } from "../platform";
 import { useClaudeLogin } from "../ui/login";
+import type { ClaudeUpdater } from "../ui/claudeUpdate";
 import type { Environment, Settings } from "../types";
 import { Icon } from "../ui/Icon";
 import { AdvancedRow, Toggle } from "../ui/controls";
@@ -26,6 +27,7 @@ import { Modal } from "./Modal";
 type Props = {
   environment: Environment | null;
   onEnvironmentChanged: () => void;
+  claudeUpdate: ClaudeUpdater;
   workspace: string;
   settings: Settings;
   onSaved: (settings: Settings) => void;
@@ -43,6 +45,7 @@ const THEMES = ["light", "dark", "system"] as const;
 export function SettingsModal({
   environment,
   onEnvironmentChanged,
+  claudeUpdate,
   workspace,
   settings,
   onSaved,
@@ -364,6 +367,10 @@ export function SettingsModal({
         auto={settings.checkUpdates}
         enabled={settings.checkUpdates}
         onToggleAuto={(value) => persist({ checkUpdates: value })}
+        claudeUpdate={claudeUpdate}
+        claudeVersion={
+          environment?.tools.find((tool) => tool.key === "claude" && tool.found)?.version ?? null
+        }
       />
 
       {error && (

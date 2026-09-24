@@ -16,6 +16,7 @@ import { Console } from "./components/Console";
 import { DocumentView } from "./components/DocumentView";
 import { DocumentsView } from "./components/DocumentsView";
 import { useActiveReadings } from "./ui/reading";
+import { useClaudeUpdate } from "./ui/claudeUpdate";
 import { CreateWizard } from "./components/CreateWizard";
 import { ImportPanel } from "./components/ImportPanel";
 import { HomeView } from "./components/HomeView";
@@ -108,6 +109,19 @@ export default function App() {
     window.addEventListener("focus", look);
     return () => window.removeEventListener("focus", look);
   }, [refresh]);
+
+  // After an update, the settings show the new version number.
+  const claudeUpdate = useClaudeUpdate(() => {
+    refresh().catch((cause) => logError("interface", t("error.load"), cause));
+  });
+
+  // Once per launch, under the same setting as Plume's own updates. Not on the
+  // focus refresh: it is a network round trip, and a day's news at most.
+  const { check: checkClaude } = claudeUpdate;
+  useEffect(() => {
+    if (loaded && settings.checkUpdates) checkClaude(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, checkClaude]);
 
   // The theme follows the settings; "system" hands control back to the OS.
   useEffect(() => {
@@ -251,6 +265,7 @@ export default function App() {
                 onNavigate={setRoute}
                 onSettings={() => setModal("settings")}
                 onRefresh={() => refresh().catch(onRefreshError)}
+                claudeUpdate={claudeUpdate}
               />
             )}
 
@@ -323,6 +338,7 @@ export default function App() {
             settings={settings}
             onSaved={setSettings}
             onEnvironmentChanged={() => refresh().catch(onRefreshError)}
+            claudeUpdate={claudeUpdate}
             onClose={() => setModal(null)}
           />
         )}

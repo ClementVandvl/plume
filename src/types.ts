@@ -23,6 +23,17 @@ export type AuthStatus = {
   detail: string | null;
 };
 
+/** The installed Claude Code against its latest release. */
+export type ClaudeUpdate = {
+  installed: string;
+  latest: string;
+  /** Days between the two builds; null when a date could not be read. */
+  behindDays: number | null;
+  available: boolean;
+  /** Far enough behind to say so on the home screen. */
+  important: boolean;
+};
+
 export type Environment = {
   tools: ToolStatus[];
   ready: boolean;

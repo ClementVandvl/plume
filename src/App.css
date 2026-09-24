@@ -3015,6 +3015,10 @@ textarea.code-area {
   gap: var(--space-md);
 }
 
+.update__row > .btn {
+  flex-shrink: 0;
+}
+
 .update__identity {
   display: flex;
   flex-direction: column;

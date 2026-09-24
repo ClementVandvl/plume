@@ -1,4 +1,5 @@
 mod claude;
+mod claude_update;
 pub mod engine;
 mod env_check;
 mod figures;
@@ -416,6 +417,29 @@ async fn install_claude(app: AppHandle) -> Result<String, String> {
     })
     .await
     .map_err(|e| format!("Installation interrompue : {e}"))?
+}
+
+/// Compares the installed Claude Code with its latest release. A network
+/// round trip or three, hence off the main thread.
+#[tauri::command]
+async fn check_claude_update() -> Result<Option<claude_update::ClaudeUpdate>, String> {
+    tauri::async_runtime::spawn_blocking(claude_update::check)
+        .await
+        .map_err(|e| format!("Vérification interrompue : {e}"))?
+}
+
+/// Updates Claude Code the way it was installed; returns the new version.
+#[tauri::command]
+async fn update_claude(app: AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        // Its own event: "provision" drives the install buttons, which an
+        // update running beside them must not take over.
+        claude_update::update(&|step| {
+            let _ = app.emit("claude-update", step.to_string());
+        })
+    })
+    .await
+    .map_err(|e| format!("Mise à jour interrompue : {e}"))?
 }
 
 /// Opens a terminal running `claude`, for the sign-in step.
@@ -1993,6 +2017,8 @@ pub fn run() {
             render_passage,
             install_engine,
             install_claude,
+            check_claude_update,
+            update_claude,
             open_claude_login,
             claude_auth_status,
             remove_engine,

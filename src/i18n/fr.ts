@@ -590,7 +590,8 @@ export const fr = {
   "settings.theme.system": "Comme mon système",
   "settings.general.title": "Général",
   "settings.updates.title": "Prévenir quand une mise à jour existe",
-  "settings.updates.hint": "L'installation demande toujours votre accord.",
+  "settings.updates.hint":
+    "Pour Plume comme pour Claude Code. L'installation demande toujours votre accord.",
   "settings.mcp.title": "Connexion MCP",
   "settings.mcp.hint": "Claude pourra vous proposer d'envoyer un document dans Plume.",
   "settings.mcp.install": "Installer dans Claude…",
@@ -624,6 +625,24 @@ export const fr = {
   "model.fable": "Fable",
 
   // ---------------------------------------------------------------- updates
+  "claudeUpdate.name": "Claude Code {version}",
+  "claudeUpdate.idle": "Pas encore vérifié.",
+  "claudeUpdate.checking": "Recherche en cours…",
+  "claudeUpdate.current": "Claude Code est à jour.",
+  "claudeUpdate.updated": "Mis à jour en version {version}.",
+  "claudeUpdate.available": "Version {version} disponible.",
+  "claudeUpdate.availableBehind":
+    "Version {version} disponible — la vôtre a {days} jours de retard.",
+  "claudeUpdate.important":
+    "Sans cette mise à jour, Plume ne peut pas utiliser les modèles les plus récents.",
+  "claudeUpdate.banner":
+    "Une mise à jour importante de Claude Code est disponible ({installed} → {latest}). Sans elle, Plume ne peut pas utiliser les modèles les plus récents.",
+  "claudeUpdate.failed": "La mise à jour de Claude Code a échoué : {message}",
+  "claudeUpdate.install": "Mettre à jour",
+  "claudeUpdate.updating": "Mise à jour de Claude Code…",
+  "claudeUpdate.check": "Rechercher",
+  "claudeUpdate.later": "Plus tard",
+  "claudeUpdate.retry": "Réessayer",
   "updates.title": "Mises à jour",
   "updates.appName": "Plume {version}",
   "updates.unconfigured": "Les mises à jour ne sont pas configurées pour cette version.",
