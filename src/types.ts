@@ -271,6 +271,49 @@ export type CorrectionProgress = {
   reason?: string | null;
 };
 
+/** What one of Claude's answers did to the document. */
+export type ChatTally = { edited: number; added: number; removed: number };
+
+/** One turn of the conversation about the whole document. */
+export type ChatMessage = {
+  role: "teacher" | "claude";
+  text: string;
+  at: number;
+  /** On Claude's replies: what changed in the document. */
+  tally?: ChatTally | null;
+  /** A reply that could not be obtained or applied. */
+  failed?: boolean;
+  costUsd?: number;
+};
+
+export type ChatOutcome = {
+  messages: ChatMessage[];
+  /** The new transcript, when the answer changed the document. */
+  transcript: Transcript | null;
+  /** Ids of the passages it wrote, in that transcript. */
+  changed: string[];
+};
+
+/** A heartbeat while Claude works on the whole document. */
+export type ChatProgress = {
+  documentId: string;
+  phase: "activity" | "done" | "failed" | "cancelled";
+  label: string | null;
+};
+
+/** A state kept before Claude last changed the document. */
+export type VersionSummary = {
+  id: string;
+  createdAt: number;
+  /** `chat` | `corrections` | `reading` | `restore` */
+  kind: string;
+  /** What was asked, in the teacher's words when there are some. */
+  label: string;
+  blocks: number;
+  /** False once the photographs have changed since. */
+  restorable: boolean;
+};
+
 export const AUDIENCE_LABEL: Record<string, string> = {
   teacher: t("audience.teacher"),
   student: t("audience.student"),

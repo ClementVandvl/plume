@@ -4535,6 +4535,205 @@ textarea.code-area {
   gap: var(--space-xs);
 }
 
+/* ---------- Asking Claude about the whole document ---------- */
+/* The passage panel's frame, with one more row: the tabs between the
+   conversation and the versions it can go back to. */
+.chat {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.chat__tabs {
+  display: flex;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.chat__tabs .seg {
+  flex: 1;
+}
+
+/* A count of versions is not something left to do: no warning colour. */
+.chat__tabs .seg__count {
+  background: var(--color-chip-ground);
+  color: var(--color-text-secondary);
+}
+
+.chat__log {
+  gap: var(--space-sm);
+}
+
+.chat__empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.chat__examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+/* The chips hold whole sentences here, and must wrap like them. */
+.chat__examples .chip {
+  height: auto;
+  padding-block: var(--space-2xs);
+  border-radius: var(--radius-control);
+  white-space: normal;
+  text-align: left;
+}
+
+.chat__msg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  max-width: 92%;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-panel);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+}
+
+.chat__msg--teacher {
+  align-self: flex-end;
+  background: var(--color-soft-accent);
+  border: var(--border-width) solid var(--color-soft-accent-border);
+}
+
+.chat__msg--claude {
+  align-self: flex-start;
+  background: var(--color-inset);
+  border: var(--border-width) solid var(--color-border);
+}
+
+.chat__msg--failed {
+  background: var(--color-soft-warning);
+  border-color: var(--color-soft-warning-border);
+  color: var(--color-strong-warning);
+}
+
+.chat__who {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-faint);
+}
+
+.chat__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat__tally {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
+}
+
+.chat__undo {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: var(--font-size-label);
+  cursor: pointer;
+}
+
+.chat__undo:hover {
+  color: var(--color-accent-hover);
+}
+
+.chat__working {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--color-text-muted);
+}
+
+/* Proof of life while Claude works: a minute of stillness reads as a crash. */
+.chat__pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  animation: chat-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes chat-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat__pulse {
+    animation: none;
+  }
+}
+
+.chat__compose .input {
+  resize: vertical;
+}
+
+.chat__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.versions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.version {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--color-inset);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+
+.version__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.version__title {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+}
+
+.version__meta {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-faint);
+}
+
+.version__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
 /* ---------- Splitting a passage ---------- */
 .split-choice {
   display: flex;

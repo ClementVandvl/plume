@@ -5,6 +5,12 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
   addPages,
   applyCorrections,
+  askClaude,
+  cancelChat,
+  chatLog,
+  clearChat,
+  listVersions,
+  restoreVersion,
   buildDocument,
   cancelCorrections,
   cancelTranscription,
@@ -31,13 +37,16 @@ import {
   copyBlock,
   transcribeDocument,
 } from "../api";
-import { formatMoney, t, tn } from "../i18n";
+import { formatMoney, formatRelative, t, tn } from "../i18n";
 import {
   DOUBT_THRESHOLD,
   STEPS,
   type Block,
   type BuildResult,
+  type ChatMessage,
+  type ChatProgress,
   type CorrectionProgress,
+  type VersionSummary,
   type PlumeDocument,
   type StepId,
   type TranscriptionProgress,
@@ -62,6 +71,7 @@ import { needsReview } from "../ui/review";
 import { useClaudeLogin } from "../ui/login";
 import { AdvancedRow, Meter, OverflowMenu, Toggle } from "../ui/controls";
 import { BlockPanel } from "./BlockPanel";
+import { ChatPanel, versionName } from "./ChatPanel";
 import { PhotoViewer } from "./PhotoViewer";
 import { InsertPanel } from "./InsertPanel";
 import { CopyPanel } from "./CopyPanel";
@@ -138,13 +148,33 @@ export function DocumentView({
   const [error, setError] = useState<string | null>(null);
   const { confirm, promptFor } = useConfirm();
 
+  /**
+   * The conversation with Claude about the whole document.
+   *
+   * It shares the side of the review with the passage panel: a passage opened
+   * while talking covers it, and closing the passage brings it back — with
+   * the draft still there.
+   */
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chat, setChat] = useState<ChatMessage[]>([]);
+  const [chatDraft, setChatDraft] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [chatActivity, setChatActivity] = useState<string | null>(null);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatAuth, setChatAuth] = useState(false);
+  const askedHere = useRef(false);
+  /** States kept before Claude last changed the document, newest first. */
+  const [versions, setVersions] = useState<VersionSummary[]>([]);
+
   const refresh = useCallback(async () => {
-    const [doc, paths, existing] = await Promise.all([
+    const [doc, paths, existing, kept] = await Promise.all([
       getDocument(documentId),
       documentPagePaths(documentId),
       loadTranscript(documentId),
+      listVersions(documentId).catch(() => [] as VersionSummary[]),
     ]);
     setDocument(doc);
+    setVersions(kept);
     setRules(doc.readingRules ?? "");
     setPagePaths(paths);
     setTranscript(existing);
@@ -285,6 +315,34 @@ export function DocumentView({
       stop.then((off) => off()).catch(() => {});
     };
   }, [documentId]);
+
+  useEffect(() => {
+    chatLog(documentId)
+      .then(setChat)
+      .catch(() => {});
+  }, [documentId]);
+
+  // A request outlives the screen that sent it. Coming back while Claude is
+  // still working shows it working, and its answer lands here when it ends.
+  useEffect(() => {
+    const stop = listen<ChatProgress>("chat", (event) => {
+      if (event.payload.documentId !== documentId) return;
+      if (event.payload.phase === "activity") {
+        setChatActivity(event.payload.label);
+        if (!askedHere.current) setAsking(true);
+        return;
+      }
+      setChatActivity(null);
+      if (!askedHere.current) {
+        setAsking(false);
+        chatLog(documentId).then(setChat).catch(() => {});
+        refresh().catch(() => {});
+      }
+    });
+    return () => {
+      stop.then((off) => off()).catch(() => {});
+    };
+  }, [documentId, refresh]);
 
   const template = templates.find((tpl) => tpl.id === document?.templateId);
   const blocks = transcript?.pages.flatMap((p) => p.blocks) ?? [];
@@ -497,6 +555,113 @@ export function DocumentView({
       logInfo("claude", `Annulation demandée — ${stopped} processus arrêté(s)`);
     } catch (cause) {
       logError("claude", "Annulation impossible", cause);
+    }
+  }
+
+  const signIn = useClaudeLogin(() => {
+    setChatAuth(false);
+    onChanged();
+  });
+
+  async function ask(request: string) {
+    askedHere.current = true;
+    setAsking(true);
+    setChatError(null);
+    setChatAuth(false);
+    setChatActivity(null);
+    setChatDraft("");
+    // Shown at once: the answer takes a minute, and a request that vanished
+    // from the box without appearing anywhere reads as lost.
+    setChat((current) => [...current, { role: "teacher", text: request, at: Date.now() }]);
+    try {
+      const outcome = await askClaude(documentId, request, model);
+      setChat(outcome.messages);
+      // A session revoked on the server side passes the local check and fails
+      // mid-run: the reply says so, and the panel offers the sign-in.
+      const last = outcome.messages[outcome.messages.length - 1];
+      if (last?.failed && last.text.startsWith(t("auth.failed.title"))) setChatAuth(true);
+      if (outcome.transcript) {
+        setTranscript(outcome.transcript);
+        // The changed passages may well be ones no filter but "all" shows.
+        setFilter("all");
+        onChanged();
+      }
+      refresh().catch(() => {});
+    } catch (cause) {
+      // Refused before anything was sent: the request goes back in the box.
+      const message = String(cause);
+      setChatDraft(request);
+      setChat(await chatLog(documentId).catch(() => [] as ChatMessage[]));
+      if (message.startsWith(t("auth.failed.title"))) setChatAuth(true);
+      else setChatError(message);
+      logError("claude", message);
+    } finally {
+      askedHere.current = false;
+      setAsking(false);
+      setChatActivity(null);
+    }
+  }
+
+  async function stopAsking() {
+    try {
+      const stopped = await cancelChat(documentId);
+      logInfo("claude", `Annulation demandée — ${stopped} processus arrêté(s)`);
+    } catch (cause) {
+      logError("claude", "Annulation impossible", cause);
+    }
+  }
+
+  async function putBack(version: VersionSummary, ask: { title: string; message: string; detail: string; confirmLabel: string }) {
+    const ok = await confirm({ ...ask, tone: "danger" });
+    if (!ok) return;
+    setChatError(null);
+    try {
+      setTranscript(await restoreVersion(documentId, version.id));
+      setOpenBlock(null);
+      setFilter("all");
+      onChanged();
+      await refresh();
+    } catch (cause) {
+      setChatError(String(cause));
+      logError("workspace", "Version impossible à remettre", cause);
+    }
+  }
+
+  function restoreFromList(version: VersionSummary) {
+    return putBack(version, {
+      title: t("versions.restore.title"),
+      message: t("versions.restore.message", {
+        kind: versionName(version).toLowerCase(),
+        when: formatRelative(version.createdAt),
+      }),
+      detail: t("versions.restore.detail"),
+      confirmLabel: t("versions.restore"),
+    });
+  }
+
+  function undoLastAnswer() {
+    const latest = versions[0];
+    if (!latest) return;
+    return putBack(latest, {
+      title: t("chat.undo.title"),
+      message: t("chat.undo.message", { label: latest.label }),
+      detail: t("chat.undo.detail"),
+      confirmLabel: t("chat.undo.confirm"),
+    });
+  }
+
+  async function forgetChat() {
+    const ok = await confirm({
+      title: t("chat.clear.title"),
+      message: t("chat.clear.message"),
+      confirmLabel: t("chat.clear.confirm"),
+    });
+    if (!ok) return;
+    try {
+      await clearChat(documentId);
+      setChat([]);
+    } catch (cause) {
+      setChatError(String(cause));
     }
   }
 
@@ -1387,9 +1552,26 @@ export function DocumentView({
                     {t("review.correct.stop")}
                   </button>
                 )}
-                {annotated.length > 0 && !running && (
+                {annotated.length > 0 && !running && !asking && (
                   <button type="button" className="btn btn--outline btn--sm" onClick={correct}>
                     {tn("review.correct", annotated.length)}
+                  </button>
+                )}
+                {blocks.length > 0 && (
+                  <button
+                    type="button"
+                    className={`btn btn--sm ${chatOpen && !selected ? "btn--primary" : "btn--outline"}`}
+                    onClick={() => {
+                      if (chatOpen && !selected) {
+                        setChatOpen(false);
+                      } else {
+                        setOpenBlock(null);
+                        setChatOpen(true);
+                      }
+                    }}
+                  >
+                    <Icon name="chat" size={13} />
+                    {t("chat.open")}
                   </button>
                 )}
               </div>
@@ -1449,7 +1631,7 @@ export function DocumentView({
             {blocks.length === 0 ? (
               <p className="muted">{t("review.unread")}</p>
             ) : (
-              <div className={`review__split ${selected ? "review__split--open" : ""}`}>
+              <div className={`review__split ${selected || chatOpen ? "review__split--open" : ""}`}>
                 <div className="review__paper">
                   {transcript && (
                     <DocumentPreview
@@ -1485,6 +1667,28 @@ export function DocumentView({
                     onDelete={() => discard(selected.block.id)}
                     onHidden={(hidden) => markHidden(selected.block.id, hidden)}
                     onCopy={() => setCopying(selected.block.id)}
+                  />
+                )}
+
+                {!selected && chatOpen && (
+                  <ChatPanel
+                    messages={chat}
+                    draft={chatDraft}
+                    onDraft={setChatDraft}
+                    asking={asking}
+                    activity={chatActivity}
+                    busy={running && !asking}
+                    error={chatError}
+                    auth={{ lapsed: chatAuth, pending: signIn.pending, onLogin: signIn.start }}
+                    versions={versions}
+                    canUndo={versions[0]?.kind === "chat" && versions[0].restorable}
+                    showCost={advanced}
+                    onSend={ask}
+                    onStop={stopAsking}
+                    onUndo={undoLastAnswer}
+                    onClear={forgetChat}
+                    onRestore={restoreFromList}
+                    onClose={() => setChatOpen(false)}
                   />
                 )}
               </div>

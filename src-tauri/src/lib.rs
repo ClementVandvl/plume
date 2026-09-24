@@ -1,8 +1,10 @@
+mod chat;
 mod claude;
 mod claude_update;
 pub mod engine;
 mod env_check;
 mod figures;
+mod history;
 mod import;
 pub mod ir;
 mod latex;
@@ -1135,6 +1137,11 @@ fn ensure_idle(id: &str, title: &str) -> Result<(), String> {
             "« {title} » est en cours de lecture ou de correction : attendez qu'elle se termine."
         ));
     }
+    if runs::is_running(&runs::chatting(id)) {
+        return Err(format!(
+            "Claude travaille sur « {title} » : attendez qu'il ait répondu."
+        ));
+    }
     Ok(())
 }
 
@@ -1330,7 +1337,13 @@ async fn apply_corrections(
     tauri::async_runtime::spawn_blocking(move || {
         let dir = workspace::document_dir(&id);
         let files = workspace::page_files(&id);
+        if runs::is_running(&runs::chatting(&id)) {
+            return Err("Claude travaille déjà sur ce document : attendez qu'il ait répondu.".into());
+        }
         let mut transcript = read_transcript(&id)?;
+        // Set aside before anything lands, written only if something does.
+        let before = transcript.clone();
+        let mut landed = 0usize;
 
         let pending: Vec<(usize, usize)> = transcript
             .pages
@@ -1423,6 +1436,7 @@ async fn apply_corrections(
                 Ok((corrected, cost)) => {
                     transcript.pages[page_index].blocks[block_index] = corrected;
                     spent += cost;
+                    landed += 1;
                     let _ = app.emit(
                         "correction",
                         CorrectionProgress {
@@ -1462,6 +1476,16 @@ async fn apply_corrections(
 
         // Saved even on partial failure or cancellation: corrections that did
         // land must not be thrown away because a later one broke or was stopped.
+        if landed > 0 {
+            if let Err(error) = history::snapshot(
+                &dir,
+                "corrections",
+                &format!("Correction de {landed} passage(s) annoté(s)"),
+                &before,
+            ) {
+                logbus::warn("workspace", format!("Version non conservée : {error}"));
+            }
+        }
         write_transcript(&id, &transcript)?;
 
         // Corrections cost real quota too; the running total follows.
@@ -1495,6 +1519,240 @@ async fn apply_corrections(
     .map_err(|e| format!("Corrections interrompues : {e}"))?
 }
 
+// ---------------------------------------------------------------------------
+// Talking to Claude about the whole document, and going back
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ChatProgress {
+    document_id: String,
+    /// `activity` while Claude works, then `done` | `failed` | `cancelled`.
+    phase: String,
+    label: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ChatOutcome {
+    /// The conversation as it now stands, Claude's reply included.
+    messages: Vec<chat::Message>,
+    /// The new transcript when the answer changed the document.
+    transcript: Option<ir::Transcript>,
+    /// Ids of the passages it wrote, in that transcript.
+    changed: Vec<String>,
+}
+
+#[tauri::command]
+fn chat_log(id: String) -> Vec<chat::Message> {
+    chat::log(&workspace::document_dir(&id))
+}
+
+#[tauri::command]
+fn clear_chat(id: String) -> Result<(), String> {
+    chat::clear(&workspace::document_dir(&id))
+}
+
+#[tauri::command]
+fn cancel_chat(id: String) -> usize {
+    let stopped = runs::cancel(&runs::chatting(&id));
+    logbus::warn("claude", format!("Demande à Claude annulée — {stopped} processus arrêté(s)"));
+    stopped
+}
+
+/// Sends the teacher's request about the whole document, and applies the answer.
+///
+/// The state it replaces is kept as a version first, so a restructuring that
+/// went wrong is one click from undone. A reply that changes nothing — an
+/// answer to a question, a request for precision — takes no version: there
+/// would be nothing to go back from.
+#[tauri::command]
+async fn ask_claude(
+    app: AppHandle,
+    id: String,
+    request: String,
+    model: String,
+) -> Result<ChatOutcome, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let request = request.trim().to_string();
+        if request.is_empty() {
+            return Err("Écrivez d'abord votre demande.".to_string());
+        }
+        let document = workspace::load(&id)?;
+        ensure_idle(&id, &document.title)?;
+
+        let dir = workspace::document_dir(&id);
+        let asked_on = read_transcript(&id)?;
+        if asked_on.pages.iter().all(|page| page.blocks.is_empty()) {
+            return Err("Ce document n'a encore aucun passage.".to_string());
+        }
+
+        let auth = claude::auth_status();
+        if !auth.logged_in {
+            return Err(format!(
+                "{} : {}",
+                claude::AUTH_REQUIRED,
+                auth.detail.unwrap_or_else(|| "sa session a expiré".into())
+            ));
+        }
+
+        let earlier = chat::log(&dir);
+        chat::append(&dir, chat::Message::teacher(&request))?;
+
+        let template = templates::load(&workspace::root(), &document.template_id);
+        let rules = settings::combined_rules(&document.template_id, &document.reading_rules);
+        let system = chat::system_prompt(
+            template.as_ref(),
+            &rules,
+            !workspace::page_files(&id).is_empty(),
+        );
+        let prompt = chat::prompt(&asked_on, &earlier, &request);
+        logbus::detail(
+            "claude",
+            format!("Demande sur tout le document — {}", document.title),
+            format!(
+                "modèle {model} · consigne {} caractères · document {} caractères",
+                system.len(),
+                prompt.len()
+            ),
+        );
+
+        let job = runs::chatting(&id);
+        runs::begin(&job);
+        let started = std::time::Instant::now();
+        let run = recognizer::run_streaming(
+            &recognizer::Invocation {
+                run_id: &job,
+                document_dir: &dir,
+                label: "Demande sur tout le document".into(),
+                tag: "chat".into(),
+                model: &model,
+                schema: chat::schema(),
+                system: &system,
+                prompt: &prompt,
+            },
+            &|event| {
+                if let Some(label) = chat::activity(event) {
+                    let _ = app.emit(
+                        "chat",
+                        ChatProgress {
+                            document_id: id.clone(),
+                            phase: "activity".into(),
+                            label: Some(label.to_string()),
+                        },
+                    );
+                }
+            },
+        );
+        runs::finish(&job);
+
+        let finish = |phase: &str| {
+            let _ = app.emit(
+                "chat",
+                ChatProgress { document_id: id.clone(), phase: phase.into(), label: None },
+            );
+        };
+        let fail = |text: String| -> Result<ChatOutcome, String> {
+            let messages = chat::append(&dir, chat::Message::failure(&text))?;
+            Ok(ChatOutcome { messages, transcript: None, changed: Vec::new() })
+        };
+
+        let envelope = match run {
+            Ok(envelope) => envelope,
+            Err(error) if error == recognizer::CANCELLED => {
+                finish("cancelled");
+                return fail("Demande interrompue.".into());
+            }
+            Err(error) => {
+                finish("failed");
+                logbus::error("claude", format!("Demande sur tout le document — {error}"));
+                return fail(error);
+            }
+        };
+
+        let cost = envelope.get("total_cost_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        if cost > 0.0 {
+            if let Ok(mut document) = workspace::load(&id) {
+                document.cost_usd += cost;
+                document.updated_at = workspace::now_ms();
+                let _ = workspace::save(&document);
+            }
+        }
+
+        let answer: chat::Answer = match envelope
+            .get("structured_output")
+            .cloned()
+            .ok_or("Claude Code n'a pas renvoyé de sortie structurée.".to_string())
+            .and_then(|raw| {
+                serde_json::from_value(raw).map_err(|e| format!("Réponse illisible : {e}"))
+            }) {
+            Ok(answer) => answer,
+            Err(error) => {
+                finish("failed");
+                logbus::error("claude", format!("Demande sur tout le document — {error}"));
+                return fail(error);
+            }
+        };
+
+        // Read again rather than reuse: the teacher may have edited a passage
+        // by hand while Claude was thinking, and `apply` knows what to refuse.
+        let current = read_transcript(&id)?;
+        let applied = match chat::apply(&current, &asked_on, answer.changes) {
+            Ok(applied) => applied,
+            Err(error) => {
+                finish("failed");
+                logbus::warn("claude", format!("Réponse de Claude non appliquée — {error}"));
+                return fail(format!("{}\n\n{error}", answer.reply.trim()));
+            }
+        };
+
+        let transcript = if applied.tally.is_empty() {
+            None
+        } else {
+            history::snapshot(&dir, "chat", &request, &current)?;
+            write_transcript(&id, &applied.transcript)?;
+            Some(applied.transcript)
+        };
+
+        logbus::detail(
+            "claude",
+            format!("Réponse de Claude en {:.0} s", started.elapsed().as_secs_f32()),
+            format!(
+                "{} modifié(s) · {} ajouté(s) · {} retiré(s) · {cost:.3} $",
+                applied.tally.edited, applied.tally.added, applied.tally.removed
+            ),
+        );
+
+        let messages = chat::append(
+            &dir,
+            chat::Message::claude(&answer.reply, Some(applied.tally), cost),
+        )?;
+        finish("done");
+        Ok(ChatOutcome { messages, transcript, changed: applied.changed })
+    })
+    .await
+    .map_err(|e| format!("Demande interrompue : {e}"))?
+}
+
+/// The states kept before Claude last changed the document, newest first.
+#[tauri::command]
+fn list_versions(id: String) -> Vec<history::Summary> {
+    history::list(&workspace::document_dir(&id))
+}
+
+/// Puts a kept version back. The state it replaces is kept in its place.
+#[tauri::command]
+fn restore_version(id: String, version_id: String) -> Result<ir::Transcript, String> {
+    let document = workspace::load(&id)?;
+    ensure_idle(&id, &document.title)?;
+    let dir = workspace::document_dir(&id);
+    let current = read_transcript(&id).ok();
+    let restored = history::restore(&dir, &version_id, current.as_ref())?;
+    write_transcript(&id, &restored)?;
+    logbus::info("workspace", format!("Version restaurée — {}", document.title));
+    Ok(restored)
+}
+
 /// Reads every page of a document and writes `transcript.json`.
 ///
 /// Pages run one at a time on purpose: the user's subscription has rolling
@@ -1512,6 +1770,9 @@ async fn transcribe_document(
         let files = workspace::page_files(&id);
         if files.is_empty() {
             return Err("Ce document n'a aucune page.".to_string());
+        }
+        if runs::is_running(&runs::chatting(&id)) {
+            return Err("Claude travaille déjà sur ce document : attendez qu'il ait répondu.".into());
         }
 
         let rules = settings::combined_rules(&document.template_id, &document.reading_rules);
@@ -1737,6 +1998,14 @@ async fn transcribe_document(
 
         if transcript.pages.is_empty() {
             return Err("Lecture annulée avant la première page.".to_string());
+        }
+
+        // A fresh reading throws away every edit made in the review. The state
+        // it replaces is kept, so a re-read started by mistake is not a loss.
+        if let Ok(previous) = read_transcript(&id) {
+            if let Err(error) = history::snapshot(&dir, "reading", "Relecture des photos", &previous) {
+                logbus::warn("workspace", format!("Version non conservée : {error}"));
+            }
         }
 
         // Written before returning: a transcription that cost real quota must
@@ -2036,6 +2305,12 @@ pub fn run() {
             set_block_hidden,
             copy_block,
             apply_corrections,
+            ask_claude,
+            chat_log,
+            clear_chat,
+            cancel_chat,
+            list_versions,
+            restore_version,
             transcribe_document,
             build_document,
             workspace_path,

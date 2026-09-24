@@ -15,6 +15,9 @@ import type {
   LogEntry,
   Block,
   Settings,
+  ChatMessage,
+  ChatOutcome,
+  VersionSummary,
 } from "./types";
 
 export const checkEnvironment = () => invoke<Environment>("check_environment");
@@ -147,6 +150,22 @@ export const setBlockHidden = (id: string, blockId: string, hidden: boolean) =>
 
 export const applyCorrections = (id: string, model: string) =>
   invoke<Transcript>("apply_corrections", { id, model });
+
+/** Asks Claude to act on the whole document, and applies its answer. */
+export const askClaude = (id: string, request: string, model: string) =>
+  invoke<ChatOutcome>("ask_claude", { id, request, model });
+
+export const chatLog = (id: string) => invoke<ChatMessage[]>("chat_log", { id });
+export const clearChat = (id: string) => invoke<void>("clear_chat", { id });
+export const cancelChat = (id: string) => invoke<number>("cancel_chat", { id });
+
+/** The states kept before Claude last changed the document, newest first. */
+export const listVersions = (id: string) =>
+  invoke<VersionSummary[]>("list_versions", { id });
+
+/** Puts a kept version back; the state it replaces takes its place. */
+export const restoreVersion = (id: string, versionId: string) =>
+  invoke<Transcript>("restore_version", { id, versionId });
 
 export const documentPagePaths = (id: string) =>
   invoke<string[]>("document_page_paths", { id });

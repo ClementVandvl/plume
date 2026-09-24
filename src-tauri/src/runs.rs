@@ -35,6 +35,11 @@ pub fn correcting(id: &str) -> String {
     format!("fix:{id}")
 }
 
+/// A request to Claude about the whole document.
+pub fn chatting(id: &str) -> String {
+    format!("chat:{id}")
+}
+
 /// Marks a job as running, clearing anything left by a previous one.
 pub fn begin(id: &str) {
     with(|runs| {

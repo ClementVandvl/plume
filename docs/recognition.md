@@ -716,6 +716,75 @@ Identity never comes from the model: after a correction, `id` is restored,
 A partial failure still saves. Corrections that landed are not thrown away
 because a later one broke.
 
+### Asking about the whole document
+
+A note asks for one passage back. Some requests are about the document as a
+whole — lay the four definitions out in a grid, number the parts A, B, C
+rather than I, II, III, reserve every proof for the teacher's copy — and would
+take a note on every passage concerned, or cannot be said passage by passage at
+all. *Demander à Claude*, in the review bar, opens a conversation beside the
+page for those. [`chat.rs`](../src-tauri/src/chat.rs) holds everything but the
+command.
+
+**The answer is a list of changes, never a document.** The model is shown the
+whole transcript, one passage per line with its id, and answers with a French
+reply and `replace` / `insert_after` / `insert_before` operations naming ids. A
+passage it does not name stays byte for byte what it was. Rewriting forty
+passages to renumber four headings would cost minutes of output and let
+anything drift on the way.
+
+**Plume keeps the last word on structure**, as it does for a reading:
+
+- ids are reassigned after the changes land; the model never chooses one;
+- a one-for-one replacement keeps what the review decided — confidence and
+  doubt, `reviewed`, a pending note, `hidden`, `align` — unless the answer sets
+  `audience`, `align` or `hidden` itself, which it may when asked to;
+- anything else is new text nobody has read: confidence 1.0, `reviewed: false`;
+- the mark of where the class stopped follows a merge to its last block and
+  steps back over a deletion, as by hand; two marks are resolved to the first.
+
+**All or nothing.** An unknown id, the same passage replaced twice, an empty
+passage, or a target whose text changed while Claude was working — the teacher
+may keep editing meanwhile — refuses the whole answer. The reply is still
+shown, with the reason. Half a restructuring is worse than none.
+
+**Layout, on request only.** The recogniser strips `minipage` and friends
+(§3); here the teacher may ask for columns in so many words. The prompt allows
+one `text` block laying the passages out, and hands the model the charte's own
+wrappers (`\begin{definition}[…]`, `\partie{n}{…}`) so each boxed passage keeps
+its box inside the grid. Such a block has layout, so the review has the engine
+typeset it (see [preview.md](preview.md)).
+
+**Context is cheap on purpose.** No `--resume`: each request sends the
+document as it is now, plus the last six turns as plain text. The document may
+have been edited by hand between two requests, and a resumed session would be
+reasoning about a stale copy — while growing on every turn. The conversation
+itself is kept in `chat.json` beside the transcript, sixty messages at most.
+
+### Versions
+
+A restructuring by a model can go wrong anywhere at once, so before Claude
+rewrites a transcript, [`history.rs`](../src-tauri/src/history.rs) sets the
+current one aside in `versions.json`. Three are kept, newest first.
+
+| Taken before… | Only when |
+| --- | --- |
+| an answer in the conversation | it changed something |
+| a batch of corrections | at least one landed |
+| a fresh reading of the photos | there was a transcript to lose |
+
+Never for an edit by hand: those are small, visible and the teacher's own.
+
+**Restoring swaps.** The version leaves the list and the state it replaces
+takes its place, so restoring the wrong one loses nothing and the list never
+grows past three. The last reply that changed the document carries its own
+*Annuler*, which restores the newest version when it is that reply's.
+
+**A version remembers its photographs** — name and size of each file in
+`pages/`. Blocks belong to pages by number, so a transcript put back over a set
+of photos that has since gained, lost or reordered a page would pair passages
+with the wrong page. Such a version stays listed, and is refused.
+
 ## 9. Audience, figures and preview
 
 **Audience.** Each block carries `audience`, defaulting to both. The recogniser

@@ -59,7 +59,7 @@ pub struct PageOutcome {
 ///
 /// Only a run of at least two paragraphs, each opening with `n)` or `n.` in
 /// order from one, is converted. Anything else is left as written.
-fn enumerate_hand_numbered(latex: &str) -> Option<String> {
+pub(crate) fn enumerate_hand_numbered(latex: &str) -> Option<String> {
     let paragraphs: Vec<&str> = latex.split("\n\n").map(str::trim).collect();
     if paragraphs.len() < 2 {
         return None;
@@ -300,9 +300,9 @@ fn classify(event: &serde_json::Value) -> Option<&'static str> {
 const STRAY_LINES: usize = 40;
 
 /// The instruction, written where `--system-prompt-file` can read it.
-fn instruction_file(page_number: usize, system: &str) -> Result<std::path::PathBuf, String> {
+fn instruction_file(tag: &str, system: &str) -> Result<std::path::PathBuf, String> {
     let path = std::env::temp_dir().join(format!(
-        "plume-instruction-{}-{page_number}.txt",
+        "plume-instruction-{}-{tag}.txt",
         std::process::id()
     ));
     std::fs::write(&path, system).map_err(|e| format!("Écriture de la consigne : {e}"))?;
@@ -365,6 +365,253 @@ fn failure_detail(
         .or_else(|| stray.iter().rev().find_map(|l| said(l)))
 }
 
+/// A model id as a person says it: `claude-opus-5-5` is « Opus 5.5 »,
+/// `claude-haiku-4-5-20251001` « Haiku 4.5 ». The dated suffix goes, and an
+/// older id that puts the version first (`claude-3-5-sonnet-…`) reads the same.
+/// Anything unexpected comes back as it was rather than as a guess.
+pub(crate) fn model_name(id: &str) -> String {
+    let (base, context) = match id.split_once('[') {
+        Some((base, rest)) => (base, Some(rest.trim_end_matches(']').to_uppercase())),
+        None => (id, None),
+    };
+    let rest = base.strip_prefix("claude-").unwrap_or(base);
+    let mut family = None;
+    let mut version = Vec::new();
+    for part in rest.split('-') {
+        if part.chars().all(|c| c.is_ascii_digit()) {
+            // A date, not a version number.
+            if part.len() <= 2 {
+                version.push(part);
+            }
+        } else if family.is_none() {
+            let mut letters = part.chars();
+            family = letters
+                .next()
+                .map(|first| first.to_uppercase().chain(letters).collect::<String>());
+        }
+    }
+    let Some(family) = family else { return id.to_string() };
+    let mut name = if version.is_empty() { family } else { format!("{family} {}", version.join(".")) };
+    if let Some(context) = context {
+        name.push_str(&format!(" ({context})"));
+    }
+    name
+}
+
+/// « Opus 5.5 (claude-opus-5-5) », for the console.
+fn model_label(id: &str) -> String {
+    format!("{} ({id})", model_name(id))
+}
+
+/// Every model a finished run used, most expensive first, from the final
+/// event's `modelUsage`. Claude Code can hand side work to a smaller model, and
+/// the one the teacher chose is not always the only one billed.
+pub(crate) fn models_used(envelope: &serde_json::Value) -> Vec<String> {
+    let Some(usage) = envelope.get("modelUsage").and_then(|v| v.as_object()) else {
+        return Vec::new();
+    };
+    let mut models: Vec<(&String, f64)> = usage
+        .iter()
+        .map(|(id, entry)| (id, entry.get("costUSD").and_then(|v| v.as_f64()).unwrap_or(0.0)))
+        .collect();
+    models.sort_by(|a, b| b.1.total_cmp(&a.1));
+    models.into_iter().map(|(id, _)| id.clone()).collect()
+}
+
+/// Says in the console which models answered, and what was asked for.
+fn log_models(label: &str, requested: &str, envelope: &serde_json::Value) {
+    let used = models_used(envelope);
+    if used.is_empty() {
+        return;
+    }
+    logbus::detail(
+        "claude",
+        format!(
+            "{label} — modèle{} : {}",
+            if used.len() > 1 { "s" } else { "" },
+            used.iter().map(|id| model_name(id)).collect::<Vec<_>>().join(", ")
+        ),
+        format!("demandé : « {requested} » · utilisé : {}", used.join(", ")),
+    );
+}
+
+/// One headless `claude` run whose answer is a JSON object.
+pub(crate) struct Invocation<'a> {
+    pub run_id: &'a str,
+    /// Where `claude` runs, so the photographs are at `pages/NN.jpg`.
+    pub document_dir: &'a Path,
+    /// How the console names this run: « Page 3 », « Discussion ».
+    pub label: String,
+    /// Keeps two instruction files written at once apart.
+    pub tag: String,
+    pub model: &'a str,
+    pub schema: String,
+    /// Replaces Claude Code's own system prompt.
+    pub system: &'a str,
+    pub prompt: &'a str,
+}
+
+/// Runs `claude -p` with a schema and a system prompt, and returns its final
+/// `result` event once it has succeeded.
+///
+/// `on_event` sees every event of the stream as it arrives: a run takes a
+/// minute or two, and a silent minute reads as a crash. Cancellation kills the
+/// process and comes back as `CANCELLED`.
+pub(crate) fn run_streaming(
+    invocation: &Invocation,
+    on_event: &dyn Fn(&serde_json::Value),
+) -> Result<serde_json::Value, String> {
+    let Invocation { run_id, document_dir, label, tag, model, schema, system, prompt } = invocation;
+
+    let claude = crate::env_check::resolve_tool("claude")
+        .ok_or("Claude Code est introuvable. Vérifiez le panneau « État du système ».")?;
+
+    // The instruction travels as a file, not as an argument. Nearly six
+    // thousand characters of LaTeX and line breaks on a command line is the
+    // kind of thing that survives on one platform and not another — Windows
+    // has a shell shim and a quoting layer between Plume and `claude` that a
+    // Mac has not — and a file path is the same everywhere. The schema stays
+    // an argument, but on one line: a newline in an argument is the one
+    // thing the Windows batch quoting refuses outright.
+    let instruction = instruction_file(tag, system)?;
+    let schema = one_line(schema.clone());
+
+    logbus::debug(
+        "claude",
+        format!("{label} — commande"),
+        format!(
+            "{} -p --model {model} --output-format stream-json --json-schema <{} o> --system-prompt-file {} --allowedTools Read",
+            claude.display(),
+            schema.len(),
+            instruction.display()
+        ),
+    );
+
+    let mut child = crate::proc::quiet(&claude)
+        .current_dir(document_dir)
+        .arg("-p")
+        .arg("--model")
+        .arg(model)
+        .arg("--output-format")
+        .arg("stream-json")
+        .arg("--verbose")
+        .arg("--json-schema")
+        .arg(&schema)
+        .arg("--system-prompt-file")
+        .arg(&instruction)
+        .arg("--allowedTools")
+        .arg("Read")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Lancement de Claude Code impossible : {e}"))?;
+
+    // Watched so a cancellation can kill it: waiting for the run to finish
+    // would keep spending quota for another minute or two.
+    let pid = child.id();
+    crate::runs::watch(run_id, pid);
+
+    child
+        .stdin
+        .take()
+        .ok_or("Entrée standard indisponible.")?
+        .write_all(prompt.as_bytes())
+        .map_err(|e| format!("Envoi de la consigne : {e}"))?;
+
+    // The stream is read as it arrives: each event becomes a heartbeat, and the
+    // final `result` line carries the same envelope the one-shot format did.
+    let stdout = child.stdout.take().ok_or("Sortie standard indisponible.")?;
+    let mut envelope: Option<serde_json::Value> = None;
+    // Lines that were not events: a CLI that dies before the stream starts
+    // says why in plain text, on stdout, and that text was thrown away.
+    let mut stray: Vec<String> = Vec::new();
+    for line in BufReader::new(stdout).lines() {
+        let Ok(line) = line else { break };
+        if line.trim().is_empty() {
+            continue;
+        }
+        let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) else {
+            if stray.len() < STRAY_LINES {
+                stray.push(line.trim().to_string());
+            }
+            continue;
+        };
+        if event.get("type").and_then(|v| v.as_str()) == Some("result") {
+            envelope = Some(event);
+        } else {
+            // Announced at once rather than at the end: the alias the app
+            // passes — « opus » — says nothing of which Opus answers, and a
+            // run that fails still used one.
+            if event.get("subtype").and_then(|v| v.as_str()) == Some("init") {
+                if let Some(id) = event.get("model").and_then(|v| v.as_str()) {
+                    logbus::info(
+                        "claude",
+                        format!("{label} — {} (demandé : « {model} »)", model_label(id)),
+                    );
+                }
+            }
+            on_event(&event);
+        }
+    }
+
+    let mut stderr_text = String::new();
+    if let Some(mut stream) = child.stderr.take() {
+        let _ = stream.read_to_string(&mut stderr_text);
+    }
+    let status = child
+        .wait()
+        .map_err(|e| format!("Exécution de Claude Code : {e}"))?;
+    crate::runs::unwatch(run_id, pid);
+    let _ = std::fs::remove_file(&instruction);
+
+    if crate::runs::is_cancelled(run_id) {
+        return Err(CANCELLED.to_string());
+    }
+
+    if !status.success() {
+        // Everything the process said goes to the console, whole, before the
+        // one line the screen gets: "détail dans la console" has to be true.
+        logbus::error("claude", format!("{label} — {status}"));
+        logbus::detail("claude", "Binaire", claude.display().to_string());
+        if !stderr_text.trim().is_empty() {
+            logbus::detail("claude", "Sortie d'erreur", tail(&stderr_text));
+        }
+        if !stray.is_empty() {
+            logbus::detail("claude", "Sortie hors protocole", stray.join("\n"));
+        }
+        if let Some(event) = &envelope {
+            logbus::detail("claude", "Dernier événement", clip(&event.to_string()));
+        }
+        let detail = failure_detail(&stderr_text, envelope.as_ref(), &stray)
+            .unwrap_or_else(|| "il n'a rien dit — ni erreur, ni sortie.".to_string());
+        if crate::claude::is_auth_failure(&detail) {
+            return Err(format!("{} : {detail}", crate::claude::AUTH_REQUIRED));
+        }
+        if crate::claude_update::is_outdated_failure(&detail) {
+            return Err(format!("{} ({detail})", crate::claude_update::OUTDATED));
+        }
+        return Err(format!("Claude Code s'est arrêté ({status}) : {detail}"));
+    }
+
+    let envelope = envelope.ok_or("Claude Code n'a renvoyé aucun résultat.")?;
+
+    if envelope.get("is_error").and_then(|v| v.as_bool()) == Some(true) {
+        let said = envelope.get("result").and_then(|v| v.as_str()).unwrap_or("");
+        if crate::claude_update::is_outdated_failure(said) {
+            return Err(format!("{} ({said})", crate::claude_update::OUTDATED));
+        }
+        return Err(format!("Claude Code a signalé une erreur : {said}"));
+    }
+
+    // Only when the run turned out to use something else as well: the start
+    // already named the main model.
+    if models_used(&envelope).len() > 1 {
+        log_models(label, model, &envelope);
+    }
+    Ok(envelope)
+}
+
 /// Transcribes `pages/NN.ext` inside `document_dir`.
 ///
 /// `reading_rules` is the user's own natural-language instruction block (their
@@ -400,136 +647,24 @@ pub fn transcribe_page(
         format!("modèle {model} · consigne {} caractères", system.len()),
     );
 
-    let claude = crate::env_check::resolve_tool("claude")
-        .ok_or("Claude Code est introuvable. Vérifiez le panneau « État du système ».")?;
-
-    // The instruction travels as a file, not as an argument. Nearly six
-    // thousand characters of LaTeX and line breaks on a command line is the
-    // kind of thing that survives on one platform and not another — Windows
-    // has a shell shim and a quoting layer between Plume and `claude` that a
-    // Mac has not — and a file path is the same everywhere. The schema stays
-    // an argument, but on one line: a newline in an argument is the one
-    // thing the Windows batch quoting refuses outright.
-    let instruction = instruction_file(page_number, &system)?;
-    let schema = one_line(ir::page_schema());
-
-    logbus::debug(
-        "claude",
-        format!("Page {page_number} — commande"),
-        format!(
-            "{} -p --model {model} --output-format stream-json --json-schema <{} o> --system-prompt-file {} --allowedTools Read",
-            claude.display(),
-            schema.len(),
-            instruction.display()
-        ),
-    );
-
     let started = std::time::Instant::now();
-    let mut child = crate::proc::quiet(&claude)
-        .current_dir(document_dir)
-        .arg("-p")
-        .arg("--model")
-        .arg(model)
-        .arg("--output-format")
-        .arg("stream-json")
-        .arg("--verbose")
-        .arg("--json-schema")
-        .arg(&schema)
-        .arg("--system-prompt-file")
-        .arg(&instruction)
-        .arg("--allowedTools")
-        .arg("Read")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Lancement de Claude Code impossible : {e}"))?;
-
-    // Watched so a cancellation can kill it: waiting for a page to finish would
-    // keep spending quota for another minute or two.
-    let pid = child.id();
-    crate::runs::watch(run_id, pid);
-
-    child
-        .stdin
-        .take()
-        .ok_or("Entrée standard indisponible.")?
-        .write_all(prompt.as_bytes())
-        .map_err(|e| format!("Envoi de la consigne : {e}"))?;
-
-    // The stream is read as it arrives: each event becomes a heartbeat, and the
-    // final `result` line carries the same envelope the one-shot format did.
-    let stdout = child.stdout.take().ok_or("Sortie standard indisponible.")?;
-    let mut envelope: Option<serde_json::Value> = None;
-    // Lines that were not events: a CLI that dies before the stream starts
-    // says why in plain text, on stdout, and that text was thrown away.
-    let mut stray: Vec<String> = Vec::new();
-    for line in BufReader::new(stdout).lines() {
-        let Ok(line) = line else { break };
-        if line.trim().is_empty() {
-            continue;
-        }
-        let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) else {
-            if stray.len() < STRAY_LINES {
-                stray.push(line.trim().to_string());
+    let envelope = run_streaming(
+        &Invocation {
+            run_id,
+            document_dir,
+            label: format!("Page {page_number}"),
+            tag: format!("page{page_number}"),
+            model,
+            schema: ir::page_schema(),
+            system: &system,
+            prompt: &prompt,
+        },
+        &|event| {
+            if let Some(label) = classify(event) {
+                on_activity(label);
             }
-            continue;
-        };
-        if event.get("type").and_then(|v| v.as_str()) == Some("result") {
-            envelope = Some(event);
-        } else if let Some(label) = classify(&event) {
-            on_activity(label);
-        }
-    }
-
-    let mut stderr_text = String::new();
-    if let Some(mut stream) = child.stderr.take() {
-        let _ = stream.read_to_string(&mut stderr_text);
-    }
-    let status = child
-        .wait()
-        .map_err(|e| format!("Exécution de Claude Code : {e}"))?;
-    crate::runs::unwatch(run_id, pid);
-    let _ = std::fs::remove_file(&instruction);
-
-    if crate::runs::is_cancelled(run_id) {
-        return Err(CANCELLED.to_string());
-    }
-
-    if !status.success() {
-        // Everything the process said goes to the console, whole, before the
-        // one line the screen gets: "détail dans la console" has to be true.
-        logbus::error("claude", format!("Page {page_number} — {status}"));
-        logbus::detail("claude", "Binaire", claude.display().to_string());
-        if !stderr_text.trim().is_empty() {
-            logbus::detail("claude", "Sortie d'erreur", tail(&stderr_text));
-        }
-        if !stray.is_empty() {
-            logbus::detail("claude", "Sortie hors protocole", stray.join("\n"));
-        }
-        if let Some(event) = &envelope {
-            logbus::detail("claude", "Dernier événement", clip(&event.to_string()));
-        }
-        let detail = failure_detail(&stderr_text, envelope.as_ref(), &stray)
-            .unwrap_or_else(|| "il n'a rien dit — ni erreur, ni sortie.".to_string());
-        if crate::claude::is_auth_failure(&detail) {
-            return Err(format!("{} : {detail}", crate::claude::AUTH_REQUIRED));
-        }
-        if crate::claude_update::is_outdated_failure(&detail) {
-            return Err(format!("{} ({detail})", crate::claude_update::OUTDATED));
-        }
-        return Err(format!("Claude Code s'est arrêté ({status}) : {detail}"));
-    }
-
-    let envelope = envelope.ok_or("Claude Code n'a renvoyé aucun résultat.")?;
-
-    if envelope.get("is_error").and_then(|v| v.as_bool()) == Some(true) {
-        let said = envelope.get("result").and_then(|v| v.as_str()).unwrap_or("");
-        if crate::claude_update::is_outdated_failure(said) {
-            return Err(format!("{} ({said})", crate::claude_update::OUTDATED));
-        }
-        return Err(format!("Claude Code a signalé une erreur : {said}"));
-    }
+        },
+    )?;
 
     let structured = envelope
         .get("structured_output")
@@ -753,6 +888,7 @@ pub fn correct_block(
 
     let envelope: serde_json::Value = serde_json::from_slice(&output.stdout)
         .map_err(|e| format!("Réponse illisible de Claude Code : {e}"))?;
+    log_models(&format!("Correction du bloc {}", block.id), model, &envelope);
 
     let structured = envelope
         .get("structured_output")
@@ -1055,6 +1191,30 @@ mod tests {
         let a: serde_json::Value = serde_json::from_str(&compact).unwrap();
         let b: serde_json::Value = serde_json::from_str(&ir::page_schema()).unwrap();
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn model_ids_read_the_way_people_say_them() {
+        assert_eq!(model_name("claude-opus-5-5"), "Opus 5.5");
+        assert_eq!(model_name("claude-opus-5"), "Opus 5");
+        assert_eq!(model_name("claude-fable-5-1"), "Fable 5.1");
+        assert_eq!(model_name("claude-sonnet-5"), "Sonnet 5");
+        assert_eq!(model_name("claude-haiku-4-5-20251001"), "Haiku 4.5");
+        assert_eq!(model_name("claude-3-5-sonnet-20241022"), "Sonnet 3.5");
+        assert_eq!(model_name("claude-opus-5-5[1m]"), "Opus 5.5 (1M)");
+        assert_eq!(model_name("123"), "123");
+    }
+
+    /// The final event of a real run, trimmed: `modelUsage` keyed by model id.
+    #[test]
+    fn the_models_used_come_most_expensive_first() {
+        let envelope = event(
+            r#"{"type":"result","modelUsage":{
+                "claude-haiku-4-5-20251001":{"costUSD":0.002},
+                "claude-opus-5-5":{"costUSD":0.31}}}"#,
+        );
+        assert_eq!(models_used(&envelope), vec!["claude-opus-5-5", "claude-haiku-4-5-20251001"]);
+        assert!(models_used(&event(r#"{"type":"result"}"#)).is_empty());
     }
 
     #[test]

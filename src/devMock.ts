@@ -346,6 +346,31 @@ let claudeUpdate = new URLSearchParams(window.location.search).has("claudeold")
   ? { installed: "2.1.236", latest: "2.1.281", behindDays: 35, available: true, important: true }
   : { installed: "2.1.281", latest: "2.1.281", behindDays: 0, available: false, important: false };
 
+/**
+ * The conversation about the whole document, and the versions it leaves
+ * behind. The answer is always the same — the parts numbered in letters — which
+ * is enough to watch a change land, and to take it back.
+ */
+type MockMessage = {
+  role: "teacher" | "claude";
+  text: string;
+  at: number;
+  tally?: { edited: number; added: number; removed: number };
+  costUsd?: number;
+};
+const chat: MockMessage[] = [];
+type MockVersion = {
+  id: string;
+  createdAt: number;
+  kind: string;
+  label: string;
+  blocks: number;
+  restorable: boolean;
+};
+let versions: MockVersion[] = [];
+const kept = new Map<string, typeof transcript>();
+const countBlocks = (t: typeof transcript) => t.pages.reduce((n, p) => n + p.blocks.length, 0);
+
 const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   check_claude_update: () => claudeUpdate,
   update_claude: () =>
@@ -405,6 +430,55 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   apply_corrections: async () => {
     await new Promise((resolve) => setTimeout(resolve, 8000));
     return transcript;
+  },
+  chat_log: () => structuredClone(chat),
+  clear_chat: () => {
+    chat.length = 0;
+    return undefined;
+  },
+  cancel_chat: () => 0,
+  ask_claude: async (args: Record<string, unknown>) => {
+    const request = String(args.request ?? "");
+    chat.push({ role: "teacher", text: request, at: Date.now() });
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    const before = structuredClone(transcript);
+    const changed: string[] = [];
+    let letter = 0;
+    for (const page of transcript.pages) {
+      for (const block of page.blocks) {
+        if (block.kind !== "part") continue;
+        Object.assign(block, { number: String.fromCharCode(65 + letter++) });
+        changed.push(block.id);
+      }
+    }
+    const id = `v${Date.now()}`;
+    kept.set(id, before);
+    versions = [
+      { id, createdAt: Date.now(), kind: "chat", label: request, blocks: countBlocks(before), restorable: true },
+      ...versions,
+    ].slice(0, 3);
+    chat.push({
+      role: "claude",
+      text: "J'ai numéroté les parties en lettres : A, B, C… Le reste du document n'a pas bougé.",
+      at: Date.now(),
+      tally: { edited: changed.length, added: 0, removed: 0 },
+      costUsd: 0.04,
+    });
+    return { messages: structuredClone(chat), transcript: structuredClone(transcript), changed };
+  },
+  list_versions: () => structuredClone(versions),
+  restore_version: (args: Record<string, unknown>) => {
+    const chosen = versions.find((v) => v.id === args.versionId);
+    const back = chosen && kept.get(chosen.id);
+    if (!chosen || !back) throw "Cette version n'existe plus.";
+    const id = `v${Date.now()}`;
+    kept.set(id, structuredClone(transcript));
+    versions = [
+      { id, createdAt: Date.now(), kind: "restore", label: chosen.label, blocks: countBlocks(transcript), restorable: true },
+      ...versions.filter((v) => v.id !== chosen.id),
+    ].slice(0, 3);
+    transcript.pages = structuredClone(back.pages);
+    return structuredClone(transcript);
   },
   list_templates: () => [template],
   list_trash: () => trash,
