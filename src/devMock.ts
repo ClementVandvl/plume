@@ -31,6 +31,7 @@ const block = (
   align: null,
   note: null,
   taughtEnd: false,
+  hidden: false,
   reviewed: false,
   ...extra,
 });
@@ -419,6 +420,12 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
     return undefined;
   },
   set_block_note: () => undefined,
+  set_block_hidden: (args: Record<string, unknown>) => {
+    for (const page of transcript.pages) {
+      for (const b of page.blocks) if (b.id === args.blockId) b.hidden = Boolean(args.hidden);
+    }
+    return structuredClone(transcript);
+  },
   set_taught_end: (args: Record<string, unknown>) => {
     for (const page of transcript.pages) {
       for (const b of page.blocks) b.taughtEnd = b.id === args.blockId;
@@ -578,6 +585,7 @@ function inspect(json: string) {
       align: null,
       note: null,
       taughtEnd: false,
+      hidden: false,
       reviewed: false,
     };
   });

@@ -768,11 +768,15 @@ fn save_block(id: String, block: ir::Block) -> Result<(), String> {
     // round trip through it must not quietly clear the boundary and let a
     // partial export run to the end of the document.
     let taught_end = target.taught_end;
+    // Toggled on its own, straight away, so an editor opened before the toggle
+    // must not carry the old state back.
+    let hidden = target.hidden;
     *target = block;
     // A manual edit does not discard a pending instruction: the teacher may
     // have fixed the wording and still want the diagram redone.
     target.note = note;
     target.taught_end = taught_end;
+    target.hidden = hidden;
     target.reviewed = true;
 
     logbus::info("workspace", format!("Bloc {} modifié à la main", target.id));
@@ -902,6 +906,7 @@ fn insert_block(
         align: None,
         note: None,
         taught_end: false,
+        hidden: false,
         reviewed: true,
     };
     insert_in_transcript(&mut transcript, &after_block_id, vec![block])?;
@@ -1096,6 +1101,34 @@ fn split_block(id: String, block_id: String, head: String, tail: String) -> Resu
     logbus::info(
         "workspace",
         format!("Passage {block_id} scindé — nouveau bloc {created}"),
+    );
+    Ok(transcript)
+}
+
+/// Sets a passage aside, out of every export, or brings it back.
+///
+/// Its own command rather than a field of `save_block`, so the switch takes
+/// effect at once: a passage set aside is one the teacher is not editing, and
+/// making them press « Enregistrer » for it would leave it in the next PDF.
+#[tauri::command]
+fn set_block_hidden(id: String, block_id: String, hidden: bool) -> Result<ir::Transcript, String> {
+    let mut transcript = read_transcript(&id)?;
+    let block = transcript
+        .pages
+        .iter_mut()
+        .flat_map(|p| p.blocks.iter_mut())
+        .find(|b| b.id == block_id)
+        .ok_or("Bloc introuvable.")?;
+    block.hidden = hidden;
+    write_transcript(&id, &transcript)?;
+
+    logbus::info(
+        "workspace",
+        if hidden {
+            format!("Passage {block_id} mis de côté")
+        } else {
+            format!("Passage {block_id} remis dans le document")
+        },
     );
     Ok(transcript)
 }
@@ -1863,6 +1896,7 @@ pub fn run() {
             reading_documents,
             set_block_note,
             set_taught_end,
+            set_block_hidden,
             apply_corrections,
             transcribe_document,
             build_document,
@@ -1897,6 +1931,7 @@ mod tests {
             align: None,
             note: None,
             taught_end: false,
+            hidden: false,
             reviewed: true,
         }
     }
@@ -1918,6 +1953,7 @@ mod tests {
                     align: None,
                     note: None,
                     taught_end: false,
+                    hidden: false,
                     reviewed: false,
                 })
                 .collect(),

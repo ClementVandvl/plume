@@ -388,11 +388,12 @@ fn words_of(content: &str) -> Vec<&str> {
 
 /// Blocks in reading order, narrowed to what this export should contain.
 ///
-/// Two filters, independent of each other: who the document is for, and how
-/// far the class has got. Both are applied here rather than through LaTeX
-/// conditionals, so a `.tex` handed to a class holds no trace of what was left
-/// out — neither the answers reserved for the teacher, nor next week's lesson
-/// commented out at the end of the file.
+/// Three filters, independent of each other: what the teacher set aside, who
+/// the document is for, and how far the class has got. All are applied here
+/// rather than through LaTeX conditionals, so a `.tex` handed to a class holds
+/// no trace of what was left out — neither the answers reserved for the
+/// teacher, nor a passage set aside, nor next week's lesson commented out at
+/// the end of the file.
 ///
 /// `taught_only` on a document nobody has marked keeps everything. The command
 /// refuses that combination before reaching this point, because "as far as the
@@ -406,12 +407,12 @@ pub fn kept<'a>(
     let mut out = Vec::new();
     for page in &transcript.pages {
         for block in &page.blocks {
-            if keeps(block, audience) {
+            if !block.hidden && keeps(block, audience) {
                 out.push(block);
             }
             // Inclusive: the marked passage is the last one taught, not the
-            // first one still to come. Checked even when the audience filter
-            // dropped the block, or a teacher-only boundary would run on.
+            // first one still to come. Checked even when a filter dropped the
+            // block, or a teacher-only or set-aside boundary would run on.
             if taught_only && block.taught_end {
                 return out;
             }
@@ -542,6 +543,7 @@ mod tests {
             align: None,
             note: None,
             taught_end: false,
+            hidden: false,
             reviewed: false,
         }
     }
@@ -559,6 +561,7 @@ mod tests {
             align: None,
             note: None,
             taught_end: false,
+            hidden: false,
             reviewed: true,
         }
     }
@@ -614,6 +617,29 @@ mod tests {
             .map(|b| b.latex.as_str())
             .collect();
         assert_eq!(teacher, vec!["énoncé", "correction"]);
+    }
+
+    /// A passage set aside leaves every export, and still ends the one that
+    /// stops where the class did when it carries the mark.
+    #[test]
+    fn a_passage_set_aside_is_left_out_of_every_export() {
+        let mut transcript = document(vec![
+            passage("p01-b01", "un", &[]),
+            passage("p01-b02", "de côté", &[]),
+            passage("p01-b03", "trois", &[]),
+        ]);
+        transcript.pages[0].blocks[1].hidden = true;
+
+        for audience in [AUDIENCE_ALL, "teacher", "student"] {
+            let bodies: Vec<&str> =
+                kept(&transcript, audience, false).iter().map(|b| b.latex.as_str()).collect();
+            assert_eq!(bodies, vec!["un", "trois"], "{audience}");
+        }
+
+        crate::ir::mark_taught_end(&mut transcript, Some("p01-b02")).unwrap();
+        let taught: Vec<&str> =
+            kept(&transcript, AUDIENCE_ALL, true).iter().map(|b| b.latex.as_str()).collect();
+        assert_eq!(taught, vec!["un"], "the boundary holds even on a hidden passage");
     }
 
     /// The regression: without a chapter block the sheet was headed by the

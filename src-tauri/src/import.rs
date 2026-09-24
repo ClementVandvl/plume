@@ -157,6 +157,7 @@ fn convert(raw: WireBlock, position: usize) -> Result<Block, String> {
         align: None,
         note: None,
         taught_end: false,
+        hidden: false,
         reviewed: false,
     })
 }

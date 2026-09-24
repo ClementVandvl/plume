@@ -27,6 +27,7 @@ import {
   setTags,
   listTags,
   setTaughtEnd,
+  setBlockHidden,
   transcribeDocument,
 } from "../api";
 import { formatMoney, t, tn } from "../i18n";
@@ -283,14 +284,17 @@ export function DocumentView({
    * stay identical to it: this is what the screen promises before the PDF is
    * made, so a disagreement between the two is a promise the export breaks.
    *
-   * Two filters — who it is for, and how far the class got. The boundary is
-   * inclusive, and is checked even on a passage the audience filter dropped,
-   * so a teacher-only answer carrying the mark still ends the student handout.
+   * Three filters — what was set aside, who it is for, and how far the class
+   * got. The boundary is inclusive, and is checked even on a passage another
+   * filter dropped, so a teacher-only answer carrying the mark still ends the
+   * student handout.
    */
   const keptBlocks = (who: string, stopAtTaught: boolean) => {
     const out: Block[] = [];
     for (const block of blocks) {
-      if (who === "all" || block.audience.length === 0 || block.audience.includes(who)) {
+      const forThem =
+        who === "all" || block.audience.length === 0 || block.audience.includes(who);
+      if (!block.hidden && forThem) {
         out.push(block);
       }
       if (stopAtTaught && block.taughtEnd) break;
@@ -315,7 +319,8 @@ export function DocumentView({
               page.blocks.some((b) => b.id === taughtBlock.id),
             )?.number ?? 1,
         });
-  const taughtComplete = taughtAt >= 0 && taughtAt === blocks.length - 1;
+  // Complete when nothing the PDF would print lies past the mark.
+  const taughtComplete = taughtAt >= 0 && blocks.slice(taughtAt + 1).every((b) => b.hidden);
   // A document that ends on a heading with nothing under it. Worth saying
   // before the mail goes out, not worth refusing: a lesson can genuinely end
   // on the title of what comes next week.
@@ -333,6 +338,12 @@ export function DocumentView({
   const studentOnly = blocks.filter(
     (b) => b.audience.length > 0 && !b.audience.includes("teacher"),
   );
+  const setAside = blocks.filter((b) => b.hidden);
+  // What any export can hold at all: the counts below are against this, since a
+  // passage set aside is not one a version or the boundary "removes".
+  const exportable = blocks.length - setAside.length;
+  const taughtKept =
+    taughtAt < 0 ? 0 : blocks.slice(0, taughtAt + 1).filter((b) => !b.hidden).length;
 
   /**
    * A marked document proposes stopping there.
@@ -366,6 +377,11 @@ export function DocumentView({
     }
   }, [step, filter, blocks.length, doubtful.length]);
 
+  // Same for "Mis de côté", once the last passage set aside is brought back.
+  useEffect(() => {
+    if (filter === "hidden" && setAside.length === 0) setFilter("all");
+  }, [filter, setAside.length]);
+
   // The review list in reading order, narrowed by the active filter — the
   // sequence ↑/↓ walks through.
   const sequence = (transcript?.pages ?? [])
@@ -376,6 +392,7 @@ export function DocumentView({
         return block.audience.length > 0 && !block.audience.includes("student");
       if (filter === "student")
         return block.audience.length > 0 && !block.audience.includes("teacher");
+      if (filter === "hidden") return block.hidden;
       return true;
     });
   const all = (transcript?.pages ?? []).flatMap((page) =>
@@ -409,6 +426,7 @@ export function DocumentView({
     { id: "all", label: t("review.filter.all"), count: blocks.length },
     { id: "teacher", label: t("review.filter.teacher"), count: teacherOnly.length },
     { id: "student", label: t("review.filter.student"), count: studentOnly.length },
+    { id: "hidden", label: t("review.filter.hidden"), count: setAside.length },
   ];
 
   /**
@@ -755,6 +773,18 @@ export function DocumentView({
     } catch (cause) {
       setError(String(cause));
       logError("workspace", "Point d'arrêt impossible à poser", cause);
+    }
+  }
+
+  /** Sets a passage aside, out of every export, or brings it back. */
+  async function markHidden(blockId: string, hidden: boolean) {
+    setError(null);
+    try {
+      setTranscript(await setBlockHidden(documentId, blockId, hidden));
+      onChanged();
+    } catch (cause) {
+      setError(String(cause));
+      logError("workspace", "Passage impossible à mettre de côté", cause);
     }
   }
 
@@ -1379,6 +1409,7 @@ export function DocumentView({
                       selectedId={openBlock}
                       onInsertAfter={setInsertAfter}
                       onTaughtEnd={markTaughtEnd}
+                      onHidden={markHidden}
                       onSelect={setOpenBlock}
                     />
                   )}
@@ -1400,6 +1431,7 @@ export function DocumentView({
                     onSplit={(head, tail) => split(selected.block.id, head, tail)}
                     onZoom={() => setViewing(selected.page - 1)}
                     onDelete={() => discard(selected.block.id)}
+                    onHidden={(hidden) => markHidden(selected.block.id, hidden)}
                   />
                 )}
               </div>
@@ -1429,8 +1461,8 @@ export function DocumentView({
                       ["all", t("export.all.title")],
                     ] as const
                   ).map(([id, label]) => {
-                    const kept = id === "all" ? blocks.length : keptFor(id);
-                    const removed = blocks.length - kept;
+                    const kept = id === "all" ? exportable : keptFor(id);
+                    const removed = exportable - kept;
                     const hint =
                       id === "all"
                         ? t("export.all.hint")
@@ -1460,6 +1492,9 @@ export function DocumentView({
               {teacherOnly.length === 0 && studentOnly.length === 0 && (
                 <p className="field__hint">{t("export.sameVersions")}</p>
               )}
+              {setAside.length > 0 && (
+                <p className="field__hint">{tn("export.hidden", setAside.length)}</p>
+              )}
 
               {/* The second, independent question: not who the document is
                   for, but how much of the document it holds. */}
@@ -1478,8 +1513,8 @@ export function DocumentView({
                       <span className="radio__hint">
                         {taughtAt < 0
                           ? t("export.reach.unmarked")
-                          : tn("export.reach.taught.hint", taughtAt + 1, {
-                              total: blocks.length,
+                          : tn("export.reach.taught.hint", taughtKept, {
+                              total: exportable,
                               last: taughtName,
                             })}
                       </span>
@@ -1494,7 +1529,7 @@ export function DocumentView({
                     <span className="radio__copy">
                       <span className="radio__label">{t("export.reach.whole")}</span>
                       <span className="radio__hint">
-                        {tn("export.reach.whole.hint", blocks.length)}
+                        {tn("export.reach.whole.hint", exportable)}
                       </span>
                     </span>
                   </button>

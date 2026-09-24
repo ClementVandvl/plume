@@ -751,16 +751,9 @@ pub fn correct_block(
         .get("structured_output")
         .ok_or("Claude Code n'a pas renvoyé de sortie structurée.")?;
 
-    let mut corrected: ir::Block = serde_json::from_value(structured.clone())
+    let corrected: ir::Block = serde_json::from_value(structured.clone())
         .map_err(|e| format!("Bloc corrigé illisible : {e}"))?;
-
-    // Identity and review state belong to Plume, not to the model.
-    corrected.id = block.id.clone();
-    corrected.note = None;
-    corrected.reviewed = true;
-    if corrected.audience.is_empty() {
-        corrected.audience = block.audience.clone();
-    }
+    let corrected = keep_review_state(corrected, block);
 
     let cost_usd = envelope.get("total_cost_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
     logbus::detail(
@@ -773,6 +766,30 @@ pub fn correct_block(
     );
 
     Ok((corrected, cost_usd))
+}
+
+/// Carries over what the review decided onto the block the model sent back.
+///
+/// The corrected block replaces the original wholesale, so anything set during
+/// review and never by the model has to be copied across here, or a correction
+/// quietly undoes it.
+fn keep_review_state(mut corrected: ir::Block, block: &ir::Block) -> ir::Block {
+    // Identity and review state belong to Plume, not to the model.
+    corrected.id = block.id.clone();
+    corrected.note = None;
+    corrected.reviewed = true;
+    if corrected.audience.is_empty() {
+        corrected.audience = block.audience.clone();
+    }
+    // Setting a passage aside is the teacher's decision, not something the
+    // model is asked about: a correction must not quietly put it back.
+    corrected.hidden = block.hidden;
+    // Neither is how far the class has got, nor where the block sits on the
+    // page: correcting the passage the class stopped on must not move the
+    // boundary, or a handout meant to stop there runs on to the end.
+    corrected.taught_end = block.taught_end;
+    corrected.align = block.align.clone();
+    corrected
 }
 
 #[cfg(test)]
@@ -891,6 +908,7 @@ mod tests {
             align: None,
             note: None,
             taught_end: false,
+            hidden: false,
             reviewed: false,
         }
     }
@@ -950,6 +968,44 @@ mod tests {
         assert_eq!(folded("PROPRIÉTÉ :"), "propriete");
         assert_eq!(folded("  Démonstration  "), "demonstration");
         assert_ne!(folded("Exercices"), "exemple");
+    }
+
+    /// Correcting the passage the class stopped on used to clear the mark,
+    /// and the "jusqu'où la classe en est" export ran on to the end.
+    #[test]
+    fn a_correction_keeps_what_the_review_decided() {
+        let mut original = block("property", None, None, "a + b");
+        original.id = "p02-b03".into();
+        original.audience = vec!["student".into()];
+        original.align = Some("center".into());
+        original.note = Some("corrige le signe".into());
+        original.taught_end = true;
+        original.hidden = true;
+
+        // What the model sends back: none of the review's fields, since the
+        // schema does not carry them.
+        let corrected = keep_review_state(block("property", None, None, "a - b"), &original);
+
+        assert_eq!(corrected.latex, "a - b", "the correction itself is kept");
+        assert_eq!(corrected.id, "p02-b03");
+        assert_eq!(corrected.audience, vec!["student".to_string()]);
+        assert_eq!(corrected.align.as_deref(), Some("center"));
+        assert!(corrected.taught_end, "the class still stopped here");
+        assert!(corrected.hidden);
+        assert!(corrected.reviewed);
+        assert_eq!(corrected.note, None, "the instruction has been carried out");
+    }
+
+    #[test]
+    fn a_correction_can_change_the_audience() {
+        let mut original = block("property", None, None, "a + b");
+        original.audience = vec!["student".into()];
+        let mut returned = block("property", None, None, "a + b");
+        returned.audience = vec!["teacher".into()];
+
+        let corrected = keep_review_state(returned, &original);
+
+        assert_eq!(corrected.audience, vec!["teacher".to_string()]);
     }
 
     fn event(raw: &str) -> serde_json::Value {

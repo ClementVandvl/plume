@@ -129,6 +129,10 @@ export const setBlockNote = (id: string, blockId: string, note: string | null) =
 export const setTaughtEnd = (id: string, blockId: string | null) =>
   invoke<Transcript>("set_taught_end", { id, blockId });
 
+/** Sets a passage aside, out of every export, or brings it back. */
+export const setBlockHidden = (id: string, blockId: string, hidden: boolean) =>
+  invoke<Transcript>("set_block_hidden", { id, blockId, hidden });
+
 export const applyCorrections = (id: string, model: string) =>
   invoke<Transcript>("apply_corrections", { id, model });
 

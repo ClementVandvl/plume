@@ -177,6 +177,11 @@ export type Block = {
    * anyone noticing.
    */
   taughtEnd: boolean;
+  /**
+   * Set aside by the teacher: kept in the document, left out of every export.
+   * Toggled on its own with `setBlockHidden`, never through `saveBlock`.
+   */
+  hidden: boolean;
   reviewed: boolean;
 };
 

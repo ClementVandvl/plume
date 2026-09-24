@@ -14,6 +14,7 @@ const block = (over: Partial<Block> = {}): Block => ({
   align: null,
   note: null,
   taughtEnd: false,
+  hidden: false,
   reviewed: false,
   ...over,
 });

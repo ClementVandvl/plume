@@ -35,6 +35,8 @@ type Props = {
    * clears it when the block already carries it.
    */
   onTaughtEnd: (blockId: string | null) => void;
+  /** Sets a passage aside, out of every export, or brings it back. */
+  onHidden: (blockId: string, hidden: boolean) => void;
 };
 
 
@@ -61,6 +63,7 @@ export function DocumentPreview({
   onSelect,
   onInsertAfter,
   onTaughtEnd,
+  onHidden,
 }: Props) {
   const colours = useMemo(() => semanticColours(template), [template]);
   const labels = useMemo(() => semanticLabels(template), [template]);
@@ -136,6 +139,7 @@ export function DocumentPreview({
             return block.audience.length > 0 && !block.audience.includes("student");
           if (filter === "student")
             return block.audience.length > 0 && !block.audience.includes("teacher");
+          if (filter === "hidden") return block.hidden;
           return true;
         })
         .map(({ block, page, number }) => {
@@ -163,7 +167,7 @@ export function DocumentPreview({
               studentOnly ? "pblock--student" : ""
             } ${strayTab ? "pblock--layout" : ""} ${
               beyond.has(block.id) ? "pblock--beyond" : ""
-            } ${selectedId === block.id ? "pblock--selected" : ""}`}
+            } ${block.hidden ? "pblock--hidden" : ""} ${selectedId === block.id ? "pblock--selected" : ""}`}
             onClick={() => onSelect(block.id)}
             role="button"
             tabIndex={0}
@@ -186,7 +190,26 @@ export function DocumentPreview({
               {teacherOnly && <span className="pblock__tag-note">{t("preview.tag.teacher")}</span>}
               {studentOnly && <span className="pblock__tag-note">{t("preview.tag.student")}</span>}
               {layout && <span className="pblock__tag-note">{t("preview.tag.layout")}</span>}
+              {block.hidden && <span className="pblock__tag-note">{t("preview.tag.hidden")}</span>}
             </span>
+
+            {/* Always shown, with its way back: a passage that silently
+                vanished from the PDF would read as a bug, not a choice. */}
+            {block.hidden && (
+              <span className="pblock__aside pblock__aside--hidden">
+                {t("preview.aside.hidden")}
+                <button
+                  type="button"
+                  className="pblock__restore"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onHidden(block.id, false);
+                  }}
+                >
+                  {t("preview.hidden.restore")}
+                </button>
+              </span>
+            )}
 
             {teacherOnly && <span className="pblock__aside">{t("preview.aside.teacher")}</span>}
             {studentOnly && (

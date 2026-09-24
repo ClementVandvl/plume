@@ -2186,6 +2186,11 @@ textarea.input {
   gap: 2px;
 }
 
+.toggle-row--bare {
+  padding-top: 0;
+  border-top: 0;
+}
+
 .toggle-row__label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -4381,6 +4386,47 @@ textarea.code-area {
   text-transform: uppercase;
   color: #1a4f75;
   background: rgb(31 97 141 / 16%);
+}
+
+/* ---------- Passages set aside ---------- */
+/* Set aside: still in the document, out of every PDF. Faded behind a dashed
+   frame, like the passages beyond the boundary, and brought back towards
+   full strength while the teacher looks at it. The paper stays light in
+   either theme, hence fixed colours rather than tokens, as for the tints. */
+.pblock--hidden {
+  border-style: dashed;
+  border-color: rgb(60 58 54 / 45%);
+}
+
+.pblock--hidden.pblock--selected {
+  border-color: rgb(156 111 22 / 85%);
+}
+
+.pblock--hidden .pblock__body {
+  opacity: 0.4;
+}
+
+.pblock--hidden:hover .pblock__body,
+.pblock--hidden.pblock--selected .pblock__body {
+  opacity: 0.8;
+}
+
+.pblock__aside--hidden {
+  color: #55524c;
+  background: rgb(60 58 54 / 10%);
+}
+
+.pblock__restore {
+  margin-left: var(--space-xs);
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* ---------- Block side panel ---------- */

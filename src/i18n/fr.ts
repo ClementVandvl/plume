@@ -254,6 +254,7 @@ export const fr = {
   "review.filter.all": "Tout le document",
   "review.filter.teacher": "Réservé au prof",
   "review.filter.student": "Réservé aux élèves",
+  "review.filter.hidden": "Mis de côté",
   "review.makePdf": "Fabriquer le PDF",
   "review.unread": "Ce document n'a pas encore été lu. Revenez à l'étape « Lecture ».",
   "review.correct.one": "Corriger {count} passage",
@@ -289,6 +290,10 @@ export const fr = {
   "panel.audience.title": "Ce passage apparaît dans",
   "panel.audience.teacher": "Ma version",
   "panel.audience.student": "Version élève",
+  "panel.hidden.title": "Dans le PDF",
+  "panel.hidden.label": "Mettre de côté",
+  "panel.hidden.hint":
+    "Le passage reste dans le document mais sort de tous les PDF. Rien n'est supprimé : il suffit de rebasculer pour le remettre.",
   "panel.kind.label": "Type de passage",
   "panel.title.label": "Titre (facultatif)",
   "insert.title": "Ajouter un passage",
@@ -364,6 +369,8 @@ export const fr = {
   "export.student.hint.same": "Identique à la version professeur pour l'instant.",
   "export.all.title": "Version complète",
   "export.all.hint": "Tous les passages, sans distinction de version.",
+  "export.hidden.one": "1 passage mis de côté n'apparaît dans aucune version.",
+  "export.hidden.other": "{count} passages mis de côté n'apparaissent dans aucune version.",
   "export.reach.title": "Jusqu'où ?",
   "export.reach.taught": "Jusqu'où la classe en est",
   "export.reach.taught.hint.one": "1 passage sur {total} — s'arrête après {last}.",
@@ -743,6 +750,9 @@ export const fr = {
   "preview.tag.layout": "mise en page",
   "preview.aside.teacher": "prof",
   "preview.aside.student": "élève",
+  "preview.tag.hidden": "mis de côté",
+  "preview.aside.hidden": "mis de côté — absent du PDF",
+  "preview.hidden.restore": "remettre",
   "preview.layout.fallback":
     "Ce passage contient sa propre mise en page et le moteur n'a pas pu le rendre : l'aperçu l'empile en une colonne, le PDF la respectera.",
   "preview.stray.note":

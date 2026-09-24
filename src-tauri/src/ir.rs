@@ -94,6 +94,15 @@ pub struct Block {
     /// something a page can be read for.
     #[serde(default)]
     pub taught_end: bool,
+    /// True on a passage the teacher has set aside: kept in the document, left
+    /// out of every export.
+    ///
+    /// The way to try a sheet without a paragraph, or to keep last year's
+    /// example for next year, without deleting it — a deletion cannot be
+    /// undone from the review, and the passage would have to be written again.
+    /// Set during review, never by the model, and kept out of the schema.
+    #[serde(default)]
+    pub hidden: bool,
     /// True once a human has read or edited this block.
     #[serde(default)]
     pub reviewed: bool,

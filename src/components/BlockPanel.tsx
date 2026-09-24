@@ -4,7 +4,7 @@ import { t } from "../i18n";
 import { useAdvanced } from "../ui/mode";
 import { SplitPanel } from "./SplitPanel";
 import { Icon } from "../ui/Icon";
-import { AdvancedRow } from "../ui/controls";
+import { AdvancedRow, Toggle } from "../ui/controls";
 import { needsReview } from "../ui/review";
 import { KIND_LABEL, type Block } from "../types";
 
@@ -28,6 +28,8 @@ type Props = {
   onZoom: () => void;
   /** Removes this passage from the transcription. */
   onDelete: () => Promise<void>;
+  /** Sets this passage aside, out of every export, or brings it back — at once. */
+  onHidden: (hidden: boolean) => Promise<void>;
 };
 
 /** Canned starts for the note — the frequent reasons a passage is wrong. */
@@ -58,6 +60,7 @@ export function BlockPanel({
   onSplit,
   onZoom,
   onDelete,
+  onHidden,
 }: Props) {
   const advanced = useAdvanced();
   const [draft, setDraft] = useState(block);
@@ -259,6 +262,23 @@ export function BlockPanel({
                 {label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Applied at once rather than on « Enregistrer »: a passage set aside
+            is one the teacher has stopped working on. */}
+        <div className="stack stack--tight">
+          <span className="overline">{t("panel.hidden.title")}</span>
+          <div className="toggle-row toggle-row--bare">
+            <div className="toggle-row__copy">
+              <span className="toggle-row__label">{t("panel.hidden.label")}</span>
+              <span className="field__hint">{t("panel.hidden.hint")}</span>
+            </div>
+            <Toggle
+              checked={block.hidden}
+              onChange={(value) => onHidden(value)}
+              label={t("panel.hidden.label")}
+            />
           </div>
         </div>
 
