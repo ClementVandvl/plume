@@ -129,6 +129,17 @@ export const setBlockNote = (id: string, blockId: string, note: string | null) =
 export const setTaughtEnd = (id: string, blockId: string | null) =>
   invoke<Transcript>("set_taught_end", { id, blockId });
 
+/**
+ * Copies a passage to the end of another document — `target` — or, with `null`,
+ * into a new blank one called `title`. Returns the document that received it.
+ */
+export const copyBlock = (
+  id: string,
+  blockId: string,
+  target: string | null,
+  title: string | null,
+) => invoke<PlumeDocument>("copy_block", { id, blockId, target, title });
+
 /** Sets a passage aside, out of every export, or brings it back. */
 export const setBlockHidden = (id: string, blockId: string, hidden: boolean) =>
   invoke<Transcript>("set_block_hidden", { id, blockId, hidden });

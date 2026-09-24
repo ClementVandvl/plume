@@ -30,6 +30,8 @@ type Props = {
   onDelete: () => Promise<void>;
   /** Sets this passage aside, out of every export, or brings it back — at once. */
   onHidden: (hidden: boolean) => Promise<void>;
+  /** Opens the dialog that copies this passage into another document. */
+  onCopy: () => void;
 };
 
 /** Canned starts for the note — the frequent reasons a passage is wrong. */
@@ -61,6 +63,7 @@ export function BlockPanel({
   onZoom,
   onDelete,
   onHidden,
+  onCopy,
 }: Props) {
   const advanced = useAdvanced();
   const [draft, setDraft] = useState(block);
@@ -136,6 +139,15 @@ export function BlockPanel({
           </span>
         </div>
         <div className="panel-side__nav">
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onCopy}
+            aria-label={t("copy.action")}
+            title={t("copy.action")}
+          >
+            <Icon name="send-to" size={13} />
+          </button>
           <button
             type="button"
             className="icon-btn"

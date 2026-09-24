@@ -1074,6 +1074,117 @@ fn remove_in_transcript(transcript: &mut ir::Transcript, block_id: &str) -> Resu
     Ok(())
 }
 
+/// Puts a copy of a passage at the very end of a document, after everything
+/// already there.
+///
+/// On the last page, since ids name a page: a document with no page yet — a
+/// blank one, written rather than photographed — gets its first.
+///
+/// Two things stay with the original. The mark of where the class stopped
+/// describes the lesson the passage came from, and carried over it would move
+/// the other document's boundary. A pending instruction is about the original
+/// and its photograph: the copy's correction would re-read a page that is not
+/// its own, and the original still holds the instruction anyway.
+fn append_to_transcript(transcript: &mut ir::Transcript, mut block: ir::Block) {
+    if transcript.pages.is_empty() {
+        transcript.pages.push(ir::Page { number: 1, blocks: Vec::new(), session_id: None });
+    }
+    let page = transcript
+        .pages
+        .iter_mut()
+        .max_by_key(|page| page.number)
+        .expect("a page was just made if there was none");
+
+    block.id = format!("p{:02}-b{:02}", page.number, page.blocks.len() + 1);
+    block.taught_end = false;
+    block.note = None;
+    page.blocks.push(block);
+}
+
+/// Refuses a document whose transcript a job is about to write back.
+///
+/// A reading or a batch of corrections holds its own copy and saves it when it
+/// ends: a passage added in the meantime would be silently written over.
+fn ensure_idle(id: &str, title: &str) -> Result<(), String> {
+    if runs::is_running(&runs::reading(id)) || runs::is_running(&runs::correcting(id)) {
+        return Err(format!(
+            "« {title} » est en cours de lecture ou de correction : attendez qu'elle se termine."
+        ));
+    }
+    Ok(())
+}
+
+/// Copies one passage to the end of another document, or into a new blank one.
+///
+/// This document is left as it was: the passage is reused elsewhere — last
+/// week's exercise on this week's sheet — not taken away from the lesson it
+/// belongs to.
+///
+/// `target` names an existing document; without it, `title` names the one to
+/// create — written, with no photograph to read, in the same charte and with
+/// the same tags as this one, since a passage reused from a lesson usually
+/// belongs with the same class. Returns the document that received it.
+#[tauri::command]
+fn copy_block(
+    id: String,
+    block_id: String,
+    target: Option<String>,
+    title: Option<String>,
+) -> Result<workspace::Document, String> {
+    let source = workspace::load(&id)?;
+    let block = read_transcript(&id)?
+        .pages
+        .into_iter()
+        .flat_map(|page| page.blocks)
+        .find(|block| block.id == block_id)
+        .ok_or("Bloc introuvable.")?;
+
+    let (mut document, mut received, created) = match target {
+        Some(target) => {
+            if target == id {
+                return Err("Le passage est déjà dans ce document.".into());
+            }
+            let document = workspace::load(&target)?;
+            ensure_idle(&target, &document.title)?;
+            let received = match read_transcript(&target) {
+                Ok(received) => received,
+                Err(_) if document.origin == "written" => ir::Transcript { version: 1, pages: Vec::new() },
+                // Its passages arrive with the reading, which would lay them
+                // out around this one as if it had been on the page.
+                Err(_) => {
+                    return Err(format!(
+                        "« {} » n'a pas encore été lu : lisez-le d'abord, puis copiez-y le passage.",
+                        document.title
+                    ))
+                }
+            };
+            (document, received, false)
+        }
+        None => {
+            let title = title.as_deref().map(str::trim).unwrap_or("");
+            let document = workspace::create_written(title, &source.template_id, &source.tags)?;
+            (document, ir::Transcript { version: 1, pages: Vec::new() }, true)
+        }
+    };
+
+    append_to_transcript(&mut received, block);
+    if let Err(error) = write_transcript(&document.id, &received) {
+        if created {
+            // Nobody has seen this document yet, so there is nothing to bin.
+            let _ = fs::remove_dir_all(workspace::document_dir(&document.id));
+        }
+        return Err(error);
+    }
+    document.updated_at = workspace::now_ms();
+    let _ = workspace::save(&document);
+
+    logbus::info(
+        "workspace",
+        format!("Passage {block_id} copié dans « {} »", document.title),
+    );
+    Ok(document)
+}
+
 /// Removes a passage from the transcript.
 ///
 /// A reading sometimes produces a heading with nothing under it, and a manual
@@ -1897,6 +2008,7 @@ pub fn run() {
             set_block_note,
             set_taught_end,
             set_block_hidden,
+            copy_block,
             apply_corrections,
             transcribe_document,
             build_document,
@@ -2015,6 +2127,27 @@ mod tests {
             "the lesson still ended where it ended"
         );
         assert_eq!(ir::taught_count(&transcript), Some(1));
+    }
+
+    /// A blank document gets its first page; one that has pages takes the
+    /// passage after the last of them, whatever order they were stored in.
+    #[test]
+    fn a_copied_passage_lands_after_everything_else() {
+        let mut blank = ir::Transcript { version: 1, pages: Vec::new() };
+        append_to_transcript(&mut blank, block_of("text", "copié"));
+        assert_eq!(blank.pages.len(), 1);
+        assert_eq!(blank.pages[0].blocks[0].id, "p01-b01");
+
+        let mut read = ir::Transcript { version: 1, pages: vec![page(2, 1), page(1, 3)] };
+        let mut copied = block_of("text", "copié");
+        copied.taught_end = true;
+        copied.note = Some("Refaire la figure".into());
+        append_to_transcript(&mut read, copied);
+        let last = read.pages.iter().find(|p| p.number == 2).unwrap().blocks.last().unwrap();
+        assert_eq!(last.id, "p02-b02");
+        assert_eq!(last.latex, "copié");
+        assert!(!last.taught_end, "the boundary belongs to the lesson it came from");
+        assert!(last.note.is_none(), "the instruction is about the original's photograph");
     }
 
     /// The first block of a page: the lesson ended on the page before.

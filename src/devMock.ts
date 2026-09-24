@@ -437,6 +437,26 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   },
   split_block: () => transcript,
   delete_block: () => transcript,
+  copy_block: (args: Record<string, unknown>) => {
+    let document = documents.find((d) => d.id === args.target);
+    if (!document) {
+      document = {
+        ...documents[0],
+        id: `extrait-${documents.length}`,
+        title: String(args.title),
+        origin: "written",
+        pageCount: 0,
+        status: "review",
+        blockCount: 1,
+        doubtfulCount: 0,
+        taughtCount: null,
+        taughtHeading: null,
+        lastPdf: null,
+      };
+      documents.push(document);
+    }
+    return document;
+  },
   insert_block: () => transcript,
   insert_from_photo: () => transcript,
   set_reading_rules: () => undefined,

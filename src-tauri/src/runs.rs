@@ -61,6 +61,11 @@ pub fn active_readings() -> Vec<String> {
     })
 }
 
+/// Whether a job is in flight — reading or correcting, by its key.
+pub fn is_running(id: &str) -> bool {
+    with(|runs| runs.contains_key(id))
+}
+
 pub fn is_cancelled(id: &str) -> bool {
     with(|runs| runs.get(id).map(|run| run.cancelled).unwrap_or(false))
 }

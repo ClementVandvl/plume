@@ -189,6 +189,7 @@ export default function App() {
                 setRoute({ name: "documents" });
                 refresh().catch(onRefreshError);
               }}
+              onOpenDocument={(id) => setRoute({ name: "document", id, step: "review" })}
             />
             <Console open={consoleOpen} onClose={() => setConsoleOpen(false)} />
           </div>

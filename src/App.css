@@ -2440,6 +2440,24 @@ textarea.input {
   overflow: auto;
 }
 
+/* The passage being copied, as it reads: the same paper as the confirmations. */
+.copy__passage {
+  max-height: 140px;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-paper);
+  color: var(--color-paper-text);
+  border-radius: var(--radius-subtle);
+  font-size: var(--font-size-sm);
+  overflow: auto;
+}
+
+/* A workbook holds dozens of documents: the list scrolls, the search and the
+   button stay in view. */
+.copy__list {
+  max-height: 280px;
+  overflow: auto;
+}
+
 .confirm__foot {
   display: flex;
   justify-content: flex-end;
@@ -2860,6 +2878,17 @@ textarea.code-area {
   color: var(--color-strong-success);
   background: var(--color-soft-success);
   border-color: var(--color-soft-success-border);
+}
+
+/* A notice that leads somewhere: the words, then what to do about them. */
+.notice--action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.notice--action > span {
+  flex: 1;
 }
 
 .notice--error {

@@ -28,6 +28,7 @@ import {
   listTags,
   setTaughtEnd,
   setBlockHidden,
+  copyBlock,
   transcribeDocument,
 } from "../api";
 import { formatMoney, t, tn } from "../i18n";
@@ -63,6 +64,7 @@ import { AdvancedRow, Meter, OverflowMenu, Toggle } from "../ui/controls";
 import { BlockPanel } from "./BlockPanel";
 import { PhotoViewer } from "./PhotoViewer";
 import { InsertPanel } from "./InsertPanel";
+import { CopyPanel } from "./CopyPanel";
 import { TagEditor } from "./TagEditor";
 import { latexToHtml } from "../preview/latexToHtml";
 import { DocumentPreview } from "./DocumentPreview";
@@ -85,6 +87,8 @@ type Props = {
   onBack: () => void;
   onChanged: () => void;
   onDeleted: () => void;
+  /** Opens another document, on its review — where a moved passage went. */
+  onOpenDocument: (id: string) => void;
 };
 
 export function DocumentView({
@@ -97,6 +101,7 @@ export function DocumentView({
   onBack,
   onChanged,
   onDeleted,
+  onOpenDocument,
 }: Props) {
   const advanced = useAdvanced();
   const [document, setDocument] = useState<PlumeDocument | null>(null);
@@ -170,6 +175,11 @@ export function DocumentView({
   const [tagging, setTagging] = useState<string[] | null>(null);
   const [savingTags, setSavingTags] = useState(false);
   const [inserting, setInserting] = useState(false);
+  /** Id of the passage being copied; null when the dialog is closed. */
+  const [copying, setCopying] = useState<string | null>(null);
+  const [copyBusy, setCopyBusy] = useState(false);
+  /** Where the last copy went, so the teacher can follow it there. */
+  const [copiedTo, setCopiedTo] = useState<PlumeDocument | null>(null);
   /** How many times this screen has built a PDF, to date its preview. */
   const [builds, setBuilds] = useState(0);
 
@@ -776,6 +786,28 @@ export function DocumentView({
     }
   }
 
+  /**
+   * Copies a passage to the end of another document or into a new one.
+   *
+   * This document does not change, so the review stays on the passage; a line
+   * says where the copy went, with a way to follow it there.
+   */
+  async function copyTo(blockId: string, target: string | null, title: string | null) {
+    setCopyBusy(true);
+    setError(null);
+    try {
+      setCopiedTo(await copyBlock(documentId, blockId, target, title));
+      setCopying(null);
+      onChanged();
+    } catch (cause) {
+      setError(String(cause));
+      setCopying(null);
+      logError("workspace", "Copie du passage impossible", cause);
+    } finally {
+      setCopyBusy(false);
+    }
+  }
+
   /** Sets a passage aside, out of every export, or brings it back. */
   async function markHidden(blockId: string, hidden: boolean) {
     setError(null);
@@ -995,6 +1027,26 @@ export function DocumentView({
         {error && (
           <p className="notice notice--error" role="alert">
             {error}
+          </p>
+        )}
+        {copiedTo && step === "review" && (
+          <p className="notice notice--ok notice--action">
+            <span>{t("copy.done", { title: copiedTo.title })}</span>
+            <button
+              type="button"
+              className="btn btn--outline btn--sm"
+              onClick={() => onOpenDocument(copiedTo.id)}
+            >
+              {t("copy.open")}
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => setCopiedTo(null)}
+              aria-label={t("common.close")}
+            >
+              <Icon name="close" size={12} />
+            </button>
           </p>
         )}
 
@@ -1432,6 +1484,7 @@ export function DocumentView({
                     onZoom={() => setViewing(selected.page - 1)}
                     onDelete={() => discard(selected.block.id)}
                     onHidden={(hidden) => markHidden(selected.block.id, hidden)}
+                    onCopy={() => setCopying(selected.block.id)}
                   />
                 )}
               </div>
@@ -1772,6 +1825,16 @@ export function DocumentView({
               setSavingTags(false);
             }
           }}
+        />
+      )}
+
+      {copying !== null && all.some((e) => e.block.id === copying) && (
+        <CopyPanel
+          block={all.find((e) => e.block.id === copying)!.block}
+          documentId={documentId}
+          busy={copyBusy}
+          onClose={() => setCopying(null)}
+          onCopy={(target, title) => copyTo(copying, target, title)}
         />
       )}
 
