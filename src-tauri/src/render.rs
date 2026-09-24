@@ -265,7 +265,7 @@ const GAP_WIDTH: &str = "1.5";
 
 /// Resolves every `\trou{…}` in a block's body.
 ///
-/// `blank` produces the adapted copy: each marked word becomes a ruled space
+/// `blank` produces the adapted copy: each marked word becomes a dotted line
 /// half as wide again as the word it hides, for the pupil to write in. Word
 /// by word rather than one rule over the whole run, so a long marking still
 /// breaks across lines, and the count of holes tells the pupil how many words
@@ -325,11 +325,14 @@ fn blanked(content: &str) -> String {
     words_of(content)
         .into_iter()
         .map(|word| {
-            // `\width` inside a `\makebox` width is the natural width of what
-            // it holds, so the rule grows with the word rather than by a fixed
-            // amount: a long word gets a long hole.
+            // The word is set in a scratch box only to be measured, so the
+            // dots grow with it rather than by a fixed amount: a long word gets
+            // a long hole. Dots rather than a rule, as on a worksheet written
+            // by hand; `\xleaders` spreads them evenly across the hole, and the
+            // small inset at each end keeps two holes side by side from reading
+            // as one — the count of holes is the count of missing words.
             format!(
-                "\\underline{{\\vphantom{{Ag}}\\makebox[{GAP_WIDTH}\\width]{{\\hphantom{{{word}}}}}}}"
+                "{{\\setbox0\\hbox{{{word}}}\\hbox to {GAP_WIDTH}\\wd0{{\\hskip.2em\\xleaders\\hbox to .35em{{\\hss.\\hss}}\\hfill\\hskip.2em}}}}"
             )
         })
         .collect::<Vec<_>>()
@@ -424,8 +427,8 @@ pub fn kept<'a>(
 /// Builds the complete `.tex` for one audience.
 ///
 /// `audience` is `all`, `teacher` or `student`; `taught_only` stops the
-/// document after the passage the class reached; `blanks` leaves a ruled
-/// space where the teacher marked words, for a pupil working under a PAP.
+/// document after the passage the class reached; `blanks` leaves a dotted
+/// line where the teacher marked words, for a pupil working under a PAP.
 pub fn render_document(
     root: &Path,
     template: &Template,
@@ -483,7 +486,8 @@ mod tests {
         assert_eq!(
             apply_gaps(latex, true),
             "Deux vecteurs sont \
-             \\underline{\\vphantom{Ag}\\makebox[1.5\\width]{\\hphantom{colinéaires}}} lorsque..."
+             {\\setbox0\\hbox{colinéaires}\\hbox to 1.5\\wd0\
+             {\\hskip.2em\\xleaders\\hbox to .35em{\\hss.\\hss}\\hfill\\hskip.2em}} lorsque..."
         );
     }
 
@@ -492,9 +496,9 @@ mod tests {
     #[test]
     fn each_word_of_a_run_keeps_its_own_width() {
         let blanked = apply_gaps("On dit \\trou{de même direction} quand...", true);
-        assert_eq!(blanked.matches("\\underline").count(), 3);
+        assert_eq!(blanked.matches("\\xleaders").count(), 3);
         assert!(
-            blanked.contains("\\hphantom{de}}} \\underline{"),
+            blanked.contains("\\hskip.2em}} {\\setbox0\\hbox{même}"),
             "one hole per word, the ordinary space between them: the line may break there"
         );
     }
@@ -504,12 +508,12 @@ mod tests {
     #[test]
     fn a_space_inside_maths_does_not_open_a_second_hole() {
         let blanked = apply_gaps("\\trou{$a + b$ et \\textbf{les deux}}", true);
-        assert_eq!(blanked.matches("\\underline").count(), 3, "$a + b$, et, \\textbf{{...}}");
+        assert_eq!(blanked.matches("\\xleaders").count(), 3, "$a + b$, et, \\textbf{{...}}");
         // Wider than the word, so a hand fits: the reason the copies no
         // longer break their lines in the same places.
-        assert_eq!(blanked.matches("\\makebox[1.5\\width]").count(), 3);
-        assert!(blanked.contains("\\hphantom{$a + b$}"));
-        assert!(blanked.contains("\\hphantom{\\textbf{les deux}}"));
+        assert_eq!(blanked.matches("\\hbox to 1.5\\wd0").count(), 3);
+        assert!(blanked.contains("\\hbox{$a + b$}"));
+        assert!(blanked.contains("\\hbox{\\textbf{les deux}}"));
     }
 
     /// `\trou` names a command only when a group follows it.
@@ -526,7 +530,7 @@ mod tests {
     fn marks_are_resolved_one_after_another() {
         let latex = "\\trou{premier} au milieu \\trou{\\emph{second}} fin";
         assert_eq!(apply_gaps(latex, false), "premier au milieu \\emph{second} fin");
-        assert_eq!(apply_gaps(latex, true).matches("\\underline").count(), 2);
+        assert_eq!(apply_gaps(latex, true).matches("\\xleaders").count(), 2);
     }
 
     /// The exact shape that reached the screen as a literal "&=".

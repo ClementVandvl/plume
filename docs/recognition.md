@@ -637,12 +637,14 @@ are never hidden, and a passage that lays itself out is left out of the page
 entirely — cut into words a table is alignment tabs and rules.
 
 `render::apply_gaps` resolves the mark at export: printed as itself in every
-ordinary copy, and in the adapted one replaced by a ruled space — one hole per
+ordinary copy, and in the adapted one replaced by a dotted line — one hole per
 word, so a long marking still breaks across lines and the count of holes tells
 the pupil how many words are missing. Each hole is `GAP_WIDTH` times the width
-of the word it hides (`\makebox[1.5\width]` around an `\hphantom`), because
-handwriting is bigger than 11 pt type and a hole the exact width of its word is
-one a pupil cannot write in. The price is that the adapted copy no longer
+of the word it hides (the word is measured in a scratch box, then `\xleaders`
+spread dots across a box that much wider, inset a little at each end so two
+holes side by side still read as two), because handwriting is bigger than
+11 pt type and a hole the exact width of its word is one a pupil cannot write
+in. The price is that the adapted copy no longer
 breaks its lines where the ordinary one does; room to write was worth more.
 
 The chartes carry `\providecommand{\trou}[1]{#1}` so a mark written by hand in

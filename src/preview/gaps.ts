@@ -9,7 +9,7 @@
  * In the body rather than in a field beside it: a field would name a span of
  * text by position, and every edit to the passage moves those. Inside, the
  * mark travels with the words it holds. `render::apply_gaps` resolves it at
- * export — printed in the ordinary copy, a ruled space in the adapted one.
+ * export — printed in the ordinary copy, a dotted line in the adapted one.
  *
  * This module is the round trip between that LaTeX and something a teacher
  * can click: `tokenise` cuts a passage into words, `build` puts it back. Every

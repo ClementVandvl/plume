@@ -703,7 +703,7 @@ export const fr = {
   "adapt.gaps.name": "Texte à trous",
   "adapt.gaps.hint": "Masquer des mots que l'élève complétera",
   "adapt.gaps.how":
-    "Surlignez les mots à masquer : ils laisseront un blanc un peu plus large qu'eux, pour être écrits à la main. Glissez sur plusieurs mots pour n'ouvrir qu'un seul trou ; repassez dessus pour annuler.",
+    "Surlignez les mots à masquer : ils laisseront place à des pointillés un peu plus larges qu'eux, où les écrire à la main. Glissez sur plusieurs mots pour n'ouvrir qu'un seul trou ; repassez dessus pour annuler.",
   "adapt.nothing":
     "Ce document n'a pas encore de passage à adapter. Les titres et les schémas ne se surlignent pas.",
   "adapt.count.one": "trou",

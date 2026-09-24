@@ -19,7 +19,7 @@ import { KIND_LABEL, type Block, type Transcript } from "../types";
  * Hiding words, for a copy a pupil fills in rather than copies out.
  *
  * The teacher drags across a stretch of text and it becomes a hole: printed
- * as a ruled space in the adapted copy, printed as itself in everyone else's.
+ * as a dotted line in the adapted copy, printed as itself in everyone else's.
  * The marking lives in the passage's LaTeX (see `preview/gaps.ts`), so it
  * survives every edit the review can make.
  */
