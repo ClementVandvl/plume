@@ -435,6 +435,34 @@ fn log_models(label: &str, requested: &str, envelope: &serde_json::Value) {
     );
 }
 
+/// What Claude Code reports when the model kept answering outside the schema.
+const MAX_RETRIES: &str = "error_max_structured_output_retries";
+
+/// Why Claude Code refused an answer, when an event is such a refusal.
+///
+/// Observed on a real run: the refusal comes back to the model as an erroring
+/// tool result, « Output does not match required schema: /changes/0/blocks/0/
+/// align: must be string, … ».
+fn schema_refusal(event: &serde_json::Value) -> Option<String> {
+    if event.get("type")?.as_str()? != "user" {
+        return None;
+    }
+    event
+        .pointer("/message/content")?
+        .as_array()?
+        .iter()
+        .filter(|item| item.get("type").and_then(|v| v.as_str()) == Some("tool_result"))
+        .filter(|item| item.get("is_error").and_then(|v| v.as_bool()) == Some(true))
+        .find_map(|item| {
+            let content = item.get("content")?;
+            let text = match content {
+                serde_json::Value::String(text) => text.clone(),
+                other => other.to_string(),
+            };
+            text.contains("does not match required schema").then_some(text)
+        })
+}
+
 /// One headless `claude` run whose answer is a JSON object.
 pub(crate) struct Invocation<'a> {
     pub run_id: &'a str,
@@ -526,6 +554,10 @@ pub(crate) fn run_streaming(
     // Lines that were not events: a CLI that dies before the stream starts
     // says why in plain text, on stdout, and that text was thrown away.
     let mut stray: Vec<String> = Vec::new();
+    // Answers Claude Code refused for not matching the schema. It asks the
+    // model again on its own, and gives up after a few: the console has to say
+    // what was wrong each time, or the final error names nothing.
+    let mut refusals: Vec<String> = Vec::new();
     for line in BufReader::new(stdout).lines() {
         let Ok(line) = line else { break };
         if line.trim().is_empty() {
@@ -543,6 +575,14 @@ pub(crate) fn run_streaming(
             // Announced at once rather than at the end: the alias the app
             // passes — « opus » — says nothing of which Opus answers, and a
             // run that fails still used one.
+            if let Some(reason) = schema_refusal(&event) {
+                logbus::detail(
+                    "claude",
+                    format!("{label} — réponse refusée par le format attendu, nouvel essai"),
+                    clip(&reason),
+                );
+                refusals.push(reason);
+            }
             if event.get("subtype").and_then(|v| v.as_str()) == Some("init") {
                 if let Some(id) = event.get("model").and_then(|v| v.as_str()) {
                     logbus::info(
@@ -590,6 +630,13 @@ pub(crate) fn run_streaming(
         }
         if crate::claude_update::is_outdated_failure(&detail) {
             return Err(format!("{} ({detail})", crate::claude_update::OUTDATED));
+        }
+        if detail.contains(MAX_RETRIES) {
+            return Err(format!(
+                "Claude n'a pas réussi à répondre dans le format attendu : {} réponse(s) refusée(s), \
+                 puis Claude Code a abandonné. Réessayez ; le détail des refus est dans la console.",
+                refusals.len().max(1)
+            ));
         }
         return Err(format!("Claude Code s'est arrêté ({status}) : {detail}"));
     }
@@ -1191,6 +1238,22 @@ mod tests {
         let a: serde_json::Value = serde_json::from_str(&compact).unwrap();
         let b: serde_json::Value = serde_json::from_str(&ir::page_schema()).unwrap();
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn a_schema_refusal_is_recognised_and_nothing_else() {
+        let refused = event(
+            r#"{"type":"user","message":{"content":[{"type":"tool_result","is_error":true,
+                "content":"Output does not match required schema: /changes/0/blocks/0/align: must be string"}]}}"#,
+        );
+        assert!(schema_refusal(&refused).unwrap().contains("align: must be string"));
+
+        let accepted = event(
+            r#"{"type":"user","message":{"content":[{"type":"tool_result",
+                "content":"Structured output provided successfully"}]}}"#,
+        );
+        assert_eq!(schema_refusal(&accepted), None);
+        assert_eq!(schema_refusal(&event(r#"{"type":"system","subtype":"init"}"#)), None);
     }
 
     #[test]

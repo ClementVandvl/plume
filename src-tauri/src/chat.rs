@@ -140,9 +140,9 @@ Every block you write follows the rules of the rest of the document:
 - Headings (`chapter`, `part`, `subpart`, `paragraph`) carry their text in `title` and their number in `number`, exactly as it should print: "3", "II", "a", "A". Their `latex` stays empty. Plume never numbers anything by itself, so renumbering headings means rewriting each heading's `number`.
 - `title` on any other kind only when the passage has a title of its own; never repeat the environment's name (« Définition », « Exemple »).
 - Maths: $...$ inline, \[...\] displayed, a continued calculation in an `aligned` environment. Lists are `enumerate` / `itemize` with \item, never numbered by hand.
-- `audience`: ["teacher", "student"] for both copies, ["teacher"] for the teacher's copy only, ["student"] for the pupils' only. Leave it out to keep the passage's current audience.
-- `align`: "left", "center", "right", or "default" for the charte's own placement. Leave it out to keep the current one.
-- `hidden`: true sets a passage aside — it stays in the document but leaves every PDF; false brings it back. Leave it out to keep.
+- `audience`: ["teacher", "student"] for both copies, ["teacher"] for the teacher's copy only, ["student"] for the pupils' only. Leave it out (or null) to keep the passage's current audience.
+- `align`: "left", "center", "right", or "default" for the charte's own placement. Leave it out (or null) to keep the current one.
+- `hidden`: true sets a passage aside — it stays in the document but leaves every PDF; false brings it back. Leave it out (or null) to keep.
 - Keep the teacher's wording and mathematics. Change only what the request asks for, and never add content they did not ask for.
 
 Page layout:
@@ -258,6 +258,13 @@ pub fn prompt(transcript: &Transcript, earlier: &[Message], request: &str) -> St
     prompt
 }
 
+/// The shape of an answer, validated by Claude Code before it reaches Plume.
+///
+/// `audience`, `align` and `hidden` accept `null` as well as being left out.
+/// Both mean "keep what the passage has", and a model asked to leave a field
+/// out writes `"align": null` often enough: refused, it was asked again, and
+/// on a long answer made the same slip until Claude Code gave up with
+/// `error_max_structured_output_retries`.
 pub fn schema() -> String {
     let kinds = ir::BLOCK_KINDS
         .iter()
@@ -293,11 +300,14 @@ pub fn schema() -> String {
                 "number": {{ "type": ["string", "null"] }},
                 "latex": {{ "type": "string" }},
                 "audience": {{
-                  "type": "array",
+                  "type": ["array", "null"],
                   "items": {{ "type": "string", "enum": ["teacher", "student"] }}
                 }},
-                "align": {{ "type": "string", "enum": ["left", "center", "right", "default"] }},
-                "hidden": {{ "type": "boolean" }}
+                "align": {{
+                  "type": ["string", "null"],
+                  "enum": ["left", "center", "right", "default", null]
+                }},
+                "hidden": {{ "type": ["boolean", "null"] }}
               }}
             }}
           }}
@@ -952,6 +962,28 @@ mod tests {
     fn the_schema_is_valid_json() {
         let schema: serde_json::Value = serde_json::from_str(&schema()).unwrap();
         assert_eq!(schema["required"][1], "changes");
+    }
+
+    /// The slip that exhausted Claude Code's retries: `null` for "unchanged".
+    #[test]
+    fn null_means_unchanged_for_the_optional_fields() {
+        let schema: serde_json::Value = serde_json::from_str(&schema()).unwrap();
+        let fields = &schema["properties"]["changes"]["items"]["properties"]["blocks"]["items"]["properties"];
+        for field in ["audience", "align", "hidden", "title", "number"] {
+            let types = fields[field]["type"].as_array().unwrap_or_else(|| panic!("{field}"));
+            assert!(types.iter().any(|t| t == "null"), "{field} must accept null");
+        }
+        assert!(fields["align"]["enum"].as_array().unwrap().contains(&serde_json::Value::Null));
+
+        let mut doc = document();
+        doc.pages[0].blocks[1].align = Some("center".into());
+        let answer: Answer = serde_json::from_str(
+            r#"{"reply":"ok","changes":[{"action":"replace","targets":["p01-b02"],
+                "blocks":[{"kind":"definition","latex":"Autre.","align":null,"hidden":null,"audience":null}]}]}"#,
+        )
+        .unwrap();
+        let applied = apply(&doc, &doc, answer.changes).unwrap();
+        assert_eq!(applied.transcript.pages[0].blocks[1].align.as_deref(), Some("center"));
     }
 
     #[test]
