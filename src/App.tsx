@@ -272,6 +272,7 @@ export default function App() {
             {route.name === "documents" && (
               <DocumentsView
                 documents={documents}
+                templates={templates}
                 reading={reading}
                 onCreate={() => openWizard()}
                 onImport={() => setModal("import")}

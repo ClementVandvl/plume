@@ -2526,6 +2526,17 @@ textarea.input {
   font-size: var(--font-size-sm);
 }
 
+/* A value this document changes for itself, away from its charte. */
+.styleline--override {
+  border-color: var(--color-soft-accent-border);
+  background: var(--color-soft-accent);
+}
+
+.styleline__reset {
+  margin-left: var(--space-xs);
+  font-size: var(--font-size-caption);
+}
+
 .styleline__cell {
   display: flex;
   flex-direction: column;

@@ -51,6 +51,21 @@ async fn check_environment() -> env_check::Environment {
 /// A document plus what its transcript says is left to do. Computed at list time
 /// rather than stored: the transcript is the single source of truth for review
 /// state, and a handful of JSON files is cheap to read.
+/// Saves the document's settings dialog: tags, charte, and the charte values
+/// changed for this document alone.
+#[tauri::command]
+fn set_document_settings(
+    id: String,
+    tags: Vec<String>,
+    template_id: String,
+    overrides: std::collections::BTreeMap<String, String>,
+) -> Result<workspace::Document, String> {
+    let template = templates::load(&workspace::root(), &template_id)
+        .ok_or("Modèle introuvable.".to_string())?;
+    let kept = templates::keep_overrides(&template, &overrides);
+    workspace::set_settings(&id, &tags, &template_id, kept)
+}
+
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct DocumentSummary {
@@ -502,7 +517,7 @@ async fn render_snippet(
     tauri::async_runtime::spawn_blocking(move || {
         let root = workspace::root();
         let document = workspace::load(&id)?;
-        let template = templates::load(&root, &document.template_id)
+        let template = templates::for_document(&root, &document)
             .ok_or("Modèle introuvable.".to_string())?;
         render(&workspace::document_dir(&id), &root, &template)
             .map(|path| path.to_string_lossy().to_string())
@@ -1599,7 +1614,7 @@ async fn ask_claude(
         let earlier = chat::log(&dir);
         chat::append(&dir, chat::Message::teacher(&request))?;
 
-        let template = templates::load(&workspace::root(), &document.template_id);
+        let template = templates::for_document(&workspace::root(), &document);
         let rules = settings::combined_rules(&document.template_id, &document.reading_rules);
         let system = chat::system_prompt(
             template.as_ref(),
@@ -2119,7 +2134,7 @@ async fn build_document(
             );
         }
 
-        let template = templates::load(&root, &document.template_id)
+        let template = templates::for_document(&root, &document)
             .ok_or("Modèle introuvable.".to_string())?;
 
         let tex = render::render_document(
@@ -2277,6 +2292,7 @@ pub fn run() {
             import_course,
             import_instructions,
             set_tags,
+            set_document_settings,
             list_tags,
             mcp_config,
             mcp_bundle,

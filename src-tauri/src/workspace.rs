@@ -19,6 +19,7 @@
 
 use crate::logbus;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -314,6 +315,12 @@ pub struct Document {
     /// by `normalise_tags`, so « Cours » and « cours » are one tag.
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Charte key values changed for this document alone — the « Nom /
+    /// Classe » line dropped from one sheet without touching the charte every
+    /// other sheet shares. Keyed by template key; only keys of the current
+    /// template are kept, and `templates::for_document` applies them.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub template_overrides: BTreeMap<String, String>,
 }
 
 
@@ -363,6 +370,24 @@ pub fn all_tags() -> Vec<(String, usize)> {
 pub fn set_tags(id: &str, tags: &[String]) -> Result<Document, String> {
     let mut document = load(id)?;
     document.tags = normalise_tags(tags);
+    document.updated_at = now_ms();
+    save(&document)?;
+    Ok(document)
+}
+
+/// Replaces what the settings dialog edits: tags, charte, and the charte
+/// values this document alone changes. The overrides arrive already checked
+/// against the template, by `templates::keep_overrides`.
+pub fn set_settings(
+    id: &str,
+    tags: &[String],
+    template_id: &str,
+    overrides: BTreeMap<String, String>,
+) -> Result<Document, String> {
+    let mut document = load(id)?;
+    document.tags = normalise_tags(tags);
+    document.template_id = template_id.to_string();
+    document.template_overrides = overrides;
     document.updated_at = now_ms();
     save(&document)?;
     Ok(document)
@@ -542,6 +567,7 @@ pub fn create(
         reading_rules: String::new(),
         cost_usd: 0.0,
         last_pdf: None,
+        template_overrides: BTreeMap::new(),
         origin: photographed(),
         tags: normalise_tags(tags),
     };
@@ -597,6 +623,7 @@ pub fn create_written(
         reading_rules: String::new(),
         cost_usd: 0.0,
         last_pdf: None,
+        template_overrides: BTreeMap::new(),
         origin: "written".into(),
         tags: normalise_tags(tags),
     };

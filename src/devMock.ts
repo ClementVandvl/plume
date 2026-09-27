@@ -593,6 +593,13 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
     doc.tags = (args.tags as string[]).map((t) => t.trim()).filter(Boolean);
     return doc;
   },
+  set_document_settings: (args: Record<string, unknown>) => {
+    const doc = documents.find((d) => d.id === args.id) ?? documents[0];
+    doc.tags = (args.tags as string[]).map((t) => t.trim()).filter(Boolean);
+    doc.templateId = String(args.templateId);
+    doc.templateOverrides = args.overrides as Record<string, string>;
+    return doc;
+  },
   list_tags: () => {
     const counts = new Map<string, number>();
     for (const d of documents) for (const t of d.tags) counts.set(t, (counts.get(t) ?? 0) + 1);

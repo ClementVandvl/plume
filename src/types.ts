@@ -107,6 +107,11 @@ export type PlumeDocument = {
    * « exercices », « DS »… A tag exists by being used.
    */
   tags: string[];
+  /**
+   * Charte values changed for this document alone, by key — only those that
+   * differ from the charte. See `withOverrides`.
+   */
+  templateOverrides?: Record<string, string>;
 };
 
 /** Pages laid on one A4 sheet for printing: the counts that make a grid. */

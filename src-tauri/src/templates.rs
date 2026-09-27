@@ -14,6 +14,7 @@
 
 use crate::logbus;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -536,6 +537,38 @@ fn value_fits(kind: &str, value: &str) -> bool {
             None => true,
         },
     }
+}
+
+/// The overrides worth keeping for a template: keys it has, values its type
+/// can read, and different from the charte's own — a value equal to the
+/// charte's would pin it and stop following later edits to the charte.
+pub fn keep_overrides(
+    template: &Template,
+    overrides: &BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
+    overrides
+        .iter()
+        .filter(|(name, value)| {
+            template.keys.iter().any(|key| {
+                &key.key == *name && value_fits(&key.kind, value) && key.value != **value
+            })
+        })
+        .map(|(name, value)| (name.clone(), value.clone()))
+        .collect()
+}
+
+/// The template a document is rendered with: its charte, with the values the
+/// document changes for itself laid over it. Every place that typesets a
+/// document goes through here, so the PDF, the snippets and the preview agree.
+pub fn for_document(root: &Path, document: &crate::workspace::Document) -> Option<Template> {
+    let mut template = load(root, &document.template_id)?;
+    let kept = keep_overrides(&template, &document.template_overrides);
+    for key in &mut template.keys {
+        if let Some(value) = kept.get(&key.key) {
+            key.value = value.clone();
+        }
+    }
+    Some(template)
 }
 
 /// Substitutes every `{{key}}` in the preamble with the template's values.
@@ -1068,6 +1101,38 @@ mod tests {
             }
             Err(error) => panic!("the exercise charte does not compile: {error}"),
         }
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// A document's overrides keep only what changes something the charte can
+    /// read: an unknown key, an unreadable value or the charte's own value is
+    /// dropped, so a later edit to the charte still reaches it.
+    #[test]
+    fn a_document_override_keeps_only_real_changes() {
+        let root = scratch("overrides");
+        let template = load(&root, EXERCISES_ID).expect("seeded");
+        let overrides: BTreeMap<String, String> = [
+            ("page.nameLine", "non"),
+            ("page.paper", "a4paper"),
+            ("page.fontSize", "13pt"),
+            ("color.nowhere", "#000000"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+
+        let kept = keep_overrides(&template, &overrides);
+        assert_eq!(kept.len(), 1, "{kept:?}");
+        assert_eq!(kept.get("page.nameLine").map(String::as_str), Some("non"));
+
+        let mut applied = template.clone();
+        for key in &mut applied.keys {
+            if let Some(value) = kept.get(&key.key) {
+                key.value = value.clone();
+            }
+        }
+        let preamble = render_preamble(&root, &applied).unwrap();
+        assert!(preamble.contains(r"\newcommand{\mcNameLine}{non}"));
         let _ = fs::remove_dir_all(&root);
     }
 

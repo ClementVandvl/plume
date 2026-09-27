@@ -100,6 +100,15 @@ export const importCourse = (
 export const setTags = (id: string, tags: string[]) =>
   invoke<PlumeDocument>("set_tags", { id, tags });
 
+/** Saves the settings dialog: tags, charte, and the charte values this
+ *  document alone changes. */
+export const setDocumentSettings = (
+  id: string,
+  tags: string[],
+  templateId: string,
+  overrides: Record<string, string>,
+) => invoke<PlumeDocument>("set_document_settings", { id, tags, templateId, overrides });
+
 /** Every tag in use, most used first. */
 export const listTags = () => invoke<TagCount[]>("list_tags");
 

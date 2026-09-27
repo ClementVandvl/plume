@@ -30,7 +30,7 @@ import {
   splitBlock,
   setBlockNote,
   setReadingRules,
-  setTags,
+  setDocumentSettings,
   listTags,
   setTaughtEnd,
   setBlockHidden,
@@ -75,7 +75,7 @@ import { ChatPanel, versionName } from "./ChatPanel";
 import { PhotoViewer } from "./PhotoViewer";
 import { InsertPanel } from "./InsertPanel";
 import { CopyPanel } from "./CopyPanel";
-import { TagEditor } from "./TagEditor";
+import { DocumentSettings, withOverrides } from "./DocumentSettings";
 import { latexToHtml } from "../preview/latexToHtml";
 import { DocumentPreview } from "./DocumentPreview";
 import "katex/dist/katex.min.css";
@@ -344,7 +344,10 @@ export function DocumentView({
     };
   }, [documentId, refresh]);
 
-  const template = templates.find((tpl) => tpl.id === document?.templateId);
+  const template = withOverrides(
+    templates.find((tpl) => tpl.id === document?.templateId),
+    document?.templateOverrides,
+  );
   const blocks = transcript?.pages.flatMap((p) => p.blocks) ?? [];
 
   /**
@@ -1120,8 +1123,8 @@ export function DocumentView({
             entries={[
               { label: t("documents.menu.rename"), icon: "marker", onPick: rename },
               {
-                label: t("documents.menu.tags"),
-                icon: "folder",
+                label: t("documents.menu.settings"),
+                icon: "settings",
                 onPick: () =>
                   listTags()
                     .then((known) => setTagging(known.map((entry) => entry.tag)))
@@ -2010,16 +2013,16 @@ export function DocumentView({
       </div>
 
       {tagging !== null && document && (
-        <TagEditor
-          title={document.title}
-          tags={document.tags}
+        <DocumentSettings
+          document={document}
+          templates={templates}
           known={tagging}
           busy={savingTags}
           onCancel={() => setTagging(null)}
-          onSave={async (next) => {
+          onSave={async (tags, templateId, overrides) => {
             setSavingTags(true);
             try {
-              setDocument(await setTags(documentId, next));
+              setDocument(await setDocumentSettings(documentId, tags, templateId, overrides));
               setTagging(null);
               onChanged();
             } catch (cause) {

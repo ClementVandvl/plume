@@ -107,23 +107,7 @@ export function HouseStyleView({
    * — describe one element, so they are gathered on a single full-width line
    * and the sections collapse to the groups that remain.
    */
-  const groups = useMemo(() => {
-    const rows = new Map<string, { label: string; group: string; keys: TemplateKey[] }>();
-
-    for (const key of draft?.keys ?? []) {
-      const dot = key.key.indexOf(".");
-      const subject = dot === -1 ? key.key : key.key.slice(dot + 1);
-      const row = rows.get(subject);
-      if (row) row.keys.push(key);
-      else rows.set(subject, { label: key.label, group: key.group, keys: [key] });
-    }
-
-    const sections = new Map<string, { label: string; keys: TemplateKey[] }[]>();
-    for (const row of rows.values()) {
-      sections.set(row.group, [...(sections.get(row.group) ?? []), row]);
-    }
-    return [...sections.entries()];
-  }, [draft]);
+  const groups = useMemo(() => groupKeys(draft?.keys ?? []), [draft]);
 
   const keysDirty =
     draft && selected
@@ -578,7 +562,29 @@ export function HouseStyleView({
   );
 }
 
-function KeyInput({
+/**
+ * Keys as the editor shows them: one row per subject — `color.part` and
+ * `size.part` side by side — and one section per group.
+ */
+export function groupKeys(keys: TemplateKey[]) {
+  const rows = new Map<string, { label: string; group: string; keys: TemplateKey[] }>();
+
+  for (const key of keys) {
+    const dot = key.key.indexOf(".");
+    const subject = dot === -1 ? key.key : key.key.slice(dot + 1);
+    const row = rows.get(subject);
+    if (row) row.keys.push(key);
+    else rows.set(subject, { label: key.label, group: key.group, keys: [key] });
+  }
+
+  const sections = new Map<string, { label: string; keys: TemplateKey[] }[]>();
+  for (const row of rows.values()) {
+    sections.set(row.group, [...(sections.get(row.group) ?? []), row]);
+  }
+  return [...sections.entries()];
+}
+
+export function KeyInput({
   keyDef,
   onChange,
 }: {

@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { deleteDocument, openDocumentPdf, renameDocument, setTags } from "../api";
+import { deleteDocument, openDocumentPdf, renameDocument, setDocumentSettings } from "../api";
 import { useAdvanced } from "../ui/mode";
-import { TagEditor } from "./TagEditor";
+import { DocumentSettings } from "./DocumentSettings";
 import { useConfirm } from "../confirm";
 import { formatRelative, t, tn } from "../i18n";
 import { logError } from "../log";
-import type { DocumentStatus, DocumentSummary, Route, StepId } from "../types";
+import type { DocumentStatus, DocumentSummary, Route, StepId, Template } from "../types";
 import { Icon } from "../ui/Icon";
 import { Meter, OverflowMenu, PageSkeleton, ReadingPill } from "../ui/controls";
 
 type Props = {
   documents: DocumentSummary[];
+  /** Every charte, for the settings dialog. */
+  templates: Template[];
   /** Documents being read right now. */
   reading: Set<string>;
   onCreate: () => void;
@@ -61,6 +63,7 @@ function nextStep(doc: DocumentSummary): {
 
 export function DocumentsView({
   documents,
+  templates,
   reading,
   onCreate,
   onImport,
@@ -103,10 +106,15 @@ export function DocumentsView({
       .sort((a, b) => b.updatedAt - a.updatedAt);
   }, [documents, query, status, tag]);
 
-  async function saveTags(doc: DocumentSummary, next: string[]) {
+  async function saveSettings(
+    doc: DocumentSummary,
+    next: string[],
+    templateId: string,
+    overrides: Record<string, string>,
+  ) {
     setSavingTags(true);
     try {
-      await setTags(doc.id, next);
+      await setDocumentSettings(doc.id, next, templateId, overrides);
       setTagging(null);
       onChanged();
     } catch (cause) {
@@ -386,8 +394,8 @@ export function DocumentsView({
                         onPick: () => rename(doc),
                       },
                       {
-                        label: t("documents.menu.tags"),
-                        icon: "folder",
+                        label: t("documents.menu.settings"),
+                        icon: "settings",
                         onPick: () => setTagging(doc),
                       },
                       {
@@ -406,13 +414,15 @@ export function DocumentsView({
       )}
 
       {tagging && (
-        <TagEditor
-          title={tagging.title}
-          tags={tagging.tags}
+        <DocumentSettings
+          document={tagging}
+          templates={templates}
           known={tags.map((entry) => entry.tag)}
           busy={savingTags}
           onCancel={() => setTagging(null)}
-          onSave={(next) => saveTags(tagging, next)}
+          onSave={(next, templateId, overrides) =>
+            saveSettings(tagging, next, templateId, overrides)
+          }
         />
       )}
     </div>
