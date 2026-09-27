@@ -29,6 +29,12 @@ pub(crate) const EXERCISES_MANIFEST: &str =
 const EXERCISES_PREAMBLE: &str =
     include_str!("../resources/templates/charte-exercices/preamble.tex.tmpl");
 
+pub const QUIZ_ID: &str = "charte-interrogation";
+pub(crate) const QUIZ_MANIFEST: &str =
+    include_str!("../resources/templates/charte-interrogation/template.json");
+const QUIZ_PREAMBLE: &str =
+    include_str!("../resources/templates/charte-interrogation/preamble.tex.tmpl");
+
 /// A template Plume ships, compiled into the binary.
 pub(crate) struct Builtin {
     pub id: &'static str,
@@ -42,6 +48,7 @@ pub(crate) struct Builtin {
 pub(crate) const BUILTINS: &[Builtin] = &[
     Builtin { id: BUILTIN_ID, manifest: BUILTIN_MANIFEST, preamble: BUILTIN_PREAMBLE },
     Builtin { id: EXERCISES_ID, manifest: EXERCISES_MANIFEST, preamble: EXERCISES_PREAMBLE },
+    Builtin { id: QUIZ_ID, manifest: QUIZ_MANIFEST, preamble: QUIZ_PREAMBLE },
 ];
 
 /// The manifest as it ships, for the id of a bundled template.
@@ -1060,6 +1067,20 @@ mod tests {
                 eprintln!("no LaTeX engine on this machine, skipping: {error}");
             }
             Err(error) => panic!("the exercise charte does not compile: {error}"),
+        }
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_quiz_charte_compiles() {
+        let root = scratch("quiz-compile");
+        let template = load(&root, QUIZ_ID).expect("seeded");
+        match check(&root, &template) {
+            Ok(()) => {}
+            Err(error) if error.contains("moteur") => {
+                eprintln!("no LaTeX engine on this machine, skipping: {error}");
+            }
+            Err(error) => panic!("the quiz charte does not compile: {error}"),
         }
         let _ = fs::remove_dir_all(&root);
     }

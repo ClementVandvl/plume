@@ -15,8 +15,9 @@ Both files sit in `~/Documents/Plume/Templates/<id>/`.
 
 ## The bundled templates are read-mostly
 
-Two templates ship inside Plume — `charte-maths` for a photographed lesson and
-`charte-exercices` for a sheet asked of a model — and
+Three templates ship inside Plume — `charte-maths` for a photographed lesson,
+`charte-exercices` for a sheet asked of a model and `charte-interrogation` for
+a short test — and
 [`seed`](../src-tauri/src/templates.rs) rewrites their `preamble.tex.tmpl`
 whenever the bundled version rises. `BUILTINS` lists them; everything below
 applies to each. So:
@@ -208,6 +209,22 @@ restricted to the teacher, so the student export carries none of them.
 
 `the_exercise_charte_compiles` runs the probe document through a real engine
 when one is installed, and says so when it is not, rather than passing.
+
+## The quiz charte
+
+`charte-interrogation` is the exercise charte stripped down for a test handed
+out in class. The header holds nothing but *Nom / Prénom / Classe* dotted
+lines, on the first page only; the others carry just the page number. Under it
+sits a single centred title, 14pt by default (`size.chapter`), whose text the
+teacher changes with every test — it is the document's `chapter` block, and
+the convention `title-only` tells the model to write nothing else there.
+
+Exercises are counted like on a sheet, but separated by a wider gap:
+`page.exerciseGap`, 1.2cm by default, applied before every exercise except the
+first, which stays close to the title. A mark scale goes at the end of the
+exercise title, « Factoriser (2 points) ».
+
+`the_quiz_charte_compiles` checks it against a real engine, like its sibling.
 
 ## Deleting
 

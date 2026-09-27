@@ -1,0 +1,182 @@
+\documentclass[{{page.fontSize}},{{page.paper}}]{article}
+
+%============================================================================
+%  CHARTE "INTERROGATION" -- PREAMBULE
+%  En-tête Nom / Prénom / Classe, un titre de taille moyenne choisi pour
+%  chaque interrogation, exercices numérotés et largement espacés.
+%============================================================================
+
+% ---------- Encodage, langue, mise en page --------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[french]{babel}
+\usepackage[{{page.paper}},margin={{page.margin}},headheight=16pt,headsep=14pt]{geometry}
+
+% ---------- Maths ----------------------------------------------------------
+\usepackage{amsmath,amssymb,amsfonts}
+
+% ---------- Graphisme et structure -----------------------------------------
+\usepackage{xcolor}
+\usepackage{tikz}
+% Les bibliothèques que les schémas générés emploient : accolades, flèches,
+% hachures, angles. Un schéma qui les demande compile ici comme dans l'aperçu.
+\usetikzlibrary{arrows.meta,calc,decorations.pathreplacing,decorations.markings,patterns,positioning,angles,quotes,intersections,shapes.geometric}
+\usepackage[most]{tcolorbox}
+\usepackage{etoolbox}   % \ifblank
+\usepackage{enumitem}
+\usepackage{multicol}   % les sous-questions en colonnes
+\usepackage{fancyhdr}
+
+%============================================================================
+%  1. REGISTRE DES COULEURS  --  MODIFIEZ UNIQUEMENT LES CODES HEXA ICI
+%============================================================================
+\definecolor{mcChapitre}{HTML}{{{color.chapter}}}      % Titre de l'interrogation
+\definecolor{mcPartie}{HTML}{{{color.part}}}           % Bandeau de partie
+\definecolor{mcSousPartie}{HTML}{{{color.subpart}}}    % Sous-partie
+\definecolor{mcParagraphe}{HTML}{{{color.paragraph}}}  % Paragraphe
+\definecolor{mcApp}{HTML}{{{color.application}}}       % « Exercice n »
+\definecolor{mcDef}{HTML}{{{color.definition}}}        % Rappel : définition
+\definecolor{mcVocab}{HTML}{{{color.vocabulary}}}  % Vocabulaire
+\definecolor{mcProp}{HTML}{{{color.property}}}         % Rappel : propriété
+\definecolor{mcTheo}{HTML}{{{color.theorem}}}          % Rappel : théorème
+\definecolor{mcMethode}{HTML}{{{color.method}}}        % Rappel : méthode
+\definecolor{mcExemple}{HTML}{{{color.example}}}       % Exemple
+\definecolor{mcRemarque}{HTML}{{{color.remark}}}       % Remarque
+\definecolor{mcDemo}{HTML}{{{color.proof}}}            % Correction
+\definecolor{mcTexte}{HTML}{{{color.body}}}            % Corps de texte
+
+%============================================================================
+%  2. REGLAGES GLOBAUX
+%============================================================================
+\color{mcTexte}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.4\baselineskip}
+\setlist[itemize]{leftmargin=1.4em, itemsep=2pt, topsep=2pt, parsep=0pt}
+\setlist[enumerate]{leftmargin=1.6em, itemsep=2pt, topsep=2pt, parsep=0pt}
+
+% Raccourcis mathematiques usuels
+\newcommand{\R}{\mathbb{R}}  \newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}  \newcommand{\Q}{\mathbb{Q}}
+\newcommand{\C}{\mathbb{C}}
+
+%============================================================================
+%  3. EN-TETE : Nom / Prénom / Classe, rien d'autre
+%     Sur la première page seulement ; les suivantes ne portent que le
+%     numéro de page.
+%============================================================================
+\fancypagestyle{mcpremiere}{%
+  \fancyhf{}%
+  \fancyhead[C]{\makebox[\headwidth]{%
+    Nom~: \dotfill\hspace{1.5em}Prénom~: \dotfill\hspace{1.5em}%
+    Classe~: \makebox[5em]{\dotfill}}}%
+  \fancyfoot[C]{\small\thepage}%
+  \renewcommand{\headrulewidth}{0pt}}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\AtBeginDocument{\thispagestyle{mcpremiere}}
+
+%============================================================================
+%  4. TITRE   \chapitre{numéro}{Titre}
+%     Centré, de taille moyenne ; le titre change à chaque interrogation.
+%============================================================================
+\newcommand{\chapitre}[2]{%
+  \begin{center}
+    {{{size.chapter}}\bfseries\color{mcChapitre}\ifblank{#1}{#2}{#1 -- #2}\par}
+  \end{center}
+  \vspace{0.2\baselineskip}}
+
+%============================================================================
+%  5. PARTIES  \partie{lettre}{Titre} : bandeau plein.
+%     Sous-parties et paragraphes : titres colorés, sans bandeau.
+%============================================================================
+\newcommand{\partie}[2]{%
+  \par\vspace{0.9\baselineskip}\noindent
+  \begin{tcolorbox}[enhanced, colback=mcPartie, colframe=mcPartie, boxrule=0pt,
+      sharp corners, left=6pt, right=6pt, top=4pt, bottom=4pt, halign=center]
+    {{size.part}}\bfseries\color{white}%
+    \ifblank{#1}{#2}{{{label.part}} #1 --- #2}
+  \end{tcolorbox}
+  \par\vspace{0.3\baselineskip}}
+
+\newcommand{\souspartie}[2]{%
+  \par\vspace{0.7\baselineskip}\noindent
+  {{{size.subpart}}\bfseries\color{mcSousPartie}\ifblank{#1}{#2}{#1 -- #2}\par}
+  \vspace{0.2\baselineskip}}
+
+\newcommand{\paragraphe}[2]{%
+  \par\vspace{0.5\baselineskip}\noindent
+  {{{size.paragraph}}\itshape\color{mcParagraphe}\ifblank{#1}{#2}{#1) #2}\par}
+  \vspace{0.1\baselineskip}}
+
+%============================================================================
+%  6. EXERCICES   \begin{exercice}[Titre] ... \end{exercice}
+%     Numérotés par la charte, et séparés par un large espace : c'est ce
+%     qui distingue cette charte de la fiche d'exercices.
+%============================================================================
+\newcounter{exercice}
+\newenvironment{exercice}[1][]{%
+  % Le premier suit le titre de près ; l'espace sépare les exercices entre eux.
+  \par\ifnum\value{exercice}>0 \vspace{{{page.exerciseGap}}}\else\vspace{0.7\baselineskip}\fi
+  \noindent
+  \refstepcounter{exercice}%
+  {{{size.application}}\color{mcApp}\bfseries {{label.application}}~\theexercice}%
+  \ifblank{#1}{}{ {\color{mcApp}\bfseries ---} \textit{#1}}%
+  \par\nobreak\vspace{0.2\baselineskip}\noindent\ignorespaces}%
+  {\par}
+
+%============================================================================
+%  7. SOUS-QUESTIONS   \begin{questions}[3] \item ... \end{questions}
+%     Étiquettes a) b) c) posées par la charte ; l'option est le nombre de
+%     colonnes, une seule sans option.
+%============================================================================
+\newcounter{mcqcols}
+\newenvironment{questions}[1][1]{%
+  \setcounter{mcqcols}{#1}%
+  \ifnum\value{mcqcols}>1 \begin{multicols}{#1}\fi
+  \begin{enumerate}[label=\textbf{\alph*)}, leftmargin=*, itemsep=3pt, topsep=2pt]}%
+  {\end{enumerate}\ifnum\value{mcqcols}>1 \end{multicols}\fi}
+
+%============================================================================
+%  8. RAPPELS ENCADRES (définition, propriété, théorème, méthode)
+%============================================================================
+% Les mots masqués dans une version aménagée (PAP). Plume les résout
+% lui-même à l'export : cette définition n'est qu'un filet, pour qu'un
+% \trou écrit à la main compile au lieu d'arrêter la fabrication.
+\providecommand{\trou}[1]{#1}
+
+\newcommand{\mclabel}[3]{%
+  {\color{#1}\bfseries #2\ifblank{#3}{}{ (#3)}~:}\hspace{0.6em}\ignorespaces}
+
+\newtcolorbox{mcrappel}[1]{%
+  enhanced, breakable, colback=white, colframe=#1, boxrule=0.6pt, sharp corners,
+  left=6pt, right=6pt, top=4pt, bottom=4pt,
+  before skip=0.6\baselineskip, after skip=0.6\baselineskip}
+
+\newenvironment{definition}[1][]%
+  {\begin{mcrappel}{mcDef}\mclabel{mcDef}{{{label.definition}}}{#1}}{\end{mcrappel}}
+\newenvironment{vocabulaire}[1][]%
+  {\begin{mcrappel}{mcVocab}\mclabel{mcVocab}{{{label.vocabulary}}}{#1}}{\end{mcrappel}}
+\newenvironment{propriete}[1][]%
+  {\begin{mcrappel}{mcProp}\mclabel{mcProp}{{{label.property}}}{#1}}{\end{mcrappel}}
+\newenvironment{theoreme}[1][]%
+  {\begin{mcrappel}{mcTheo}\mclabel{mcTheo}{{{label.theorem}}}{#1}}{\end{mcrappel}}
+\newenvironment{methode}[1][]%
+  {\begin{mcrappel}{mcMethode}\mclabel{mcMethode}{{{label.method}}}{#1}}{\end{mcrappel}}
+
+%============================================================================
+%  9. EXEMPLE, REMARQUE, CORRECTION (texte courant précédé d'une étiquette)
+%============================================================================
+\newenvironment{mcplain}[3]%
+  {\par\vspace{0.35\baselineskip}\noindent\mclabel{#1}{#2}{#3}}%
+  {\par\vspace{0.35\baselineskip}}
+
+\newenvironment{exemple}[1][]   {\begin{mcplain}{mcExemple}{{{label.example}}}{#1}}  {\end{mcplain}}
+\newenvironment{remarque}[1][]  {\begin{mcplain}{mcRemarque}{{{label.remark}}}{#1}} {\end{mcplain}}
+\newenvironment{correction}[1][]{\begin{mcplain}{mcDemo}{{{label.proof}}}{#1}}      {\end{mcplain}}
+
+%============================================================================
+%  FIN DU PREAMBULE DE LA CHARTE
+%============================================================================
