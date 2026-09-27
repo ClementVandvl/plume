@@ -7,9 +7,18 @@
 %============================================================================
 
 % ---------- Encodage, langue, mise en page --------------------------------
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage{lmodern}
+% Plume compile avec tectonic, c'est-à-dire XeTeX : une police 8 bits (T1) y
+% imprime chaque caractère à la case de son code Unicode, et « ° » devient
+% « ř », « « » devient « ń ». fontspec charge Latin Modern en Unicode ; un
+% pdflatex garde l'ancienne configuration.
+\usepackage{iftex}
+\ifTUTeX
+  \usepackage{fontspec}
+\else
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{lmodern}
+\fi
 \usepackage[french]{babel}
 \usepackage[{{page.paper}},margin={{page.margin}},headheight=14pt]{geometry}
 

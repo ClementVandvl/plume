@@ -1,6 +1,6 @@
 {
   "id": "charte-maths",
-  "version": 13,
+  "version": 14,
   "name": "Charte cours de maths",
   "description": "Environnements à crochet coloré, titres soulignés, numérotation I / 1 / a.",
   "engine": "pdflatex",

@@ -50,6 +50,17 @@ drops the line loses them in both places at once: the review renders figures
 and passages with the charte's own preamble (see [preview.md](preview.md)), so
 the two never disagree.
 
+## Fonts: Unicode under tectonic
+
+Plume compiles with tectonic, which is XeTeX. The preambles used to load
+`fontenc[T1]` + `lmodern`, an 8-bit font: under XeTeX each character is set at
+the slot of its Unicode code point, which happens to be right for é, è, à — T1
+agrees with Latin-1 above `0xC0` — and wrong just below it. « n°1 » came out
+« nř1 », and French guillemets « » as ń and ğ. The bundled preambles now load
+`fontspec` (Latin Modern in Unicode) when `\ifTUTeX`, and keep the old three
+lines for a system pdflatex. A personal charte duplicated before the fix still
+carries the old lines and needs the same edit.
+
 ## Placeholders
 
 `render_preamble` substitutes `{{key}}` with the key's value, dropping the `#`

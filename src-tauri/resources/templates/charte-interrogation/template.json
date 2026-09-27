@@ -1,6 +1,6 @@
 {
   "id": "charte-interrogation",
-  "version": 1,
+  "version": 2,
   "name": "Charte interrogation",
   "description": "En-tête Nom / Prénom / Classe, titre au choix, exercices numérotés et bien espacés.",
   "engine": "pdflatex",
