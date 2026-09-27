@@ -181,6 +181,13 @@ export function SettingsModal({
                 <span className={`toolrow__hint ${tool.found ? "" : "toolrow__hint--warn"}`}>
                   {tool.found ? tool.role : (tool.hint ?? tool.role)}
                 </span>
+                {/* Which Claude Code answers matters: behind by a few weeks, the
+                    alias « opus » runs an older model without a word. */}
+                {tool.found && tool.key === "claude" && tool.version && (
+                  <span className="toolrow__hint">
+                    {t("claudeUpdate.name", { version: tool.version.split(" ")[0] })}
+                  </span>
+                )}
                 {tool.found && tool.key === "claude" && environment?.auth && (
                   <span
                     className={`toolrow__hint ${environment.auth.loggedIn ? "" : "toolrow__hint--warn"}`}
