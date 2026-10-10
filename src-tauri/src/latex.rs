@@ -126,28 +126,69 @@ impl Drop for Workshop {
     }
 }
 
+/// Turns a rendered document's pages sideways: the charte's paper, margins
+/// and type, on a page wider than it is tall.
+///
+/// The document is recomposed, not rotated — lines run the width of the
+/// sheet and pages break where the shorter page ends. `geometry` takes a
+/// `landscape` key after the charte's own options and swaps the paper alone,
+/// so it is added before `\begin{document}`, after the charte's preamble; a
+/// charte that does not load geometry cannot be turned and says so.
+///
+/// fancyhdr sizes its header to the text width the first time its style is
+/// set, in the charte's preamble, before the page turned: the running header
+/// stopped where a portrait page would end, its right half in the middle of
+/// the sheet. It is sized again once geometry has settled the new width.
+pub fn landscape(source: &str) -> Result<String, String> {
+    if !source.contains("{geometry}") {
+        return Err("Cette charte ne charge pas geometry : Plume ne peut pas mettre \
+                    ses pages en paysage."
+            .into());
+    }
+    let body = body_starts_at(source)
+        .ok_or("Le .tex n'a pas de \\begin{document} : rien à mettre en paysage.")?;
+    Ok(format!(
+        "{}\\geometry{{landscape}}\n\
+         \\AtBeginDocument{{\\ifdefined\\headwidth\\setlength{{\\headwidth}}{{\\textwidth}}\\fi}}\n{}",
+        &source[..body],
+        &source[body..]
+    ))
+}
+
 /// Lays several pages of a finished PDF on each sheet, for printing.
 ///
 /// `per_sheet` is 2 or 4 — the only counts that make a regular grid of A4 on
-/// A4. Two go side by side on a landscape sheet, each scaled to fit half of
-/// it; four go in a grid on a portrait sheet. `repeat` puts the same page in
-/// every cell — a sheet printed in several copies and cut — instead of the
-/// pages in sequence.
+/// A4. Two portrait pages go side by side on a landscape sheet, each scaled
+/// to fit half of it; four go in a grid on a portrait sheet. `landscape`
+/// says the pages are themselves landscape, and turns the sheet with them:
+/// two are stacked on a portrait sheet, four gridded on a landscape one.
+/// `repeat` puts the same page in every cell — a sheet printed in several
+/// copies and cut — instead of the pages in sequence.
 ///
 /// Done in LaTeX rather than by rewriting the PDF: `pdfpages` is one line and
 /// is already in every engine Plume runs, and the page count comes from the
 /// engine's own primitive rather than from reading the PDF, whose objects are
 /// compressed. Each engine has its own primitive, so all three are tried.
-pub fn impose(dir: &Path, pdf_name: &str, per_sheet: u8, repeat: bool) -> Result<PathBuf, String> {
+pub fn impose(
+    dir: &Path,
+    pdf_name: &str,
+    per_sheet: u8,
+    repeat: bool,
+    landscape: bool,
+) -> Result<PathBuf, String> {
     // The paper is set here, by geometry, and pdfpages is left only the grid.
     // Its own `landscape` key stacked the two pages into one column under the
     // engine Plume ships — Tectonic carries an older pdfpages and driver pair
     // — while a system xelatex put them side by side. A landscape paper is
     // the one thing every engine agrees on.
-    let (nup, paper) = match per_sheet {
-        2 => ("2x1", "a4paper,landscape"),
-        4 => ("2x2", "a4paper"),
-        other => return Err(format!("{other} pages par feuille : seuls 2 et 4 forment une grille.")),
+    let (nup, paper) = match (per_sheet, landscape) {
+        (2, false) => ("2x1", "a4paper,landscape"),
+        (2, true) => ("1x2", "a4paper"),
+        (4, false) => ("2x2", "a4paper"),
+        (4, true) => ("2x2", "a4paper,landscape"),
+        (other, _) => {
+            return Err(format!("{other} pages par feuille : seuls 2 et 4 forment une grille."))
+        }
     };
     let stem = Path::new(pdf_name)
         .file_stem()
@@ -565,10 +606,10 @@ mod tests {
         }
 
         // 3 pages, each twice, 2 per sheet → 3 sheets.
-        let two = impose(&dir, "source.pdf", 2, true).expect("2 per sheet, repeated");
+        let two = impose(&dir, "source.pdf", 2, true, false).expect("2 per sheet, repeated");
         assert_eq!(two, dir.join("source-x2.pdf"));
         // 3 pages in sequence, 4 per sheet → 1 sheet.
-        let four = impose(&dir, "source.pdf", 4, false).expect("4 per sheet, in sequence");
+        let four = impose(&dir, "source.pdf", 4, false, false).expect("4 per sheet, in sequence");
         assert_eq!(four, dir.join("source-x4.pdf"));
 
         if let Some(n) = pdf_pages(&two) {
@@ -578,7 +619,7 @@ mod tests {
             assert_eq!(n, 1, "three pages in sequence, four per sheet");
         }
 
-        assert!(impose(&dir, "source.pdf", 3, false).is_err(), "3 is not a grid");
+        assert!(impose(&dir, "source.pdf", 3, false, false).is_err(), "3 is not a grid");
         assert_eq!(
             left_behind(&dir),
             vec!["source-x2.pdf", "source-x4.pdf"],
@@ -587,14 +628,88 @@ mod tests {
         // Left on disk on purpose: the PDFs are worth looking at.
     }
 
+    /// The turn goes after the charte's preamble — after its geometry line
+    /// and its `\pagestyle{fancy}` — and nowhere a charte without geometry.
+    #[test]
+    fn landscape_is_added_after_the_charte_s_preamble() {
+        let source = "\\documentclass{article}\n\
+                      %  entre \\documentclass{...} et \\begin{document}\n\
+                      \\usepackage[a4paper,margin=2cm]{geometry}\n\
+                      \\pagestyle{fancy}\n\
+                      \\begin{document}\nx\n\\end{document}\n";
+        let turned = landscape(source).unwrap();
+        let at = turned.find("\\geometry{landscape}").expect("turned");
+        assert!(at > turned.find("\\pagestyle{fancy}").unwrap(), "after the charte's own style");
+        assert!(turned[at..].contains("\\headwidth"), "the header follows the new width");
+        assert!(turned[at..].contains("\\begin{document}\nx"), "before the body");
+
+        assert!(landscape("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n").is_err());
+    }
+
+    /// Landscape pages two to a sheet are stacked on a portrait sheet, and
+    /// four to a sheet gridded on a landscape one. Skipped, and said so,
+    /// without an engine.
+    #[test]
+    fn landscape_pages_turn_the_sheet_they_are_imposed_on() {
+        let dir = std::env::temp_dir().join("plume-landscape-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = landscape(
+            "\\documentclass[a4paper]{article}\\usepackage[a4paper,margin=2cm]{geometry}\n\
+             \\usepackage{fancyhdr}\\pagestyle{fancy}\\fancyhead[R]{Seconde}\n\
+             \\begin{document}\n\\centering\\Huge Page 1\\newpage Page 2\\newpage Page 3\n\\end{document}\n",
+        )
+        .unwrap();
+        std::fs::write(dir.join("source.tex"), source).unwrap();
+
+        let page = match compile(&dir, "source.tex") {
+            Ok(pdf) => pdf,
+            Err(error) if error.contains("moteur") => {
+                eprintln!("no LaTeX engine on this machine, skipping: {error}");
+                return;
+            }
+            Err(error) => panic!("landscape source did not compile: {error}"),
+        };
+        let two = impose(&dir, "source.pdf", 2, false, true).expect("2 per sheet");
+        let four = impose(&dir, "source.pdf", 4, false, true).expect("4 per sheet");
+
+        if let Some((width, height)) = pdf_size(&page) {
+            assert!(width > height, "the page itself is landscape: {width} x {height}");
+        }
+        if let Some((width, height)) = pdf_size(&two) {
+            assert!(width < height, "two landscape pages, one above the other: {width} x {height}");
+        }
+        if let Some((width, height)) = pdf_size(&four) {
+            assert!(width > height, "four landscape pages in a grid: {width} x {height}");
+        }
+        if let Some(n) = pdf_pages(&two) {
+            assert_eq!(n, 2, "three pages, two per sheet");
+        }
+        // Left on disk on purpose: the PDFs are worth looking at.
+    }
+
     /// Pages of a PDF, by poppler's `pdfinfo` when the machine has it.
     fn pdf_pages(pdf: &Path) -> Option<u32> {
+        pdf_info(pdf, "Pages:").and_then(|n| n.parse().ok())
+    }
+
+    /// Width and height of a PDF's first page in points, by `pdfinfo`.
+    fn pdf_size(pdf: &Path) -> Option<(f64, f64)> {
+        // "595.28 x 841.89 pts (A4)"
+        let size = pdf_info(pdf, "Page size:")?;
+        let mut parts = size.split_whitespace();
+        let width = parts.next()?.parse().ok()?;
+        let height = parts.nth(1)?.parse().ok()?;
+        Some((width, height))
+    }
+
+    fn pdf_info(pdf: &Path, field: &str) -> Option<String> {
         let tool = crate::env_check::resolve_tool("pdfinfo")?;
         let out = std::process::Command::new(tool).arg(pdf).output().ok()?;
         String::from_utf8_lossy(&out.stdout)
             .lines()
-            .find_map(|l| l.strip_prefix("Pages:"))
-            .and_then(|n| n.trim().parse().ok())
+            .find_map(|l| l.strip_prefix(field))
+            .map(|v| v.trim().to_string())
     }
 
     /// What a build left in the document's folder besides its source and

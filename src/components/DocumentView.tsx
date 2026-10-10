@@ -133,6 +133,16 @@ export function DocumentView({
   const [repeat, setRepeat] = useState(true);
   /** « Maximiser »: recompose in the smallest cell that fits, and tile it. */
   const [fill, setFill] = useState(false);
+  /**
+   * Which way up the printed sheet comes out, once the teacher has said;
+   * until then the natural one for the count — two pages side by side want a
+   * landscape sheet, one or four an upright one — so « 2 pages » still prints
+   * as it always has.
+   */
+  const [orientation, setOrientation] = useState<"portrait" | "landscape" | null>(null);
+  const sheetLandscape = orientation ? orientation === "landscape" : perSheet === 2;
+  /** The pages turn with the sheet, except two to a sheet, which lie across it. */
+  const pagesLandscape = perSheet === 2 ? !sheetLandscape : sheetLandscape;
   /** Which adaptations the copy for a pupil under a PAP carries. */
   const [adaptations, setAdaptations] = useState<string[]>([]);
   const [rules, setRules] = useState("");
@@ -735,7 +745,16 @@ export function DocumentView({
     setBuilding(true);
     try {
       setBuild(
-        await buildDocument(documentId, audience, taughtOnly, perSheet, repeat, fill, adaptations),
+        await buildDocument(
+          documentId,
+          audience,
+          taughtOnly,
+          perSheet,
+          repeat,
+          fill,
+          pagesLandscape,
+          adaptations,
+        ),
       );
       // The PDF is rewritten at the same path, so its URL never changes and the
       // webview kept showing the previous build. Counting them changes it.
@@ -1865,8 +1884,9 @@ export function DocumentView({
               )}
 
               {/* The third question, about paper: how many pages each printed
-                  sheet carries. 1, 2 and 4 are the counts that make a regular
-                  grid of A4 on A4; 3 would be strips a third of a page high. */}
+                  sheet carries, and which way up the sheet is. 1, 2 and 4 are
+                  the counts that make a regular grid of A4 on A4; 3 would be
+                  strips a third of a page high. */}
               <div className="panelcard">
                 <span className="panelcard__title">{t("export.sheet.title")}</span>
                 <div className="seg seg--field" role="group" aria-label={t("export.sheet.title")}>
@@ -1895,8 +1915,33 @@ export function DocumentView({
                     {t("export.sheet.max")}
                   </button>
                 </div>
+                {/* The sheet's way up, not the page's: a teacher asking for
+                    landscape wants a landscape PDF, and two pages on it lie
+                    side by side, upright. « Maximiser » draws cells of its own
+                    shape, so the question goes while it is chosen. */}
+                {!fill && (
+                  <div
+                    className="seg seg--field"
+                    role="group"
+                    aria-label={t("export.orientation.title")}
+                  >
+                    {(["portrait", "landscape"] as const).map((way) => (
+                      <button
+                        key={way}
+                        type="button"
+                        className={`seg__opt ${(way === "landscape") === sheetLandscape ? "seg__opt--on" : ""}`}
+                        onClick={() => setOrientation(way)}
+                        aria-pressed={(way === "landscape") === sheetLandscape}
+                      >
+                        {t(`export.orientation.${way}`)}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <p className="field__hint">
-                  {fill ? t("export.sheet.hint.max") : t(`export.sheet.hint.${perSheet}`)}
+                  {fill
+                    ? t("export.sheet.hint.max")
+                    : t(`export.sheet.hint.${perSheet}.${sheetLandscape ? "landscape" : "portrait"}`)}
                 </p>
                 {!fill && perSheet > 1 && (
                   <div className="toggle-row">

@@ -468,13 +468,23 @@ export const fr = {
   "export.reach.dangling":
     "Le dernier passage retenu est un titre : le PDF se terminerait sur un titre sans contenu.",
   "export.reach.complete": "Le point d'arrêt est sur le dernier passage : le PDF sera complet.",
+  "export.orientation.title": "Orientation de la feuille",
+  "export.orientation.portrait": "Portrait",
+  "export.orientation.landscape": "Paysage",
   "export.sheet.title": "Sur la feuille",
   "export.sheet.1": "1 page",
   "export.sheet.2": "2 pages",
   "export.sheet.4": "4 pages",
-  "export.sheet.hint.1": "Le PDF tel quel, une page par feuille A4.",
-  "export.sheet.hint.2": "Deux pages côte à côte sur un A4 en paysage, chacune réduite de moitié.",
-  "export.sheet.hint.4": "Quatre pages en grille sur un A4, chacune réduite au quart.",
+  "export.sheet.hint.1.portrait": "Le PDF tel quel, une page par feuille A4.",
+  "export.sheet.hint.1.landscape":
+    "Une page par feuille A4 en paysage, recomposée en largeur : les lignes s'allongent, les marges et les tailles de la charte restent.",
+  "export.sheet.hint.2.landscape":
+    "Deux pages côte à côte sur un A4 en paysage, chacune réduite de moitié.",
+  "export.sheet.hint.2.portrait":
+    "Deux pages composées en paysage, l'une au-dessus de l'autre sur un A4 en portrait, chacune réduite de moitié.",
+  "export.sheet.hint.4.portrait": "Quatre pages en grille sur un A4, chacune réduite au quart.",
+  "export.sheet.hint.4.landscape":
+    "Quatre pages composées en paysage, en grille sur un A4 en paysage, chacune réduite au quart.",
   "export.sheet.max": "Maximiser",
   "export.sheet.hint.max":
     "La fiche est recomposée dans la plus petite case où elle tient entière — le texte réduit au besoin, jamais sous 6 pt — et posée autant de fois que la feuille en contient.",

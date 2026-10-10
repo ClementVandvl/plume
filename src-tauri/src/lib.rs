@@ -2098,6 +2098,10 @@ struct BuildResult {
 /// `per_sheet` — 1, 2 or 4 — lays that many pages on each A4 sheet for
 /// printing, and `repeat` puts the same page in every cell of a sheet rather
 /// than the pages in sequence.
+///
+/// `landscape` composes the pages wider than they are tall, and the sheets
+/// they are imposed on turn with them. « Maximiser » composes cells of its
+/// own shape, so it ignores it.
 #[tauri::command]
 async fn build_document(
     id: String,
@@ -2106,9 +2110,11 @@ async fn build_document(
     per_sheet: u8,
     repeat: bool,
     fill: bool,
+    landscape: bool,
     adaptations: Vec<String>,
 ) -> Result<BuildResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let landscape = landscape && !fill;
         // Which adaptations this copy carries, by name rather than by a flag
         // each: a second one is another arm here, not another parameter
         // threaded through the command, the API and the mock.
@@ -2147,6 +2153,7 @@ async fn build_document(
             blanks,
         )
         .map_err(|e| format!("Rendu impossible : {e}"))?;
+        let tex = if landscape { latex::landscape(&tex)? } else { tex };
 
         let mut suffix = String::new();
         if taught_only {
@@ -2154,6 +2161,9 @@ async fn build_document(
         }
         if adapted {
             suffix.push_str("-pap");
+        }
+        if landscape {
+            suffix.push_str("-paysage");
         }
         let name = format!("{}-{}{}.tex", document.id, audience, suffix);
         let tex_path = dir.join(&name);
@@ -2172,7 +2182,7 @@ async fn build_document(
                     .file_name()
                     .map(|n| n.to_string_lossy().to_string())
                     .ok_or("PDF sans nom.")?;
-                latex::impose(&dir, &pdf_name, per_sheet, repeat)
+                latex::impose(&dir, &pdf_name, per_sheet, repeat, landscape)
             })
         };
 
@@ -2183,11 +2193,11 @@ async fn build_document(
                 // Only a complete one: a partial build would make the document
                 // read as finished and point "Ouvrir le PDF" at a document
                 // that stops halfway through.
-                // Only the document itself, whole, one page per sheet and
-                // with nothing blanked: a partial, imposed, recomposed or
-                // adapted build is a copy taken for a purpose, and neither
-                // the list nor "Ouvrir le PDF" should point at it.
-                if !taught_only && per_sheet <= 1 && !fill && !adapted {
+                // Only the document itself, whole, upright, one page per
+                // sheet and with nothing blanked: a partial, turned, imposed,
+                // recomposed or adapted build is a copy taken for a purpose,
+                // and neither the list nor "Ouvrir le PDF" should point at it.
+                if !taught_only && per_sheet <= 1 && !fill && !adapted && !landscape {
                     let mut document = document;
                     document.status = "ready".into();
                     document.last_pdf = pdf

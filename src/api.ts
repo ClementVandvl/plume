@@ -59,7 +59,8 @@ export const transcribeDocument = (id: string, model: string) =>
 /**
  * `taughtOnly` stops the document after the passage the class reached;
  * `perSheet` lays 1, 2 or 4 pages on each A4 sheet, `repeat` the same page in
- * every cell rather than the pages in sequence.
+ * every cell rather than the pages in sequence; `landscape` composes the
+ * pages wider than they are tall.
  */
 export const buildDocument = (
   id: string,
@@ -68,6 +69,7 @@ export const buildDocument = (
   perSheet: PerSheet,
   repeat: boolean,
   fill: boolean,
+  landscape: boolean,
   /** Ids of the adaptations this copy carries; empty for the ordinary one. */
   adaptations: string[],
 ) =>
@@ -78,6 +80,7 @@ export const buildDocument = (
     perSheet,
     repeat,
     fill,
+    landscape,
     adaptations,
   });
 
